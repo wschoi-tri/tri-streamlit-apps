@@ -740,7 +740,7 @@ html_content = f"""
             <header class="top-header">
                 <div class="header-top-row">
                     <div class="active-title-group">
-                        <h2 id="currentKeywordTitle">가방</h2>
+                        <h2 id="currentKeywordTitle"></h2>
                         <span style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:3px 9px; border-radius:10px; font-size:12px; font-weight:bold;">키워드 트렌드 추천</span>
                     </div>
 
@@ -835,7 +835,7 @@ html_content = f"""
     <!-- 0.1초 비동기(fetch) SPA 애플리케이션 스크립트 -->
     <script>
         const allKeywords = {keywords_json_str};
-        let currentKeyword = '가방';
+        let currentKeyword = '';
         let currentRawData = null;
 
         document.addEventListener('DOMContentLoaded', () => {{
