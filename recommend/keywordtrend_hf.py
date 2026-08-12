@@ -26,20 +26,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 파일 경로 산출
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-KEYWORDS_PATH = os.path.join(BASE_DIR, "keywords.json")
-
+# 112개 타겟 키워드 리스트
 def load_keywords():
-    if os.path.exists(KEYWORDS_PATH):
-        try:
-            with open(KEYWORDS_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-        except Exception as e:
-            pass
-    return [    "가디건",
+    return [
+    "가디건",
     "가방",
     "골프모자",
     "골프백",
@@ -109,44 +99,42 @@ def load_keywords():
     "우비",
     "운동화",
     "원피스",
+    "웨이스트백",
+    "유니폼",
     "자켓",
-    "바람막이",
-    "잠옷",
     "장갑",
     "점퍼",
-    "정장",
-    "정장자켓",
-    "정장팬츠",
-    "정장화",
+    "정장바지",
+    "조거팬츠",
     "조끼",
-    "집업",
-    "집업티셔츠",
-    "코트",
-    "크로스백",
-    "클러치",
-    "오픈토",
+    "주얼리",
+    "지갑",
+    "청바지",
+    "체크셔츠",
+    "치마",
+    "카디건",
+    "카라티",
+    "캡모자",
+    "클러치백",
+    "키링",
+    "타이",
+    "탑",
     "토트백",
-    "트렌치",
+    "트레이닝",
+    "트레이닝바지",
+    "트레이닝복",
+    "트레이닝팬츠",
     "티셔츠",
     "패딩",
-    "귀걸이",
-    "목걸이",
-    "팔찌",
     "팬츠",
-    "펌프스",
-    "플랫",
-    "하프팬츠",
-    "후드",
-    "힐",
-    "후리스",
-    "후드티",
-    "스웨터",
-    "블라우스",
-    "발찌",
-    "슈즈",
-    "슬링백",
-    "양산",
-    "지갑",
+    "플랫슈즈",
+    "피케셔츠",
+    "핸드백",
+    "해트",
+    "헤어밴드",
+    "헤어핀",
+    "형광티셔츠",
+    "호보백",
     "시계",
     "홈웨어",
     "수트",
@@ -155,7 +143,19 @@ def load_keywords():
 keywords_list = load_keywords()
 keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
 
-# 불필요한 내부 규칙 문구가 전면 철거된 0.1초 비동기 SPA 자원
+qp = st.query_params
+initial_kw = qp.get("keyword", keywords_list[0] if keywords_list else "가디건")
+if initial_kw not in keywords_list:
+    initial_kw = keywords_list[0] if keywords_list else "가디건"
+
+initial_tab = qp.get("tab", "grid")
+if initial_tab not in ["grid", "table", "raw", "prompt"]:
+    initial_tab = "grid"
+
+initial_keyword_json = json.dumps(initial_kw, ensure_ascii=False)
+initial_tab_json = json.dumps(initial_tab, ensure_ascii=False)
+
+# 0.1초 비동기 SPA 자원 HTML/CSS/JS 템플릿
 html_content = f"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -191,308 +191,161 @@ html_content = f"""
             border-right: 1px solid #e2e8f0;
             display: flex;
             flex-direction: column;
-            padding: 16px;
             flex-shrink: 0;
         }}
-        .brand {{
+        .sidebar-header {{
+            padding: 16px 18px;
+            border-bottom: 1px solid #e2e8f0;
+        }}
+        .sidebar-title {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0f172a;
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-        }}
-        .brand-logo {{
-            background: linear-gradient(135deg, #4f46e5, #ec4899);
-            color: #ffffff;
-            font-weight: 800;
-            font-size: 1.05rem;
-            padding: 6px 10px;
-            border-radius: 8px;
-        }}
-        .brand-text h1 {{
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: #0f172a;
-            line-height: 1.2;
-        }}
-        .brand-text p {{
-            font-size: 0.75rem;
-            color: #64748b;
+            justify-content: space-between;
         }}
         .search-box {{
-            margin-bottom: 12px;
+            padding: 12px 18px;
+            border-bottom: 1px solid #f1f5f9;
         }}
-        .search-box input {{
+        .search-input {{
             width: 100%;
-            background-color: #ffffff;
+            padding: 8px 12px;
             border: 1px solid #cbd5e1;
-            color: #0f172a;
-            padding: 9px 12px;
             border-radius: 6px;
             font-size: 0.85rem;
             outline: none;
+            transition: border-color 0.15s ease;
         }}
-        .search-box input:focus {{
+        .search-input:focus {{
             border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-        }}
-        .section-header-row {{
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            padding: 4px 0;
-        }}
-        .section-label {{
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: #64748b;
-            text-transform: uppercase;
-        }}
-        .keyword-count-badge {{
-            background: #eff6ff;
-            color: #2563eb;
-            border: 1px solid #bfdbfe;
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 10px;
         }}
         .keyword-list {{
             list-style: none;
             overflow-y: auto;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            padding-right: 4px;
+            flex: 1;
+            padding: 8px 0;
         }}
         .keyword-item {{
-            padding: 9px 12px;
-            border-radius: 6px;
+            padding: 9px 18px;
             font-size: 0.88rem;
-            color: #475569;
+            color: #334155;
             cursor: pointer;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            border: 1px solid transparent;
-            transition: all 0.15s ease;
+            justify-content: space-between;
+            transition: background 0.12s ease, color 0.12s ease;
         }}
         .keyword-item:hover {{
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
             color: #0f172a;
-            border-color: #cbd5e1;
         }}
         .keyword-item.active {{
             background-color: #eff6ff;
-            border-color: #bfdbfe;
             color: #2563eb;
             font-weight: 700;
+            border-left: 3px solid #2563eb;
         }}
         
-        /* 메인 콘텐츠 구역 */
+        /* 우측 메인 대시보드 */
         .main-content {{
-            flex-grow: 1;
+            flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
-            background-color: #f8fafc;
-        }}
-        
-        /* index.html 1:1 동기화 메인 상단 헤더 */
-        .top-header {{
+            overflow-y: auto;
             background-color: #ffffff;
+        }}
+        .top-navbar {{
+            padding: 16px 28px;
             border-bottom: 1px solid #e2e8f0;
-            padding: 12px 24px;
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        }}
-        .header-top-row {{
-            display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }}
-        .controls-group {{
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }}
-        .control-item {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #334155;
-        }}
-        .control-item select, .control-item input {{
             background-color: #ffffff;
-            border: 1px solid #cbd5e1;
-            color: #0f172a;
-            padding: 5px 8px;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            outline: none;
-            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }}
-        .btn-fetch {{
-            background-color: #0f172a;
-            color: #ffffff;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        }}
-        .btn-fetch:hover {{
-            background-color: #334155;
-        }}
-        .active-title-group {{
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }}
-        .active-title-group h2 {{
-            font-size: 1.3rem;
+        .navbar-title {{
+            font-size: 1.35rem;
             font-weight: 800;
             color: #0f172a;
         }}
+        .dashboard-body {{
+            padding: 24px 28px;
+            flex: 1;
+        }}
         
-        /* meta-timestamps 뱃지 바 */
-        .meta-timestamps {{
+        /* 헤더 메타 뱃지 */
+        .meta-badges {{
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
             gap: 16px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.78rem;
-        }}
-        .meta-item {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }}
-        .meta-label {{
+            margin-bottom: 18px;
+            font-size: 0.83rem;
             color: #64748b;
             font-weight: 600;
         }}
-        .meta-val {{
-            color: #0f172a;
-            font-weight: 700;
-        }}
-        .meta-llm-badge {{
-            background: #eff6ff;
-            color: #2563eb;
-            border: 1px solid #bfdbfe;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }}
-        .token-usage-badge {{
-            background: #fdf2f8;
-            color: #db2777;
-            border: 1px solid #fbcfe8;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }}
-        .filter-badges-group {{
-            display: flex;
-            gap: 4px;
-        }}
-        .filter-badge {{
-            background: #ffffff;
-            border: 1px solid #cbd5e1;
-            color: #334155;
-            padding: 1px 5px;
-            border-radius: 4px;
-            font-size: 0.72rem;
-            font-weight: 700;
-        }}
-        
-        /* 대시보드 스크롤 바디 */
-        .dashboard-scroll-body {{
-            overflow-y: auto;
-            padding: 16px 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-        }}
-        
-        /* AI 트렌드 가이드 카드 */
-        .card {{
-            background-color: #ffffff;
+        .meta-badge-item {{
+            background-color: #f8fafc;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            border-radius: 6px;
+            padding: 4px 10px;
         }}
-        .card-header {{
+        
+        /* 트렌드 가이드 박스 */
+        .guide-card-box {{
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 22px;
+        }}
+        .guide-card-header {{
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            justify-content: space-between;
+            margin-bottom: 12px;
         }}
-        .card-header h3 {{
-            font-size: 1.0rem;
+        .guide-title {{
+            font-size: 1.05rem;
             font-weight: 800;
             color: #0f172a;
         }}
-        .tags-group {{
-            display: flex;
-            gap: 6px;
-        }}
-        .tag {{
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            background-color: #f8fafc;
-            border: 1px solid #cbd5e1;
-            color: #334155;
-        }}
-        .guide-text-body {{
-            font-size: 0.92rem;
+        .guide-text {{
+            font-size: 0.93rem;
             line-height: 1.65;
-            color: #1e293b;
-            margin-bottom: 10px;
+            color: #334155;
+            margin-bottom: 14px;
         }}
         .highlight-kw {{
-            font-weight: bold;
-            color: #854d0e;
             background-color: #fef08a;
-            padding: 2px 6px;
+            color: #854d0e;
+            padding: 2px 5px;
             border-radius: 4px;
-            border-bottom: 2px solid #eab308;
+            font-weight: 700;
         }}
         
-        /* 메인 뷰 탭 3종 스타일 */
-        .view-tabs-header {{
+        /* 탭 서식 */
+        .tab-navigation {{
             display: flex;
-            border-bottom: 2px solid #cbd5e1;
-            margin-bottom: 14px;
             gap: 8px;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 20px;
         }}
         .tab-btn {{
-            background: none;
-            border: none;
-            padding: 8px 16px;
-            font-size: 0.88rem;
+            padding: 10px 18px;
+            font-size: 0.92rem;
             font-weight: 700;
             color: #64748b;
+            background: none;
+            border: none;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
+            border-bottom: 3px solid transparent;
             margin-bottom: -2px;
-            transition: all 0.2s ease;
-        }}
-        .tab-btn:hover {{
-            color: #0f172a;
+            transition: color 0.15s ease, border-color 0.15s ease;
         }}
         .tab-btn.active {{
             color: #2563eb;
@@ -504,328 +357,370 @@ html_content = f"""
         .tab-content.active {{
             display: block;
         }}
+
+        /* 탭 4 전용 flex 스펙 보정 */
+        #tabContentPrompt.tab-content.active {{
+            display: flex !important;
+            flex-direction: column;
+            gap: 20px;
+        }}
         
-        /* 5열 상품 카드 그리드 */
-        .products-grid {{
+        /* 5열 그리드 카드 배치 */
+        .grid-container {{
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 14px;
+            gap: 16px;
         }}
-        @media (max-width: 1400px) {{
-            .products-grid {{ grid-template-columns: repeat(4, 1fr); }}
-        }}
-        @media (max-width: 1100px) {{
-            .products-grid {{ grid-template-columns: repeat(3, 1fr); }}
-        }}
-        
         .product-card {{
-            background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             overflow: hidden;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
             display: flex;
             flex-direction: column;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            justify-content: space-between;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }}
         .product-card:hover {{
-            transform: translateY(-3px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }}
-        .card-img-container {{
-            width: 100%;
-            height: 185px;
-            background-color: #f8fafc;
-            overflow: hidden;
+        .product-img-wrap {{
             position: relative;
+            width: 100%;
+            height: 210px;
+            background-color: #f1f5f9;
         }}
-        .card-img-container img {{
+        .product-img {{
             width: 100%;
             height: 100%;
             object-fit: cover;
         }}
         .rank-badge {{
             position: absolute;
-            top: 6px;
-            left: 6px;
-            background-color: rgba(15, 23, 42, 0.75);
+            top: 8px;
+            left: 8px;
+            background-color: #0f172a;
             color: #ffffff;
-            font-size: 0.72rem;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 4px;
+        }}
+        .product-info {{
+            padding: 12px;
+        }}
+        .brand-name {{
+            font-size: 0.76rem;
+            color: #64748b;
             font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 3px;
-        }}
-        
-        .card-info {{
-            padding: 11px;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-        }}
-        .badge-chip-container {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 4px;
-            align-items: center;
-            height: 22px;
-            overflow: hidden;
             margin-bottom: 2px;
         }}
-        .badge-chip-item {{
-            display: inline-flex;
-            align-items: center;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 3px;
-            color: #ffffff;
-            white-space: nowrap;
-        }}
-        .badge-blue {{ background-color: #2563eb; }}
-        .badge-red {{ background-color: #dc2626; }}
-        .badge-gray {{ background-color: #64748b; }}
-        
-        .card-brand {{
-            font-size: 0.78rem;
-            font-weight: 800;
-            color: #2563eb;
-            text-transform: uppercase;
-        }}
-        .card-title {{
+        .product-name {{
             font-size: 0.85rem;
             font-weight: 600;
             color: #0f172a;
-            line-height: 1.3;
-            height: 2.6em;
+            height: 38px;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+            line-height: 1.35;
+            margin-bottom: 8px;
         }}
-        .price-row {{
+        .price-wrap {{
             display: flex;
             align-items: baseline;
             gap: 4px;
-            margin-top: 2px;
+            margin-bottom: 6px;
         }}
-        .price-rate {{
-            font-size: 0.92rem;
-            font-weight: 800;
-            color: #dc2626;
-        }}
-        .price-final {{
-            font-size: 1.0rem;
+        .sale-price {{
+            font-size: 0.95rem;
             font-weight: 800;
             color: #0f172a;
         }}
-        .price-origin {{
+        .normal-price {{
             font-size: 0.75rem;
             color: #94a3b8;
             text-decoration: line-through;
         }}
-        .matched-line {{
+        .discount-rate {{
             font-size: 0.75rem;
-            color: #2563eb;
+            color: #ef4444;
             font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-top: 1px;
         }}
-        .meta-line {{
-            font-size: 0.72rem;
-            color: #64748b;
-        }}
-        .btn-dtl {{
-            display: block;
-            text-align: center;
-            background-color: #0f172a;
-            color: #ffffff;
-            font-size: 0.78rem;
-            font-weight: 700;
-            padding: 6px 0;
-            border-radius: 4px;
-            text-decoration: none;
+        .badge-chip-container {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
             margin-top: 6px;
-            transition: background 0.2s ease;
         }}
-        .btn-dtl:hover {{
-            background-color: #334155;
-        }}
-
-        /* 데이터 테이블 스타일 */
-        .data-table-container {{
-            background-color: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            overflow-x: auto;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
-        }}
-        .custom-data-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.82rem;
-            text-align: left;
-        }}
-        .custom-data-table th {{
-            background-color: #f1f5f9;
-            color: #0f172a;
-            font-weight: 700;
-            padding: 10px 12px;
-            border-bottom: 2px solid #cbd5e1;
-            white-space: nowrap;
-        }}
-        .custom-data-table td {{
-            padding: 10px 12px;
-            border-bottom: 1px solid #e2e8f0;
-            color: #334155;
-        }}
-        .custom-data-table tr:hover {{
-            background-color: #f8fafc;
-        }}
-
-        /* Raw JSON 복원 스타일 */
-        .raw-json-container {{
-            background-color: #0f172a;
-            color: #38bdf8;
-            padding: 16px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 0.82rem;
-            overflow-x: auto;
-            max-height: 550px;
-            line-height: 1.5;
-        }}
-
-        .loading-overlay {{
-            font-size: 0.95rem;
-            color: #64748b;
-            padding: 40px;
-            text-align: center;
+        .badge-chip-item {{
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
             font-weight: 600;
         }}
+        .badge-blue {{ background: #eff6ff; color: #2563eb; }}
+        .badge-red {{ background: #fef2f2; color: #dc2626; }}
+        .badge-gray {{ background: #f1f5f9; color: #475569; }}
+        .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
+        .badge-media {{ background: #e0f2fe; color: #0369a1; font-weight: 700; }}
+        
+        /* 데이터 테이블 */
+        .data-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+        }}
+        .data-table th {{
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }}
+        .data-table td {{
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }}
+        .data-table tr:hover {{
+            background-color: #f8fafc;
+        }}
+        
+        /* 구문 강조 JSON 조향기 스타일 (고대비 백색 기본 폰트) */
+        pre, code, pre code {{
+            color: #f8fafc !important;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.84rem;
+            line-height: 1.6;
+        }}
+        .json-key {{ color: #38bdf8 !important; font-weight: 700; }}
+        .json-string {{ color: #4ade80 !important; }}
+        .json-number {{ color: #fb923c !important; font-weight: 700; }}
+        .json-boolean {{ color: #c084fc !important; font-weight: 700; }}
+        .json-null {{ color: #f43f5e !important; font-weight: 700; }}
     </style>
 </head>
-
 <body>
     <div class="app-container">
-        <!-- 좌측 사이드바 (index.html 1:1 동기화) -->
+        <!-- 좌측 키워드 사이드바 -->
         <aside class="sidebar">
-            <div class="brand">
-                <div class="brand-logo">HF</div>
-                <div class="brand-text">
-                    <h1>Trend AI</h1>
-                    <p>패션 큐레이션 대시보드</p>
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <span>타겟 키워드 목록</span>
+                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="keywordCountBadge">112</span>
                 </div>
             </div>
-
             <div class="search-box">
-                <input type="text" id="keywordSearchInput" placeholder="키워드 검색 (예: 가디건)...">
+                <input type="text" id="keywordSearchInput" class="search-input" placeholder="키워드 검색..."/>
             </div>
-
-            <div class="section-header-row">
-                <span class="section-label">트렌드 키워드</span>
-                <span class="keyword-count-badge" id="keywordCountBadge">0</span>
-            </div>
-
-            <ul class="keyword-list" id="keywordList">
-                <!-- JavaScript 비동기 렌더링 -->
-            </ul>
+            <ul class="keyword-list" id="keywordList"></ul>
         </aside>
 
-        <!-- 메인 콘텐츠 영역 -->
+        <!-- 우측 메인 대시보드 -->
         <main class="main-content">
-            <!-- index.html 1:1 동기화 상단 메인 헤더 & meta-timestamps 뱃지 바 -->
-            <header class="top-header">
-                <div class="header-top-row">
-                    <div class="active-title-group">
-                        <h2 id="currentKeywordTitle"></h2>
-                        <span style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding:3px 9px; border-radius:10px; font-size:12px; font-weight:bold;">키워드 트렌드 추천</span>
-                    </div>
-
-                    <div class="controls-group">
-                        <div class="control-item">
-                            <label for="siteCdSelect">사이트:</label>
-                            <select id="siteCdSelect">
-                                <option value="1" selected>1 (하프클럽)</option>
-                                <option value="2">2 (보리보리)</option>
-                            </select>
-                        </div>
-
-                        <div class="control-item">
-                            <label for="sizeInput">조회 수:</label>
-                            <input type="number" id="sizeInput" value="50" min="1" max="100" style="width:70px;">
-                        </div>
-
-                        <button type="button" class="btn-fetch" id="btnFetch">API 연동 조회</button>
-                    </div>
+            <header class="top-navbar" style="display:flex; align-items:center; justify-content:space-between; padding-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0;">가디건</h1>
+                    <span style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; padding:3px 12px; border-radius:9999px;">키워드 트렌드 추천</span>
                 </div>
-
-                <!-- meta-timestamps 뱃지 바 -->
-                <div class="meta-timestamps">
-                    <div class="meta-item">
-                        <span class="meta-label">LLM 모델:</span>
-                        <span class="meta-val meta-llm-badge" id="llmModelVal">openai / gpt-5.6-luna</span>
+                <div style="display:flex; align-items:center; gap:12px; font-size:0.85rem; font-weight:700; color:#334155;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>사이트:</span>
+                        <select id="siteCdSelect" style="padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.85rem; font-weight:700; color:#0f172a; outline:none;">
+                            <option value="1" selected>1 (하프클럽)</option>
+                            <option value="2">2 (보리보리)</option>
+                        </select>
                     </div>
-                    <div class="meta-item">
-                        <span class="meta-label">LLM 토큰:</span>
-                        <span class="meta-val token-usage-badge" id="llmTokenUsageVal">In: 7,517 / Out: 3,511 (Total: 11,028)</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>조회 수:</span>
+                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:60px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.85rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
                     </div>
-                    <div class="meta-item">
-                        <span class="meta-label">필터링 적용:</span>
-                        <div class="filter-badges-group" id="filterBadgesGroup">
-                            <span class="filter-badge" id="filterBrandBadge">브랜드: ON</span>
-                            <span class="filter-badge" id="filterCategoryBadge">카테고리: OFF</span>
-                            <span class="filter-badge" id="filterGenderBadge">성별: OFF</span>
-                        </div>
-                    </div>
+                    <button id="btnFetch" style="background:#0b1329; color:#ffffff; border:none; padding:8px 18px; border-radius:6px; font-weight:800; font-size:0.85rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
                 </div>
             </header>
 
-            <!-- 대시보드 메인 바디 -->
-            <div class="dashboard-scroll-body">
-                <!-- AI 트렌드 가이드 카드 -->
-                <section class="card" id="guideCard" style="display:none;">
-                    <div class="card-header">
-                        <h3>AI 트렌드 큐레이션 가이드</h3>
-                        <div class="tags-group">
-                            <span class="tag" id="tagCategory">카테고리: -</span>
-                            <span class="tag" id="tagGender">성별: -</span>
-                            <span class="tag" id="tagSeason">계절: -</span>
-                        </div>
+            <div class="dashboard-body">
+                <!-- 메타 메타데이터 뱃지 바 -->
+                <div class="meta-badges" id="metaBadgesBar" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:9px 16px; margin-bottom:18px; display:flex; align-items:center; gap:20px; font-size:0.83rem; font-weight:600; color:#64748b;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>LLM 모델:</span>
+                        <span style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="llmModelText">openai / gpt-5.6-luna</span>
                     </div>
-                    <div class="guide-text-body" id="guideTextBody">-</div>
-                    <div id="brandsWrapper" style="margin-top:6px; font-size:12px; color:#64748b; font-weight:600;"></div>
-                    <div id="keywordsWrapper" style="margin-top:4px; font-size:12px; color:#64748b; font-weight:600;"></div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>LLM 토큰:</span>
+                        <span style="background:#fdf2f8; border:1px solid #fbcfe8; color:#db2777; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 (Total: 0)</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>필터링 적용:</span>
+                        <span id="filterBadgesText" style="display:flex; gap:6px;">
+                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">브랜드: ON</span>
+                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ON</span>
+                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ON</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- AI 트렌드 큐레이션 가이드 카드 -->
+                <div class="guide-card-box" id="guideCard">
+                    <div class="guide-card-header">
+                        <div class="guide-title">AI 트렌드 큐레이션 가이드</div>
+                        <div style="display:flex; gap:6px;" id="extractedTagsHeader"></div>
+                    </div>
+                    <div class="guide-text" id="guideTextBody">데이터를 불러오는 중입니다...</div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:8px;" id="extractedBrandsWrap"></div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
+                    
+                    <!-- 참고 뉴스 기사 5건 목록 -->
+                    <div style="margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0;" id="articlesWrapper">
+                        <div style="font-size:0.8rem; font-weight:700; color:#475569; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                            <span>참고 뉴스 기사 목록</span>
+                            <span style="font-size:0.72rem; color:#94a3b8; font-weight:normal;">원문 클릭 이동</span>
+                        </div>
+                        <div id="articlesListContainer"></div>
+                    </div>
+                </div>
+
+                <!-- 뷰 탭 네비게이션 -->
+                <nav class="tab-navigation">
+                    <button class="tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품</button>
+                    <button class="tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
+                    <button class="tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
+                    <button class="tab-btn" id="tabBtnPrompt" onclick="switchViewTab('prompt')">LLM 프롬프트</button>
+                </nav>
+
+                <!-- 탭 1: 5열 그리드 배치 -->
+                <section class="tab-content active" id="tabContentGrid">
+                    <div class="grid-container" id="productGridContainer"></div>
                 </section>
 
-                <!-- 메인 뷰 탭 3종 (상품 카드 뷰 / 데이터 테이블 뷰 / Raw JSON 뷰) -->
-                <section>
-                    <div class="view-tabs-header">
-                        <button class="tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">상품 카드 뷰 (한 줄 5개)</button>
-                        <button class="tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">데이터 테이블 뷰</button>
-                        <button class="tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">Raw JSON 데이터 뷰</button>
-                        <div style="margin-left:auto; align-self:center; font-size:0.8rem; color:#64748b;" id="resultCountInfo">총 0개</div>
-                    </div>
+                <!-- 탭 2: 데이터 테이블 배치 -->
+                <section class="tab-content" id="tabContentTable">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>순번</th>
+                                <th>상품번호</th>
+                                <th>브랜드</th>
+                                <th>상품명</th>
+                                <th>판매가</th>
+                                <th>정가</th>
+                                <th>할인율</th>
+                                <th>매칭 키워드</th>
+                                <th>평점(리뷰)</th>
+                                <th>카테고리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody"></tbody>
+                    </table>
+                </section>
 
-                    <!-- 탭 1: 상품 카드 뷰 -->
-                    <div class="tab-content active" id="tabContentGrid">
-                        <div class="products-grid" id="productsGrid">
-                            <div class="loading-overlay">데이터 로딩 중...</div>
+                <!-- 탭 3: Raw JSON 데이터 배치 -->
+                <section class="tab-content" id="tabContentRaw">
+                    <div id="rawJsonContainer"></div>
+                </section>
+
+                <!-- 탭 4: LLM 프롬프트 & 산출 상세 인스펙터 -->
+                <section class="tab-content" id="tabContentPrompt">
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <h3 style="font-size:1.05rem; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                            <span>STAGE 1 : 스타일 트렌드 가이드 작성 프롬프트 & LLM 산출</span>
+                        </h3>
+
+                        <!-- 1단계 시스템 프롬프트 카드 -->
+                        <div id="cardSysStage1" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트</span>
+                                </div>
+                                <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:280px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; color:#cbd5e1; white-space:pre-wrap; word-break:break-all;"><code id="promptSysStage1"></code></pre>
+                            </div>
+                        </div>
+
+                        <!-- 1단계 입력 User Prompt 카드 -->
+                        <div id="cardUserStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트 (실 데이터)</span>
+                                </div>
+                                <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptUserStage1"></code></pre>
+                            </div>
+                        </div>
+
+                        <!-- 1단계 LLM 결과 JSON 카드 -->
+                        <div id="cardResultStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답</span>
+                                </div>
+                                <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptResultStage1"></code></pre>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 탭 2: 데이터 테이블 뷰 -->
-                    <div class="tab-content" id="tabContentTable">
-                        <div class="data-table-container" id="productsTableContainer">
-                            <div class="loading-overlay">데이터 로딩 중...</div>
-                        </div>
-                    </div>
+                    <div style="display:flex; flex-direction:column; gap:16px; margin-top:10px;">
+                        <h3 style="font-size:1.05rem; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                            <span>STAGE 2 : 상품 큐레이션 및 정렬 프롬프트 & LLM 산출</span>
+                        </h3>
 
-                    <!-- 탭 3: Raw JSON 데이터 뷰 (불필요 텍스트 완전 철거) -->
-                    <div class="tab-content" id="tabContentRaw">
-                        <pre class="raw-json-container" id="rawJsonContainer">로딩 중...</pre>
+                        <!-- 2단계 시스템 프롬프트 카드 -->
+                        <div id="cardSysStage2" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트</span>
+                                </div>
+                                <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:280px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; color:#cbd5e1; white-space:pre-wrap; word-break:break-all;"><code id="promptSysStage2"></code></pre>
+                            </div>
+                        </div>
+
+                        <!-- 2단계 입력 User Prompt 카드 -->
+                        <div id="cardUserStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트 (실 데이터)</span>
+                                </div>
+                                <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptUserStage2"></code></pre>
+                            </div>
+                        </div>
+
+                        <!-- 2단계 LLM 결과 JSON 카드 -->
+                        <div id="cardResultStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답</span>
+                                </div>
+                                <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:400px; overflow:auto;">
+                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptResultStage2"></code></pre>
+                            </div>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -835,17 +730,89 @@ html_content = f"""
     <!-- 0.1초 비동기(fetch) SPA 애플리케이션 스크립트 -->
     <script>
         const allKeywords = {keywords_json_str};
-        let currentKeyword = '';
+        let currentKeyword = {initial_keyword_json};
+        let currentTab = {initial_tab_json};
         let currentRawData = null;
+        let currentApiUrl = '';
 
-        document.addEventListener('DOMContentLoaded', () => {{
+        function getInitialParams() {{
+            let searchStr = '';
+            try {{
+                if (window.top && window.top.location && window.top.location.search) {{
+                    searchStr = window.top.location.search;
+                }} else if (window.parent && window.parent.location && window.parent.location.search) {{
+                    searchStr = window.parent.location.search;
+                }} else {{
+                    searchStr = window.location.search;
+                }}
+            }} catch (e) {{
+                searchStr = window.location.search || '';
+            }}
+
+            const params = new URLSearchParams(searchStr);
+            const kwParam = params.get('keyword');
+            const tabParam = params.get('tab');
+
+            let kw = {initial_keyword_json};
+            if (kwParam && allKeywords && allKeywords.includes(kwParam)) {{
+                kw = kwParam;
+            }}
+
+            let tab = {initial_tab_json};
+            if (tabParam && ['grid', 'table', 'raw', 'prompt'].includes(tabParam)) {{
+                tab = tabParam;
+            }}
+            return {{ keyword: kw, tab: tab }};
+        }}
+
+        function updateUrlQuery(kw, tab) {{
+            try {{
+                const targetUrl = `/?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                try {{
+                    if (window.parent && window.parent.location) {{
+                        window.parent.location.search = `?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                        return;
+                    }}
+                }} catch (e) {{}}
+
+                try {{
+                    if (window.top && window.top.location) {{
+                        window.top.location.search = `?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                        return;
+                    }}
+                }} catch (e) {{}}
+
+                window.open(targetUrl, '_top');
+            }} catch (e) {{
+                // Fallback
+            }}
+        }}
+
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', initApp);
+        }} else {{
             initApp();
+        }}
+
+        window.addEventListener('popstate', () => {{
+            const params = getInitialParams();
+            if (params.tab !== currentTab) {{
+                switchViewTab(params.tab, false);
+            }}
+            if (params.keyword !== currentKeyword) {{
+                selectKeyword(params.keyword, false);
+            }}
         }});
 
         function initApp() {{
+            const initData = getInitialParams();
+            currentKeyword = initData.keyword;
+            currentTab = initData.tab;
+
             renderKeywordList(allKeywords);
             setupEventListeners();
-            fetchKeywordTrend(currentKeyword);
+            switchViewTab(currentTab, false);
+            selectKeyword(currentKeyword, false);
         }}
 
         function setupEventListeners() {{
@@ -868,7 +835,8 @@ html_content = f"""
             }}
         }}
 
-        function switchViewTab(tabName) {{
+        function switchViewTab(tabName, pushHistory = true) {{
+            currentTab = tabName;
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
@@ -881,6 +849,13 @@ html_content = f"""
             }} else if (tabName === 'raw') {{
                 document.getElementById('tabBtnRaw').classList.add('active');
                 document.getElementById('tabContentRaw').classList.add('active');
+            }} else if (tabName === 'prompt') {{
+                document.getElementById('tabBtnPrompt').classList.add('active');
+                document.getElementById('tabContentPrompt').classList.add('active');
+            }}
+
+            if (pushHistory) {{
+                updateUrlQuery(currentKeyword, currentTab);
             }}
         }}
 
@@ -900,261 +875,471 @@ html_content = f"""
             }});
         }}
 
-        function selectKeyword(kw) {{
+        function selectKeyword(kw, pushHistory = true) {{
             currentKeyword = kw;
+            let activeElem = null;
             document.querySelectorAll('.keyword-item').forEach(item => {{
                 const txt = item.querySelector('span').textContent;
-                if (txt === kw) item.classList.add('active');
-                else item.classList.remove('active');
+                if (txt === kw) {{
+                    item.classList.add('active');
+                    activeElem = item;
+                }} else {{
+                    item.classList.remove('active');
+                }}
             }});
+
+            if (activeElem) {{
+                activeElem.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
+            }}
+
             document.getElementById('currentKeywordTitle').textContent = kw;
+
+            if (pushHistory) {{
+                updateUrlQuery(kw, currentTab);
+            }}
+
             fetchKeywordTrend(kw);
         }}
 
         async function fetchKeywordTrend(kw) {{
-            const grid = document.getElementById('productsGrid');
-            grid.innerHTML = '<div class="loading-overlay">0.1초 비동기 트렌드 API 요청 중...</div>';
-
-            const siteCd = document.getElementById('siteCdSelect').value;
-            const size = document.getElementById('sizeInput').value || 50;
-
-            const apiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+            const siteCd = document.getElementById('siteCdSelect').value || '1';
+            const size = document.getElementById('sizeInput')?.value || '50';
+            currentApiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
 
             try {{
-                const resp = await fetch(apiUrl);
-                if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                const data = await resp.json();
+                const response = await fetch(currentApiUrl);
+                if (!response.ok) {{
+                    throw new Error(`API HTTP Error: ${{response.status}}`);
+                }}
+                const data = await response.json();
                 currentRawData = data;
 
-                renderMetaTimestamps(data);
-                renderGuideInfo(data, kw);
-                const products = extractProducts(data);
-                
-                renderProductsGrid(products);
-                renderProductsTable(products);
-                renderRawJson(data);
+                renderDashboardData(data, kw);
             }} catch (err) {{
-                console.error(err);
-                grid.innerHTML = `<div class="loading-overlay" style="color:#dc2626;">API 호출 실패: ${{err.message}}</div>`;
+                document.getElementById('guideTextBody').innerHTML = `<span style="color:#ef4444; font-weight:700;">API 호출 실패: ${{err.message}}</span>`;
             }}
         }}
 
-        function renderMetaTimestamps(data) {{
-            if (data && data.llm_info) {{
-                const info = data.llm_info;
-                const modelVal = `${{info.llm_provider || 'openai'}} / ${{info.llm_model || 'gpt-5.6-luna'}}`;
-                const reqT = typeof info.total_request_tokens === 'number' ? info.total_request_tokens : 0;
-                const resT = typeof info.total_response_tokens === 'number' ? info.total_response_tokens : 0;
-                const totT = reqT + resT;
-                const tokenVal = `In: ${{reqT.toLocaleString()}} / Out: ${{resT.toLocaleString()}} (Total: ${{totT.toLocaleString()}})`;
-
-                const brandSt = info.enable_brand_filter ? 'ON' : 'OFF';
-                const catSt = info.enable_category_filter ? 'ON' : 'OFF';
-                const genderSt = info.enable_gender_filter ? 'ON' : 'OFF';
-
-                document.getElementById('llmModelVal').textContent = modelVal;
-                document.getElementById('llmTokenUsageVal').textContent = tokenVal;
-                document.getElementById('filterBrandBadge').textContent = `브랜드: ${{brandSt}}`;
-                document.getElementById('filterCategoryBadge').textContent = `카테고리: ${{catSt}}`;
-                document.getElementById('filterGenderBadge').textContent = `성별: ${{genderSt}}`;
+        function renderDashboardData(data, kw) {{
+            // LLM 모델 정보
+            const provider = data.llm_provider || 'openai';
+            const model = data.llm_model || 'gpt-5.6-luna';
+            const elemModel = document.getElementById('llmModelText');
+            if (elemModel) {{
+                elemModel.textContent = `${{provider}} / ${{model}}`;
             }}
-        }}
 
-        function extractProducts(resData) {{
-            if (!resData) return [];
-            if (Array.isArray(resData.products)) return resData.products;
-            if (Array.isArray(resData.data)) return resData.data;
-            if (resData.data && Array.isArray(resData.data.products)) return resData.data.products;
-            return [];
-        }}
+            // 메타 토큰 사용량
+            const llmInfo = data.llm_info || {{}};
+            const stage1 = llmInfo.stage1_guide_generation || {{}};
+            const stage2 = llmInfo.stage2_product_selection || {{}};
 
-        function renderGuideInfo(data, kw) {{
-            const guideCard = document.getElementById('guideCard');
-            const guideBody = document.getElementById('guideTextBody');
-            const rawText = data.guide_text || data.guide_text_html;
+            const usage1 = stage1.prompt_info?.token_usage || {{}};
+            const usage2 = stage2.prompt_info?.token_usage || {{}};
 
-            if (rawText) {{
-                guideCard.style.display = 'block';
-                const extKws = Array.isArray(data.extracted_keywords) ? data.extracted_keywords : [];
-                guideBody.innerHTML = formatHighlightedGuideText(rawText, extKws, kw);
+            const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0);
+            const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0);
+            const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0);
 
-                document.getElementById('tagCategory').textContent = `카테고리: ${{data.extracted_category || '기본'}}`;
-                document.getElementById('tagGender').textContent = `성별: ${{data.extracted_gender || '공용'}}`;
-                
-                const season = Array.isArray(data.extracted_season) ? data.extracted_season.join(', ') : (data.extracted_season || '사계절');
-                document.getElementById('tagSeason').textContent = `계절: ${{season}}`;
+            document.getElementById('tokenUsageText').textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
 
-                const extBrands = Array.isArray(data.extracted_brands) ? data.extracted_brands : [];
-                const bWrapper = document.getElementById('brandsWrapper');
-                if (extBrands.length > 0) {{
-                    bWrapper.innerHTML = '추출 브랜드: ' + extBrands.map(b => `<span style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; padding:2px 7px; border-radius:10px; font-size:11px; margin-right:4px;">${{b}}</span>`).join('');
+            const brandFilter = data.enable_brand_filter ?? llmInfo.enable_brand_filter;
+            const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
+            const genFilter = data.enable_gender_filter ?? llmInfo.enable_gender_filter;
+
+            const bBrand = brandFilter === true ? 'ON' : 'OFF';
+            const bCat = catFilter === true ? 'ON' : 'OFF';
+            const bGen = genFilter === true ? 'ON' : 'OFF';
+
+            const elemFilter = document.getElementById('filterBadgesText');
+            if (elemFilter) {{
+                elemFilter.innerHTML = `
+                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">브랜드: ${{bBrand}}</span>
+                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ${{bCat}}</span>
+                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ${{bGen}}</span>
+                `;
+            }}
+
+            // 가이드 텍스트 & 키워드 하이라이트
+            let guideText = data.guide_text || data.guide_text_html || '';
+            const extKws = data.extracted_keywords || [];
+            const extBrands = data.extracted_brands || [];
+
+            if (extKws.length > 0) {{
+                const sortedKws = [...extKws, kw].sort((a, b) => b.length - a.length);
+                sortedKws.forEach(k => {{
+                    if (k) {{
+                        const reg = new RegExp(k, 'g');
+                        guideText = guideText.replace(reg, `<strong class="highlight-kw">${{k}}</strong>`);
+                    }}
+                }});
+            }}
+            document.getElementById('guideTextBody').innerHTML = guideText || '가이드 문구가 없습니다.';
+
+            // 상단 태그 뱃지
+            const catTag = data.extracted_category || '기본';
+            const genTag = data.extracted_gender || '공용';
+            const seasonVal = data.extracted_season || ['사계절'];
+            const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(', ') : seasonVal;
+
+            document.getElementById('extractedTagsHeader').innerHTML = `
+                <span class="badge-chip-item badge-gray">카테고리: ${{catTag}}</span>
+                <span class="badge-chip-item badge-gray">성별: ${{genTag}}</span>
+                <span class="badge-chip-item badge-gray">계절: ${{seasonStr}}</span>
+            `;
+
+            // 브랜드 / 키워드 추출 칩 (수평 gap 6px, 수직 margin 8px 조절)
+            const brandChips = extBrands.map(b => `<span class="badge-chip-item badge-brand">${{b}}</span>`).join('');
+            const kwChips = extKws.map(k => `<span class="badge-chip-item badge-blue">${{k}}</span>`).join('');
+
+            document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="flex-shrink:0; font-weight:700;">추출 브랜드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{brandChips}}</div>
+                </div>
+            ` : '';
+
+            document.getElementById('extractedKeywordsWrap').innerHTML = kwChips ? `
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                    <span style="flex-shrink:0; font-weight:700;">추출 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{kwChips}}</div>
+                </div>
+            ` : '';
+
+            // 참고 뉴스 기사 5건 목록 표출
+            const articles = llmInfo.keyword_articles || [];
+            const articlesContainer = document.getElementById('articlesListContainer');
+            if (articlesContainer) {{
+                if (articles.length === 0) {{
+                    articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8;">참고 뉴스 기사가 없습니다.</div>';
                 }} else {{
-                    bWrapper.innerHTML = '';
+                    const artHtml = articles.map(art => `
+                        <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; margin-bottom:6px;">
+                            <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                                <span class="badge-chip-item badge-media">${{art.media || '뉴스'}}</span>
+                                <a href="${{art.url || '#'}}" target="_blank" style="color:#0f172a; text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${{art.title || ''}}">${{art.title || '제목 없음'}}</a>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; font-size:0.75rem; color:#64748b;">
+                                <span>${{art.publish_dt || ''}}</span>
+                                <a href="${{art.url || '#'}}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">원문보기</a>
+                            </div>
+                        </div>
+                    `).join('');
+                    articlesContainer.innerHTML = artHtml;
                 }}
-
-                const kWrapper = document.getElementById('keywordsWrapper');
-                if (extKws.length > 0) {{
-                    kWrapper.innerHTML = '추출 키워드: ' + extKws.map(k => `<span style="background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; padding:2px 7px; border-radius:10px; font-size:11px; margin-right:4px;">${{k}}</span>`).join('');
-                }} else {{
-                    kWrapper.innerHTML = '';
-                }}
-            }} else {{
-                guideCard.style.display = 'none';
             }}
+
+            // 상품 리스트 추출 (recommended_products / products / items)
+            const products = data.recommended_products || data.products || data.items || [];
+
+            renderProductGrid(products);
+            renderProductTable(products);
+            renderRawJsonView(data);
+            renderPromptInspector(stage1, stage2);
         }}
 
-        function formatHighlightedGuideText(text, extKws, mainKw) {{
-            if (!text) return '';
-            let kws = [];
-            if (mainKw) kws.push(mainKw.trim());
-            if (Array.isArray(extKws)) kws.push(...extKws.map(k => String(k).trim()));
-            kws = [...new Set(kws.filter(k => k.length > 0))];
-            if (kws.length === 0) return text;
-            kws.sort((a, b) => b.length - a.length);
-            const escaped = kws.map(k => k.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&'));
-            const pattern = new RegExp(`(${{escaped.join('|')}})`, 'gi');
-            return text.replace(pattern, '<strong class="highlight-kw">$1</strong>');
-        }}
-
-        function renderProductsGrid(products) {{
-            const grid = document.getElementById('productsGrid');
-            const info = document.getElementById('resultCountInfo');
-            info.textContent = `총 ${{products.length}}개`;
-
+        function renderProductGrid(products) {{
+            const container = document.getElementById('productGridContainer');
             if (products.length === 0) {{
-                grid.innerHTML = '<div class="loading-overlay">조회된 상품이 없습니다.</div>';
+                container.innerHTML = '<div style="grid-column:1/-1; padding:20px; text-align:center; color:#64748b;">추천 상품 데이터가 없습니다.</div>';
                 return;
             }}
 
-            grid.innerHTML = '';
-            products.forEach((item, idx) => {{
-                let imgUrl = item.appPrdImgUrl || item.prdImg || '';
-                if (imgUrl && typeof imgUrl === 'string' && !imgUrl.startsWith('http')) {{
+            container.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const name = prd.prdNm || prd.name || '상품명 없음';
+                const brand = prd.brandNm || prd.brdNm || prd.brand || '브랜드';
+                const salePrc = prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const nrmPrc = prd.normPrc || prd.nrmPrc || 0;
+                const discRt = prd.totRateApp || prd.discRt || 0;
+                const rating = prd.reviewStar || prd.avgPoint || 0.0;
+                const reviews = prd.reviewQty || prd.revCnt || 0;
+                const matchedKws = prd.matched_keywords || [];
+
+                let imgUrl = prd.appPrdImgUrl || prd.prdImg || '';
+                if (imgUrl && !imgUrl.startsWith('http')) {{
                     imgUrl = `https://cdn2.halfclub.com/rimg/330x440/contain/${{imgUrl}}`;
                 }}
 
-                const badgesHtml = renderBadgesHtml(item);
-                const brand = item.brandNm || '브랜드 없음';
-                const prdNm = item.prdNm || '상품명 없음';
+                const kwChips = matchedKws.map(k => `<span class="badge-chip-item badge-blue">${{k}}</span>`).join('');
+                const badgesHtml = renderBadgesHtml(prd);
 
-                const normPrc = item.normPrc || 0;
-                const selPrc = item.selPrc || 0;
-                const dcPrc = item.dcPrcPc || selPrc;
-                const totRate = item.totRatePc || 0;
-
-                let priceHtml = '';
-                if (totRate > 0) {{
-                    priceHtml += `<span class="price-rate">${{totRate}}%</span> `;
-                }}
-                priceHtml += `<span class="price-final">${{dcPrc.toLocaleString()}}원</span>`;
-                if (normPrc > dcPrc) {{
-                    priceHtml += ` <span class="price-origin">${{normPrc.toLocaleString()}}원</span>`;
-                }}
-
-                const star = item.reviewStar || 0;
-                const reviewQty = item.reviewQty || 0;
-                const reviewStr = reviewQty ? `평점 ${{star.toFixed(1)}} (${{reviewQty}})` : '리뷰 없음';
-
-                const matchedKws = Array.isArray(item.matched_keywords) ? item.matched_keywords.join(', ') : '없음';
-                const score = item.score || 0;
-
-                const c1 = item.dpCtgrNm1 || '';
-                const c2 = item.dpCtgrNm2 || '';
-                const c3 = item.dpCtgrNm3 || '';
-                const ctgrStr = [c1, c2, c3].filter(Boolean).join(' > ');
-
-                const dtlUrl = item.appPrdDtlUrl || `https://dev.halfclub.com/product/${{item.prdNo}}`;
-
-                const card = document.createElement('div');
-                card.className = 'product-card';
-                card.innerHTML = `
-                    <div class="card-img-container">
-                        <span class="rank-badge">#${{idx + 1}}</span>
-                        <img src="${{imgUrl}}" alt="${{prdNm}}"/>
-                    </div>
-                    <div class="card-info">
-                        ${{badgesHtml}}
-                        <div class="card-brand">${{brand}}</div>
-                        <div class="card-title" title="${{prdNm}}">${{prdNm}}</div>
-                        <div class="price-row">${{priceHtml}}</div>
-                        <div class="matched-line">매칭: ${{matchedKws}}</div>
-                        <div class="meta-line">${{reviewStr}} | 점수 ${{score}}</div>
-                        <div class="meta-line" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${{ctgrStr}}</div>
-                        <a href="${{dtlUrl}}" target="_blank" class="btn-dtl">상품 상세보기</a>
+                return `
+                    <div class="product-card">
+                        <div>
+                            <div class="product-img-wrap">
+                                <img src="${{imgUrl}}" class="product-img" alt="${{name}}"/>
+                                <span class="rank-badge">#${{rank}}</span>
+                            </div>
+                            <div class="product-info">
+                                <div class="brand-name">${{brand}}</div>
+                                <div class="product-name" title="${{name}}">${{name}}</div>
+                                <div class="price-wrap">
+                                    <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
+                                    ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
+                                    ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
+                                </div>
+                                <div style="font-size:0.72rem; color:#64748b;">평점 ${{rating}} (${{reviews}}개 리뷰)</div>
+                            </div>
+                        </div>
+                        <div style="padding:0 12px 12px 12px;">
+                            <div class="badge-chip-container">${{kwChips}}</div>
+                            ${{badgesHtml}}
+                        </div>
                     </div>
                 `;
-                grid.appendChild(card);
-            }});
+            }}).join('');
         }}
 
-        function renderProductsTable(products) {{
-            const container = document.getElementById('productsTableContainer');
+        function renderProductTable(products) {{
+            const tbody = document.getElementById('productTableBody');
             if (products.length === 0) {{
-                container.innerHTML = '<div class="loading-overlay">표시할 테이블 데이터가 없습니다.</div>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
                 return;
             }}
 
-            let rowsHtml = products.map((item, idx) => {{
-                const brand = item.brandNm || '-';
-                const prdNm = item.prdNm || '-';
-                const prdNo = item.prdNo || '-';
-                const selPrc = item.selPrc || item.dcPrcPc || 0;
-                const normPrc = item.normPrc || 0;
-                const totRate = item.totRatePc || 0;
-                const matchedKws = Array.isArray(item.matched_keywords) ? item.matched_keywords.join(', ') : '-';
-                const star = item.reviewStar ? item.reviewStar.toFixed(1) : '-';
-                const reviewQty = item.reviewQty || 0;
-                const c1 = item.dpCtgrNm1 || '';
-                const c2 = item.dpCtgrNm2 || '';
-                const ctgrStr = [c1, c2].filter(Boolean).join(' > ') || '-';
-                const dtlUrl = item.appPrdDtlUrl || `https://dev.halfclub.com/product/${{prdNo}}`;
+            tbody.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.product_no || prd.id || '-';
+                const brand = prd.brandNm || prd.brdNm || prd.brand || '-';
+                const name = prd.prdNm || prd.name || '-';
+                
+                const rawSalePrc = prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const rawNrmPrc = prd.normPrc || prd.nrmPrc || 0;
+                const rawDiscRt = prd.totRateApp || prd.discRt || 0;
+
+                const salePrc = rawSalePrc ? `${{rawSalePrc.toLocaleString()}}원` : '0원';
+                const nrmPrc = rawNrmPrc ? `${{rawNrmPrc.toLocaleString()}}원` : '-';
+                const discRt = rawDiscRt ? `${{rawDiscRt}}%` : '-';
+
+                const matchedKws = (prd.matched_keywords || []).join(', ');
+                const rating = prd.reviewStar || prd.avgPoint || 0.0;
+                const reviews = prd.reviewQty || prd.revCnt || 0;
+                const ratingRev = `${{rating}} (${{reviews}})`;
+
+                const cat = prd.dpCtgrNm2 || prd.dpCtgrNm1 || prd.catNm || '-';
 
                 return `
                     <tr>
-                        <td><b>#${{idx + 1}}</b></td>
+                        <td style="font-weight:700;">#${{rank}}</td>
                         <td>${{prdNo}}</td>
-                        <td><span style="color:#2563eb; font-weight:700;">${{brand}}</span></td>
-                        <td><a href="${{dtlUrl}}" target="_blank" style="color:#0f172a; text-decoration:none; font-weight:600;">${{prdNm}}</a></td>
-                        <td><b style="color:#0f172a;">${{selPrc.toLocaleString()}}원</b></td>
-                        <td><span style="color:#94a3b8; text-decoration:line-through;">${{normPrc.toLocaleString()}}원</span></td>
-                        <td><b style="color:#dc2626;">${{totRate}}%</b></td>
-                        <td><span style="color:#2563eb; font-weight:600;">${{matchedKws}}</span></td>
-                        <td>${{star}} (${{reviewQty}})</td>
-                        <td>${{ctgrStr}}</td>
+                        <td style="font-weight:600;">${{brand}}</td>
+                        <td>${{name}}</td>
+                        <td style="font-weight:700; color:#0f172a;">${{salePrc}}</td>
+                        <td style="color:#94a3b8; text-decoration:line-through;">${{nrmPrc}}</td>
+                        <td style="color:#ef4444; font-weight:700;">${{discRt}}</td>
+                        <td>${{matchedKws}}</td>
+                        <td>${{ratingRev}}</td>
+                        <td>${{cat}}</td>
                     </tr>
                 `;
             }}).join('');
-
-            container.innerHTML = `
-                <table class="custom-data-table">
-                    <thead>
-                        <tr>
-                            <th>순번</th>
-                            <th>상품번호</th>
-                            <th>브랜드</th>
-                            <th>상품명</th>
-                            <th>판매가</th>
-                            <th>정가</th>
-                            <th>할인율</th>
-                            <th>매칭 키워드</th>
-                            <th>평점(리뷰)</th>
-                            <th>카테고리</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${{rowsHtml}}
-                    </tbody>
-                </table>
-            `;
         }}
 
-        function renderRawJson(data) {{
-            const container = document.getElementById('rawJsonContainer');
-            if (!data) {{
-                container.textContent = 'JSON 데이터가 없습니다.';
+        function renderPromptInspector(stage1, stage2) {{
+            // Stage 1 System Prompt (API 동적 수록)
+            const p1Sys = stage1.prompt_info?.system_prompt;
+            const cardSys1 = document.getElementById('cardSysStage1');
+            const elemSys1 = document.getElementById('promptSysStage1');
+            if (p1Sys && elemSys1) {{
+                if (cardSys1) cardSys1.style.display = 'block';
+                elemSys1.innerHTML = highlightJsonHtml(p1Sys, true);
+            }}
+
+            // Stage 1 Input (User Prompt)
+            const p1User = stage1.prompt_info?.user_prompt;
+            const cardUser1 = document.getElementById('cardUserStage1');
+            const elemUser1 = document.getElementById('promptUserStage1');
+            if (p1User && elemUser1) {{
+                if (cardUser1) cardUser1.style.display = 'block';
+                elemUser1.innerHTML = highlightJsonHtml(p1User, true);
+            }} else if (cardUser1) {{
+                cardUser1.style.display = 'none';
+            }}
+
+            // Stage 1 Output (LLM JSON)
+            const res1 = stage1.guide_result || stage1.prompt_info?.raw_response;
+            const cardRes1 = document.getElementById('cardResultStage1');
+            const elemRes1 = document.getElementById('promptResultStage1');
+            if (res1 && elemRes1) {{
+                if (cardRes1) cardRes1.style.display = 'block';
+                elemRes1.innerHTML = highlightJsonHtml(res1, true);
+            }} else if (cardRes1) {{
+                cardRes1.style.display = 'none';
+            }}
+
+            // Stage 2 System Prompt (API 동적 수록)
+            const p2Sys = stage2.prompt_info?.system_prompt;
+            const cardSys2 = document.getElementById('cardSysStage2');
+            const elemSys2 = document.getElementById('promptSysStage2');
+            if (p2Sys && elemSys2) {{
+                if (cardSys2) cardSys2.style.display = 'block';
+                elemSys2.innerHTML = highlightJsonHtml(p2Sys, true);
+            }}
+
+            // Stage 2 Input (User Prompt)
+            const p2User = stage2.prompt_info?.user_prompt;
+            const cardUser2 = document.getElementById('cardUserStage2');
+            const elemUser2 = document.getElementById('promptUserStage2');
+            if (p2User && elemUser2) {{
+                if (cardUser2) cardUser2.style.display = 'block';
+                elemUser2.innerHTML = highlightJsonHtml(p2User, true);
+            }} else if (cardUser2) {{
+                cardUser2.style.display = 'none';
+            }}
+
+            // Stage 2 Output (LLM JSON)
+            const res2 = stage2.prompt_info?.raw_response || stage2.llm_response;
+            const cardRes2 = document.getElementById('cardResultStage2');
+            const elemRes2 = document.getElementById('promptResultStage2');
+            if (res2 && elemRes2) {{
+                if (cardRes2) cardRes2.style.display = 'block';
+                elemRes2.innerHTML = highlightJsonHtml(res2, true);
+            }} else if (cardRes2) {{
+                cardRes2.style.display = 'none';
+            }}
+        }}
+
+        function highlightJsonHtml(obj, restoreNewlines = false) {{
+            let str = '';
+            if (typeof obj === 'string') {{
+                try {{
+                    const parsed = JSON.parse(obj);
+                    str = JSON.stringify(parsed, null, 2);
+                }} catch (e) {{
+                    str = String(obj);
+                }}
+            }} else {{
+                str = JSON.stringify(obj, null, 2);
+            }}
+
+            if (restoreNewlines) {{
+                str = str.replace(/\\\\n/g, String.fromCharCode(10));
+            }}
+
+            const escaped = escapeHtml(str);
+            return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g, function (match) {{
+                let cls = 'json-number';
+                if (/^"/.test(match)) {{
+                    if (/:$/.test(match)) {{
+                        cls = 'json-key';
+                    }} else {{
+                        cls = 'json-string';
+                    }}
+                }} else if (/true|false/.test(match)) {{
+                    cls = 'json-boolean';
+                }} else if (/null/.test(match)) {{
+                    cls = 'json-null';
+                }}
+                return `<span class="${{cls}}">${{match}}</span>`;
+            }});
+        }}
+
+        function escapeHtml(str) {{
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }}
+
+        function renderValToElem(elemId, val) {{
+            const elem = document.getElementById(elemId);
+            if (!elem) return;
+            if (!val) {{
+                elem.textContent = '데이터 없음';
                 return;
             }}
-            container.textContent = JSON.stringify(data, null, 2);
+            if (typeof val === 'object') {{
+                elem.innerHTML = highlightJsonHtml(val);
+            }} else {{
+                elem.innerHTML = highlightJsonHtml(String(val));
+            }}
+        }}
+
+        function copyPromptTextToClipboard(elemId, btnId) {{
+            const elem = document.getElementById(elemId);
+            const btn = document.getElementById(btnId);
+            if (!elem) return;
+            const textToCopy = elem.innerText || elem.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {{
+                const origText = btn.textContent;
+                btn.textContent = '복사 완료!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {{
+                    btn.textContent = origText;
+                    btn.style.background = '#334155';
+                }}, 1500);
+            }}).catch(err => {{
+                alert('복사 실패: ' + err);
+            }});
+        }}
+
+        function copyUrlToClipboard() {{
+            const urlText = document.getElementById('requestUrlText').textContent;
+            const btn = document.getElementById('btnCopyUrl');
+            navigator.clipboard.writeText(urlText).then(() => {{
+                btn.textContent = 'URL 복사 완료!';
+                btn.style.background = '#10b981';
+                btn.style.color = '#ffffff';
+                setTimeout(() => {{
+                    btn.textContent = 'URL 복사';
+                    btn.style.background = '#ffffff';
+                    btn.style.color = '#334155';
+                }}, 1500);
+            }}).catch(err => {{
+                alert('복사 실패: ' + err);
+            }});
+        }}
+
+        function copyRawJsonToClipboard(btnId) {{
+            if (!currentRawData) return;
+            const btn = document.getElementById(btnId);
+            const str = JSON.stringify(currentRawData, null, 2);
+            navigator.clipboard.writeText(str).then(() => {{
+                btn.textContent = '복사 완료!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {{
+                    btn.textContent = 'JSON 전체 복사';
+                    btn.style.background = '#334155';
+                }}, 1500);
+            }}).catch(err => {{
+                alert('복사 실패: ' + err);
+            }});
+        }}
+
+        function renderRawJsonView(data) {{
+            const container = document.getElementById('rawJsonContainer');
+            const apiUrl = currentApiUrl;
+            const highlightedJson = highlightJsonHtml(data);
+
+            const urlCard = `
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
+                        <span style="background:#2563eb; color:#ffffff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:4px;">GET</span>
+                        <span style="font-family:monospace; font-size:0.85rem; color:#2563eb; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${{apiUrl}}</span>
+                    </div>
+                </div>
+            `;
+
+            const jsonCard = `
+                <div style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="background:#10b981; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">200 OK</span>
+                            <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">키워드 트렌드 API 원본 JSON 데이터</span>
+                        </div>
+                        <button id="btnCopyJson" onclick="copyRawJsonToClipboard('btnCopyJson')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.15s ease;">JSON 전체 복사</button>
+                    </div>
+                    <div style="padding:14px 16px; background:#0f172a; max-height:550px; overflow:auto;">
+                        <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all; color:#cbd5e1;"><code>${{highlightedJson}}</code></pre>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = urlCard + jsonCard;
         }}
 
         function renderBadgesHtml(item) {{
@@ -1191,4 +1376,4 @@ html_content = f"""
 """
 
 # Streamlit 원페이지 통합 HTML 서빙 (전체 100vh 뷰포트)
-components.html(html_content, height=940, scrolling=True)
+components.html(html_content, height=960, scrolling=True)
