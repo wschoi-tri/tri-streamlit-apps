@@ -1083,7 +1083,7 @@ html_content = f"""
                             </div>
                         </div>
                         <div style="padding:0 12px 12px 12px;">
-                            <div class="badge-chip-container">${{kwChips}}</div>
+                            <div class="badge-chip-container"><span class="badge-chip-item">매칭 키워드:</span>${{kwChips}}</div>
                             ${{badgesHtml}}
                         </div>
                     </div>
