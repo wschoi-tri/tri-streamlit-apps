@@ -26,122 +26,41 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 112개 타겟 키워드 리스트
+# 타겟 키워드 리스트 로드 (keywords.json 연동)
 def load_keywords():
+    kw_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "keywords.json")
+    if os.path.exists(kw_path):
+        try:
+            with open(kw_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return [
-    "가디건",
-    "가방",
-    "골프모자",
-    "골프백",
-    "골프장갑",
-    "골프티",
-    "골프화",
-    "귀걸이",
-    "긴바지",
-    "긴팔티셔츠",
-    "남성가방",
-    "남성골프화",
-    "남성벨트",
-    "넥워머",
-    "넥타이",
-    "니트",
-    "토드백",
-    "데님",
-    "데님팬츠",
-    "드레스",
-    "등산화",
-    "런닝화",
-    "레깅스",
-    "레더자켓",
-    "레인부츠",
-    "로퍼",
-    "맨투맨",
-    "머플러",
-    "모자",
-    "목걸이",
-    "민소매",
-    "민소매티셔츠",
-    "반바지",
-    "반팔",
-    "반팔티셔츠",
-    "베스트",
-    "벨트",
-    "보스턴백",
-    "보스톤백",
-    "볼캡",
-    "부츠",
-    "브로치",
-    "비니",
-    "샌들",
-    "서류가방",
-    "선글라스",
-    "셋업",
-    "셔츠",
-    "손수건",
-    "숄더백",
-    "스니커즈",
-    "스카프",
-    "스커트",
-    "스포츠웨어",
-    "슬랙스",
-    "슬리퍼",
-    "슬링백",
-    "신발",
-    "아우터",
-    "양말",
-    "에코백",
-    "여성가방",
-    "여성골프화",
-    "여성벨트",
-    "오픈토",
-    "요가복",
-    "우산",
-    "우비",
-    "운동화",
-    "원피스",
-    "웨이스트백",
-    "유니폼",
-    "자켓",
-    "장갑",
-    "점퍼",
-    "정장바지",
-    "조거팬츠",
-    "조끼",
-    "주얼리",
-    "지갑",
-    "청바지",
-    "체크셔츠",
-    "치마",
-    "카디건",
-    "카라티",
-    "캡모자",
-    "클러치백",
-    "키링",
-    "타이",
-    "탑",
-    "토트백",
-    "트레이닝",
-    "트레이닝바지",
-    "트레이닝복",
-    "트레이닝팬츠",
-    "티셔츠",
-    "패딩",
-    "팬츠",
-    "플랫슈즈",
-    "피케셔츠",
-    "핸드백",
-    "해트",
-    "헤어밴드",
-    "헤어핀",
-    "형광티셔츠",
-    "호보백",
-    "시계",
-    "홈웨어",
-    "수트",
-    "무스탕"]
+        "가디건", "가방", "골프모자", "골프백", "골프장갑", "골프티", "골프화", "귀걸이", "긴바지", "긴팔티셔츠",
+        "남성가방", "남성골프화", "남성벨트", "넥워머", "넥타이", "니트", "토드백", "데님", "데님팬츠", "드레스",
+        "등산화", "런닝화", "레깅스", "레더자켓", "레인부츠", "로퍼", "맨투맨", "머플러", "모자", "목걸이",
+        "민소매", "민소매티셔츠", "반바지", "반팔", "반팔티셔츠", "베스트", "벨트", "보스턴백", "보스톤백", "볼캡",
+        "부츠", "브로치", "비니", "샌들", "서류가방", "선글라스", "셋업", "셔츠", "손수건", "숄더백",
+        "스니커즈", "스카프", "스커트", "스포츠웨어", "슬랙스", "슬리퍼", "슬링백", "신발", "아우터", "양말",
+        "에코백", "여성가방", "여성골프화", "여성벨트", "오픈토", "요가복", "우산", "우비", "운동화", "원피스",
+        "자켓", "바람막이", "잠옷", "장갑", "점퍼", "정장", "정장자켓", "정장팬츠", "정장화", "조끼",
+        "집업", "집업티셔츠", "코트", "크로스백", "클러치", "토트백", "트렌치", "티셔츠", "패딩", "팔찌",
+        "팬츠", "펌프스", "플랫", "하프팬츠", "후드", "힐", "후리스", "후드티", "스웨터", "블라우스",
+        "발찌", "슈즈", "양산", "지갑", "시계", "홈웨어", "수트", "무스탕"
+    ]
+
+def noshow_reason():
+    return [
+        {
+            "keyword": "발찌",
+            "reason": "카테고리 (`팔찌/발찌`) 로 인하여 `발찌` 결과 부족으로 결과 없음"
+        }
+    ]
+
 
 keywords_list = load_keywords()
 keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
+noshow_reasons_json_str = json.dumps(noshow_reason(), ensure_ascii=False)
 
 qp = st.query_params
 initial_kw = qp.get("keyword", keywords_list[0] if keywords_list else "가디건")
@@ -730,6 +649,8 @@ html_content = f"""
     <!-- 0.1초 비동기(fetch) SPA 애플리케이션 스크립트 -->
     <script>
         const allKeywords = {keywords_json_str};
+        const noshowReasons = {noshow_reasons_json_str};
+        const noshowMap = Object.fromEntries(noshowReasons.map(item => [item.keyword, item.reason]));
         let currentKeyword = {initial_keyword_json};
         let currentTab = {initial_tab_json};
         let currentRawData = null;
@@ -838,7 +759,7 @@ html_content = f"""
         function switchViewTab(tabName, pushHistory = true) {{
             currentTab = tabName;
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
             if (tabName === 'grid') {{
                 document.getElementById('tabBtnGrid').classList.add('active');
@@ -867,9 +788,11 @@ html_content = f"""
             listContainer.innerHTML = '';
             keywords.forEach((kw, idx) => {{
                 const origIdx = allKeywords.indexOf(kw) + 1;
+                const isNoshow = noshowMap[kw];
+                const noshowBadge = isNoshow ? `<span style="font-size:0.68rem; background:#fee2e2; color:#ef4444; padding:1px 5px; border-radius:4px; font-weight:700; margin-left:6px;">미표시</span>` : '';
                 const li = document.createElement('li');
                 li.className = `keyword-item ${{kw === currentKeyword ? 'active' : ''}}`;
-                li.innerHTML = `<span>${{kw}}</span> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
+                li.innerHTML = `<div style="display:flex; align-items:center;"><span>${{kw}}</span>${{noshowBadge}}</div> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
                 li.addEventListener('click', () => selectKeyword(kw));
                 listContainer.appendChild(li);
             }});
@@ -879,7 +802,8 @@ html_content = f"""
             currentKeyword = kw;
             let activeElem = null;
             document.querySelectorAll('.keyword-item').forEach(item => {{
-                const txt = item.querySelector('span').textContent;
+                const txtElem = item.querySelector('span');
+                const txt = txtElem ? txtElem.textContent : '';
                 if (txt === kw) {{
                     item.classList.add('active');
                     activeElem = item;
@@ -916,11 +840,35 @@ html_content = f"""
 
                 renderDashboardData(data, kw);
             }} catch (err) {{
-                document.getElementById('guideTextBody').innerHTML = `<span style="color:#ef4444; font-weight:700;">API 호출 실패: ${{err.message}}</span>`;
+                const reason = noshowMap[kw];
+                if (reason) {{
+                    document.getElementById('guideTextBody').innerHTML = `
+                        <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:16px 20px; border-radius:8px; line-height:1.6;">
+                            <div style="font-weight:700; margin-bottom:4px; color:#be123c;">[미표시 사유]</div>
+                            <div style="font-size:0.92rem; color:#be123c;">${{reason}}</div>
+                        </div>
+                    `;
+                }} else {{
+                    document.getElementById('guideTextBody').innerHTML = `
+                        <div style="color:#ef4444; font-weight:700; font-size:0.85rem;">API 호출 실패: ${{err.message}}</div>
+                    `;
+                }}
+
+                const gridContainer = document.getElementById('productGridContainer');
+                if (gridContainer) {{
+                    gridContainer.innerHTML = '<div style="grid-column:1/-1; padding:40px 20px; text-align:center; color:#64748b;">추천 상품 데이터가 없습니다.</div>';
+                }}
+
+                const tbody = document.getElementById('productTableBody');
+                if (tbody) {{
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                }}
             }}
         }}
 
         function renderDashboardData(data, kw) {{
+            const reason = data.noshow_reason || noshowMap[kw];
+
             // LLM 모델 정보
             const provider = data.llm_provider || 'openai';
             const model = data.llm_model || 'gpt-5.6-luna';
@@ -974,6 +922,16 @@ html_content = f"""
                     }}
                 }});
             }}
+
+            if (reason) {{
+                guideText = `
+                    <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:16px 20px; border-radius:8px; line-height:1.6; margin-bottom:12px;">
+                        <div style="font-weight:700; margin-bottom:4px; color:#be123c;">[미표시 사유]</div>
+                        <div style="font-size:0.92rem; color:#be123c;">${{reason}}</div>
+                    </div>
+                ` + (guideText || '');
+            }}
+
             document.getElementById('guideTextBody').innerHTML = guideText || '가이드 문구가 없습니다.';
 
             // 상단 태그 뱃지
@@ -1006,25 +964,32 @@ html_content = f"""
                 </div>
             ` : '';
 
-            // 참고 뉴스 기사 5건 목록 표출
-            const articles = llmInfo.keyword_articles || [];
+            // 참고 뉴스 기사 목록 표출 (ES/DuckDB link, source, title 매핑 지원)
+            const articles = data.keyword_articles || llmInfo.keyword_articles || [];
             const articlesContainer = document.getElementById('articlesListContainer');
             if (articlesContainer) {{
-                if (articles.length === 0) {{
+                if (!articles || articles.length === 0) {{
                     articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8;">참고 뉴스 기사가 없습니다.</div>';
                 }} else {{
-                    const artHtml = articles.map(art => `
-                        <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; margin-bottom:6px;">
-                            <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                                <span class="badge-chip-item badge-media">${{art.media || '뉴스'}}</span>
-                                <a href="${{art.url || '#'}}" target="_blank" style="color:#0f172a; text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${{art.title || ''}}">${{art.title || '제목 없음'}}</a>
+                    const artHtml = articles.map(art => {{
+                        const linkUrl = art.link || art.url || '#';
+                        const sourceName = art.source || art.media || '뉴스';
+                        const titleText = art.title || art.text || '제목 없음';
+                        const pubDate = art.publish_dt || art.published_date || art.date || '';
+                        const hasValidLink = linkUrl && linkUrl !== '#';
+
+                        return `
+                            <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; margin-bottom:6px;">
+                                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                                    <a href="${{linkUrl}}" ${{hasValidLink ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="color:#0f172a; text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${{titleText}}">${{titleText}} <span class="badge-chip-item badge-media">${{sourceName}}</span></a>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; font-size:0.75rem; color:#64748b;">
+                                    ${{pubDate ? `<span>${{pubDate}}</span>` : ''}}
+                                    ${{hasValidLink ? `<a href="${{linkUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:underline; font-weight:600;">원문보기</a>` : ''}}
+                                </div>
                             </div>
-                            <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; font-size:0.75rem; color:#64748b;">
-                                <span>${{art.publish_dt || ''}}</span>
-                                <a href="${{art.url || '#'}}" target="_blank" style="color:#2563eb; text-decoration:underline; font-weight:600;">원문보기</a>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }}).join('');
                     articlesContainer.innerHTML = artHtml;
                 }}
             }}
