@@ -49,18 +49,9 @@ def load_keywords():
         "발찌", "슈즈", "양산", "지갑", "시계", "홈웨어", "수트", "무스탕"
     ]
 
-def noshow_reason():
-    return [
-        {
-            "keyword": "발찌",
-            "reason": "카테고리 (`팔찌/발찌`) 로 인하여 `발찌` 결과 부족으로 결과 없음"
-        }
-    ]
-
 
 keywords_list = load_keywords()
 keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
-noshow_reasons_json_str = json.dumps(noshow_reason(), ensure_ascii=False)
 
 qp = st.query_params
 initial_kw = qp.get("keyword", keywords_list[0] if keywords_list else "가디건")
@@ -649,8 +640,6 @@ html_content = f"""
     <!-- 0.1초 비동기(fetch) SPA 애플리케이션 스크립트 -->
     <script>
         const allKeywords = {keywords_json_str};
-        const noshowReasons = {noshow_reasons_json_str};
-        const noshowMap = Object.fromEntries(noshowReasons.map(item => [item.keyword, item.reason]));
         let currentKeyword = {initial_keyword_json};
         let currentTab = {initial_tab_json};
         let currentRawData = null;
@@ -788,11 +777,10 @@ html_content = f"""
             listContainer.innerHTML = '';
             keywords.forEach((kw, idx) => {{
                 const origIdx = allKeywords.indexOf(kw) + 1;
-                const isNoshow = noshowMap[kw];
-                const noshowBadge = isNoshow ? `<span style="font-size:0.68rem; background:#fee2e2; color:#ef4444; padding:1px 5px; border-radius:4px; font-weight:700; margin-left:6px;">미표시</span>` : '';
                 const li = document.createElement('li');
                 li.className = `keyword-item ${{kw === currentKeyword ? 'active' : ''}}`;
-                li.innerHTML = `<div style="display:flex; align-items:center;"><span>${{kw}}</span>${{noshowBadge}}</div> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
+                li.setAttribute('data-kw', kw);
+                li.innerHTML = `<span>${{kw}}</span> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
                 li.addEventListener('click', () => selectKeyword(kw));
                 listContainer.appendChild(li);
             }});
@@ -840,19 +828,9 @@ html_content = f"""
 
                 renderDashboardData(data, kw);
             }} catch (err) {{
-                const reason = noshowMap[kw];
-                if (reason) {{
-                    document.getElementById('guideTextBody').innerHTML = `
-                        <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:16px 20px; border-radius:8px; line-height:1.6;">
-                            <div style="font-weight:700; margin-bottom:4px; color:#be123c;">[미표시 사유]</div>
-                            <div style="font-size:0.92rem; color:#be123c;">${{reason}}</div>
-                        </div>
-                    `;
-                }} else {{
-                    document.getElementById('guideTextBody').innerHTML = `
-                        <div style="color:#ef4444; font-weight:700; font-size:0.85rem;">API 호출 실패: ${{err.message}}</div>
-                    `;
-                }}
+                document.getElementById('guideTextBody').innerHTML = `
+                    <div style="color:#ef4444; font-weight:700; font-size:0.85rem;">API 호출 실패: ${{err.message}}</div>
+                `;
 
                 const gridContainer = document.getElementById('productGridContainer');
                 if (gridContainer) {{
@@ -867,7 +845,8 @@ html_content = f"""
         }}
 
         function renderDashboardData(data, kw) {{
-            const reason = data.noshow_reason || noshowMap[kw];
+            const llmInfo = data.llm_info || {{}};
+            const reason = data.noshow_reason || llmInfo.noshow_reason || '';
 
             // LLM 모델 정보
             const provider = data.llm_provider || 'openai';
@@ -878,7 +857,6 @@ html_content = f"""
             }}
 
             // 메타 토큰 사용량
-            const llmInfo = data.llm_info || {{}};
             const stage1 = llmInfo.stage1_guide_generation || {{}};
             const stage2 = llmInfo.stage2_product_selection || {{}};
 
