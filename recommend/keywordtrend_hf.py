@@ -816,7 +816,7 @@ html_content = f"""
         async function fetchKeywordTrend(kw) {{
             const siteCd = document.getElementById('siteCdSelect').value || '1';
             const size = document.getElementById('sizeInput')?.value || '50';
-            currentApiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+            currentApiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
 
             try {{
                 const response = await fetch(currentApiUrl);
