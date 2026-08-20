@@ -460,7 +460,7 @@ html_content = f"""
                 <div class="meta-badges" id="metaBadgesBar" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:9px 16px; margin-bottom:18px; display:flex; align-items:center; gap:20px; font-size:0.83rem; font-weight:600; color:#64748b;">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span>LLM 모델:</span>
-                        <span style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="llmModelText">openai / gpt-5.6-luna</span>
+                        <span style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="llmModelText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span>LLM 토큰:</span>
@@ -849,11 +849,11 @@ html_content = f"""
             const reason = data.noshow_reason || llmInfo.noshow_reason || '';
 
             // LLM 모델 정보
-            const provider = data.llm_provider || 'openai';
-            const model = data.llm_model || 'gpt-5.6-luna';
+            const provider = llmInfo.llm_provider || data.llm_provider || '-';
+            const model = llmInfo.llm_model || data.llm_model || '-';
             const elemModel = document.getElementById('llmModelText');
             if (elemModel) {{
-                elemModel.textContent = `${{provider}} / ${{model}}`;
+                elemModel.textContent = (provider === '-' && model === '-') ? '-' : `${{provider}} / ${{model}}`;
             }}
 
             // 메타 토큰 사용량
