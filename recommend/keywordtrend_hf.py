@@ -739,6 +739,8 @@ html_content = f"""
             selectKeyword(currentKeyword, false);
         }}
 
+        let displayedKeywords = allKeywords;
+
         function setupEventListeners() {{
             // 키워드 실시간 검색
             const searchInput = document.getElementById('keywordSearchInput');
@@ -747,6 +749,17 @@ html_content = f"""
                     const q = e.target.value.trim().toLowerCase();
                     const filtered = allKeywords.filter(k => k.toLowerCase().includes(q));
                     renderKeywordList(filtered);
+                }});
+                searchInput.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        const listContainer = document.getElementById('keywordList');
+                        const firstLi = listContainer?.firstElementChild;
+                        if (firstLi && displayedKeywords.length > 0) {{
+                            firstLi.focus();
+                            selectKeyword(displayedKeywords[0]);
+                        }}
+                    }}
                 }});
             }}
 
@@ -784,6 +797,7 @@ html_content = f"""
         }}
 
         function renderKeywordList(keywords) {{
+            displayedKeywords = keywords;
             const listContainer = document.getElementById('keywordList');
             const badge = document.getElementById('keywordCountBadge');
             if (badge) badge.textContent = keywords.length;
@@ -794,8 +808,41 @@ html_content = f"""
                 const li = document.createElement('li');
                 li.className = `keyword-item ${{kw === currentKeyword ? 'active' : ''}}`;
                 li.setAttribute('data-kw', kw);
+                li.setAttribute('tabindex', '0');
                 li.innerHTML = `<span>${{kw}}</span> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
+                
                 li.addEventListener('click', () => selectKeyword(kw));
+
+                li.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        if (idx + 1 < displayedKeywords.length) {{
+                            const nextIdx = idx + 1;
+                            const nextLi = listContainer.children[nextIdx];
+                            if (nextLi) {{
+                                nextLi.focus();
+                                selectKeyword(displayedKeywords[nextIdx]);
+                            }}
+                        }}
+                    }} else if (e.key === 'ArrowUp') {{
+                        e.preventDefault();
+                        if (idx > 0) {{
+                            const prevIdx = idx - 1;
+                            const prevLi = listContainer.children[prevIdx];
+                            if (prevLi) {{
+                                prevLi.focus();
+                                selectKeyword(displayedKeywords[prevIdx]);
+                            }}
+                        }} else {{
+                            const searchInput = document.getElementById('keywordSearchInput');
+                            if (searchInput) searchInput.focus();
+                        }}
+                    }} else if (e.key === 'Enter' || e.key === ' ') {{
+                        e.preventDefault();
+                        selectKeyword(kw);
+                    }}
+                }});
+
                 listContainer.appendChild(li);
             }});
         }}
@@ -900,6 +947,14 @@ html_content = f"""
                     <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ${{bGen}}</span>
                 `;
             }}
+
+            // 생성일시 및 갱신일시
+            const createDt = data.create_dt || llmInfo.create_dt || '-';
+            const updateDt = data.update_dt || llmInfo.update_dt || '-';
+            const elemCreateDt = document.getElementById('createDtText');
+            if (elemCreateDt) elemCreateDt.textContent = createDt;
+            const elemUpdateDt = document.getElementById('updateDtText');
+            if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
 
             // 가이드 텍스트 & 키워드 하이라이트
             let guideText = data.guide_text || data.guide_text_html || '';
