@@ -464,7 +464,7 @@ html_content = f"""
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span>LLM 토큰:</span>
-                        <span style="background:#fdf2f8; border:1px solid #fbcfe8; color:#db2777; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 (Total: 0)</span>
+                        <span style="background:#fdf2f8; border:1px solid #fbcfe8; color:#db2777; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 / Cached: 0 (Total: 0)</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span>필터링 적용:</span>
@@ -865,9 +865,10 @@ html_content = f"""
 
             const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0);
             const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0);
+            const cachedTokens = (usage1.cached_tokens || 0) + (usage2.cached_tokens || 0);
             const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0);
 
-            document.getElementById('tokenUsageText').textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
+            document.getElementById('tokenUsageText').textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} / Cached: ${{cachedTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
 
             const brandFilter = data.enable_brand_filter ?? llmInfo.enable_brand_filter;
             const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
