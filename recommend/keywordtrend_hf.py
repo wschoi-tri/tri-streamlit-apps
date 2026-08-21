@@ -151,6 +151,12 @@ html_content = f"""
             background-color: #f1f5f9;
             color: #0f172a;
         }}
+        .keyword-item:focus {{
+            outline: 2px solid #2563eb;
+            outline-offset: -2px;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }}
         .keyword-item.active {{
             background-color: #eff6ff;
             color: #2563eb;
@@ -473,6 +479,14 @@ html_content = f"""
                             <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ON</span>
                             <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ON</span>
                         </span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>생성일시:</span>
+                        <span style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="createDtText">-</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>갱신일시:</span>
+                        <span style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="updateDtText">-</span>
                     </div>
                 </div>
 
