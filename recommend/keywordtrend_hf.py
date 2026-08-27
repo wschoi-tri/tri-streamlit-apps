@@ -1006,10 +1006,24 @@ html_content = f"""
                 sortedKws.forEach(k => {{
                     if (k && k.trim()) {{
                         // 띄어쓰기(공백) 차이와 무관하게 연속 단어 매칭 정규표현식 생성 (원문 공백 보존 $1 래핑)
-                        const cleanChars = k.trim().replace(/[.*+?^${{}}()|[\\]\\]/g, '\\\\$&').split(/\\s*/);
-                        const pattern = cleanChars.join('\\\\s*');
-                        const reg = new RegExp(`(${{pattern}})`, 'gi');
-                        guideText = guideText.replace(reg, '<strong class="highlight-kw">$1</strong>');
+                        const cleanKw = k.trim().replace(/\\s+/g, '');
+                        if (cleanKw) {{
+                            let escapedPattern = '';
+                            const specialChars = '.*+?^${{}}()|[]\\\\';
+                            for (let ci = 0; ci < cleanKw.length; ci++) {{
+                                const ch = cleanKw[ci];
+                                if (specialChars.indexOf(ch) !== -1) {{
+                                    escapedPattern += '\\\\' + ch;
+                                }} else {{
+                                    escapedPattern += ch;
+                                }}
+                                if (ci < cleanKw.length - 1) {{
+                                    escapedPattern += '\\\\s*';
+                                }}
+                            }}
+                            const reg = new RegExp(`(${{escapedPattern}})`, 'gi');
+                            guideText = guideText.replace(reg, '<strong class="highlight-kw">$1</strong>');
+                        }}
                     }}
                 }});
             }}
