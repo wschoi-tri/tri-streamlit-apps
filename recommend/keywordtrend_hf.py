@@ -948,23 +948,22 @@ html_content = f"""
             const stage1 = llmInfo.stage1_guide_generation || {{}};
             const stage2 = llmInfo.stage2_product_selection || {{}};
 
-            const usage1 = stage1.prompt_info?.token_usage || {{}};
-            const usage2 = stage2.prompt_info?.token_usage || {{}};
+            const usage1 = stage1.prompt_info?.token_usage || llmInfo.stage1_token_usage || {{}};
+            const usage2 = stage2.prompt_info?.token_usage || llmInfo.stage2_token_usage || {{}};
 
-            const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0);
-            const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0);
+            const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0) || (llmInfo.total_request_tokens || 0);
+            const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0) || (llmInfo.total_response_tokens || 0);
             const cachedTokens = (usage1.cached_tokens || 0) + (usage2.cached_tokens || 0);
-            const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0);
+            const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0) || (reqTokens + resTokens);
 
-            const elemReq = document.getElementById('reqTokensText');
-            const elemRes = document.getElementById('resTokensText');
-            const elemCached = document.getElementById('cachedTokensText');
-            const elemTot = document.getElementById('totalTokensText');
-
-            if (elemReq) elemReq.textContent = reqTokens ? reqTokens.toLocaleString() : '-';
-            if (elemRes) elemRes.textContent = resTokens ? resTokens.toLocaleString() : '-';
-            if (elemCached) elemCached.textContent = cachedTokens ? cachedTokens.toLocaleString() : '-';
-            if (elemTot) elemTot.textContent = totTokens ? totTokens.toLocaleString() : '-';
+            const elemTokenUsage = document.getElementById('tokenUsageText');
+            if (elemTokenUsage) {{
+                if (totTokens > 0 || reqTokens > 0) {{
+                    elemTokenUsage.textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} / Cached: ${{cachedTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
+                }} else {{
+                    elemTokenUsage.textContent = '-';
+                }}
+            }}
 
             // 키워드 타이틀
             const elemTitle = document.getElementById('targetKeywordTitle');
@@ -1005,9 +1004,12 @@ html_content = f"""
             if (extKws.length > 0) {{
                 const sortedKws = [...extKws, kw].sort((a, b) => b.length - a.length);
                 sortedKws.forEach(k => {{
-                    if (k) {{
-                        const reg = new RegExp(k, 'g');
-                        guideText = guideText.replace(reg, `<strong class="highlight-kw">${{k}}</strong>`);
+                    if (k && k.trim()) {{
+                        // 띄어쓰기(공백) 차이와 무관하게 연속 단어 매칭 정규표현식 생성 (원문 공백 보존 $1 래핑)
+                        const cleanChars = k.trim().replace(/[.*+?^${{}}()|[\\]\\]/g, '\\\\$&').split(/\\s*/);
+                        const pattern = cleanChars.join('\\\\s*');
+                        const reg = new RegExp(`(${{pattern}})`, 'gi');
+                        guideText = guideText.replace(reg, '<strong class="highlight-kw">$1</strong>');
                     }}
                 }});
             }}
