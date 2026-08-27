@@ -736,7 +736,7 @@ html_content = f"""
             renderKeywordList(allKeywords);
             setupEventListeners();
             switchViewTab(currentTab, false);
-            selectKeyword(currentKeyword, false);
+            selectKeyword(currentKeyword, false, false);
         }}
 
         let displayedKeywords = allKeywords;
@@ -847,7 +847,7 @@ html_content = f"""
             }});
         }}
 
-        function selectKeyword(kw, pushHistory = true) {{
+        function selectKeyword(kw, pushHistory = true, resetTab = true) {{
             currentKeyword = kw;
             let activeElem = null;
             document.querySelectorAll('.keyword-item').forEach(item => {{
@@ -866,6 +866,17 @@ html_content = f"""
             }}
 
             document.getElementById('currentKeywordTitle').textContent = kw;
+
+            // 1. 키워드 변경 시 탭을 기본 화면(상품 그리드 뷰: 'grid')으로 자동 초기화
+            if (resetTab) {{
+                switchViewTab('grid', false);
+            }}
+
+            // 2. 키워드 변경 시 우측 메인 콘텐츠 영역 스크롤을 맨 위로 즉시 리셋
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {{
+                mainContent.scrollTop = 0;
+            }}
 
             if (pushHistory) {{
                 updateUrlQuery(kw, currentTab);
