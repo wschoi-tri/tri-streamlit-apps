@@ -994,9 +994,44 @@ html_content = f"""
                 <span class="badge-chip-item badge-gray">계절: ${{seasonStr}}</span>
             `;
 
-            // 브랜드 / 키워드 추출 칩 (수평 gap 6px, 수직 margin 8px 조절)
-            const brandChips = extBrands.map(b => `<span class="badge-chip-item badge-brand">${{b}}</span>`).join('');
-            const kwChips = extKws.map(k => `<span class="badge-chip-item badge-blue">${{k}}</span>`).join('');
+            // 상품 리스트 추출 (recommended_products / products / items)
+            const products = data.recommended_products || data.products || data.items || [];
+
+            // 브랜드명 -> 브랜드코드(brandCd) 매핑 사전 구축
+            const brandToCodeMap = {{}};
+            products.forEach(p => {{
+                const bNm = (p.brandNm || p.brdNm || p.brand || '').trim();
+                const bCd = (p.brandCd || p.brdCd || p.brandCode || '').trim();
+                if (bNm && bCd) {{
+                    brandToCodeMap[bNm.toLowerCase()] = bCd;
+                    brandToCodeMap[bNm] = bCd;
+                }}
+            }});
+            const v2Brands = data.internal_signals?.v2_brands || data.v2_brands || [];
+            v2Brands.forEach(b => {{
+                const bNm = (b.name || b.brandNm || '').trim();
+                const bCd = (b.code || b.brdCd || b.brandCd || '').trim();
+                if (bNm && bCd) {{
+                    brandToCodeMap[bNm.toLowerCase()] = bCd;
+                    brandToCodeMap[bNm] = bCd;
+                }}
+            }});
+
+            // 브랜드 / 키워드 추출 칩 (하프클럽 공식 검색 / 브랜드 필터 링크 연동)
+            const brandChips = extBrands.map(b => {{
+                const bClean = (typeof b === 'object' ? b.name : b).trim();
+                const bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
+                const searchUrl = bCode 
+                    ? `https://halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(bCode)}}`
+                    : `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + bClean)}}`;
+                const titleText = bCode ? `하프클럽 브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `하프클럽에서 '${{kw}} ${{bClean}}' 검색`;
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="${{titleText}}">${{bClean}} ↗</a>`;
+            }}).join('');
+
+            const kwChips = extKws.map(k => {{
+                const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
 
             document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -1042,24 +1077,26 @@ html_content = f"""
                 }}
             }}
 
-            // 상품 리스트 추출 (recommended_products / products / items)
-            const products = data.recommended_products || data.products || data.items || [];
-
-            renderProductGrid(products);
-            renderProductTable(products);
+            renderProductGrid(products, kw);
+            renderProductTable(products, kw);
             renderRawJsonView(data);
             renderPromptInspector(stage1, stage2);
         }}
 
-        function renderProductGrid(products) {{
+        function renderProductGrid(products, currentKw) {{
             const container = document.getElementById('productGridContainer');
             if (products.length === 0) {{
                 container.innerHTML = '<div style="grid-column:1/-1; padding:20px; text-align:center; color:#64748b;">추천 상품 데이터가 없습니다.</div>';
                 return;
             }}
 
+            const kw = currentKw || currentKeyword;
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.product_no || prd.id || '';
+                const prdUrl = prd.prd_url || (prdNo ? `https://halfclub.com/product/${{prdNo}}` : '#');
+                const hasPrdUrl = prdUrl && prdUrl !== '#';
+
                 const name = prd.prdNm || prd.name || '상품명 없음';
                 const brand = prd.brandNm || prd.brdNm || prd.brand || '브랜드';
                 const salePrc = prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
@@ -1074,26 +1111,31 @@ html_content = f"""
                     imgUrl = `https://cdn2.halfclub.com/rimg/330x440/contain/${{imgUrl}}`;
                 }}
 
-                const kwChips = matchedKws.map(k => `<span class="badge-chip-item badge-blue">${{k}}</span>`).join('');
+                const kwChips = matchedKws.map(k => {{
+                    const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                }}).join('');
                 const badgesHtml = renderBadgesHtml(prd);
 
                 return `
                     <div class="product-card">
                         <div>
-                            <div class="product-img-wrap">
-                                <img src="${{imgUrl}}" class="product-img" alt="${{name}}"/>
-                                <span class="rank-badge">#${{rank}}</span>
-                            </div>
-                            <div class="product-info">
-                                <div class="brand-name">${{brand}}</div>
-                                <div class="product-name" title="${{name}}">${{name}}</div>
-                                <div class="price-wrap">
-                                    <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
-                                    ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
-                                    ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
+                            <a href="${{prdUrl}}" ${{hasPrdUrl ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="display:block; text-decoration:none; color:inherit;">
+                                <div class="product-img-wrap">
+                                    <img src="${{imgUrl}}" class="product-img" alt="${{name}}"/>
+                                    <span class="rank-badge">#${{rank}}</span>
                                 </div>
-                                <div style="font-size:0.72rem; color:#64748b;">평점 ${{rating}} (${{reviews}}개 리뷰)</div>
-                            </div>
+                                <div class="product-info">
+                                    <div class="brand-name">${{brand}}</div>
+                                    <div class="product-name" title="${{name}}">${{name}}</div>
+                                    <div class="price-wrap">
+                                        <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
+                                        ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
+                                        ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
+                                    </div>
+                                    <div style="font-size:0.72rem; color:#64748b;">평점 ${{rating}} (${{reviews}}개 리뷰)</div>
+                                </div>
+                            </a>
                         </div>
                         <div style="padding:0 12px 12px 12px;">
                             <div class="badge-chip-container"><span class="badge-chip-item">매칭 키워드:</span>${{kwChips}}</div>
@@ -1104,16 +1146,20 @@ html_content = f"""
             }}).join('');
         }}
 
-        function renderProductTable(products) {{
+        function renderProductTable(products, currentKw) {{
             const tbody = document.getElementById('productTableBody');
             if (products.length === 0) {{
                 tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
                 return;
             }}
 
+            const kw = currentKw || currentKeyword;
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = prd.prdNo || prd.product_no || prd.id || '-';
+                const prdUrl = prd.prd_url || (prdNo !== '-' ? `https://halfclub.com/product/${{prdNo}}` : '#');
+                const hasPrdUrl = prdUrl && prdUrl !== '#';
+
                 const brand = prd.brandNm || prd.brdNm || prd.brand || '-';
                 const name = prd.prdNm || prd.name || '-';
                 
@@ -1125,7 +1171,10 @@ html_content = f"""
                 const nrmPrc = rawNrmPrc ? `${{rawNrmPrc.toLocaleString()}}원` : '-';
                 const discRt = rawDiscRt ? `${{rawDiscRt}}%` : '-';
 
-                const matchedKws = (prd.matched_keywords || []).join(', ');
+                const matchedKws = (prd.matched_keywords || []).map(k => {{
+                    const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:600;">${{k}}</a>`;
+                }}).join(', ');
                 const rating = prd.reviewStar || prd.avgPoint || 0.0;
                 const reviews = prd.reviewQty || prd.revCnt || 0;
                 const ratingRev = `${{rating}} (${{reviews}})`;
@@ -1135,13 +1184,13 @@ html_content = f"""
                 return `
                     <tr>
                         <td style="font-weight:700;">#${{rank}}</td>
-                        <td>${{prdNo}}</td>
+                        <td>${{hasPrdUrl ? `<a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:700;">${{prdNo}} ↗</a>` : prdNo}}</td>
                         <td style="font-weight:600;">${{brand}}</td>
-                        <td>${{name}}</td>
+                        <td>${{hasPrdUrl ? `<a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#0f172a; text-decoration:none;">${{name}}</a>` : name}}</td>
                         <td style="font-weight:700; color:#0f172a;">${{salePrc}}</td>
                         <td style="color:#94a3b8; text-decoration:line-through;">${{nrmPrc}}</td>
                         <td style="color:#ef4444; font-weight:700;">${{discRt}}</td>
-                        <td>${{matchedKws}}</td>
+                        <td>${{matchedKws || '-'}}</td>
                         <td>${{ratingRev}}</td>
                         <td>${{cat}}</td>
                     </tr>
