@@ -878,16 +878,32 @@ html_content = f"""
             const siteCd = document.getElementById('siteCdSelect').value || '1';
             const size = document.getElementById('sizeInput')?.value || '50';
             currentApiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+            const brandFilterUrl = `https://hapix.halfclub.com/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
 
             try {{
-                const response = await fetch(currentApiUrl);
-                if (!response.ok) {{
-                    throw new Error(`API HTTP Error: ${{response.status}}`);
+                // 1) 추천 API 및 사내 브랜드 필터 API 병렬 조회
+                const [recRes, brandRes] = await Promise.allSettled([
+                    fetch(currentApiUrl),
+                    fetch(brandFilterUrl)
+                ]);
+
+                if (recRes.status !== 'fulfilled' || !recRes.value.ok) {{
+                    throw new Error(`API HTTP Error: ${{recRes.status === 'fulfilled' ? recRes.value.status : recRes.reason}}`);
                 }}
-                const data = await response.json();
+                const data = await recRes.value.json();
                 currentRawData = data;
 
-                renderDashboardData(data, kw);
+                let brandFilterList = [];
+                if (brandRes.status === 'fulfilled' && brandRes.value.ok) {{
+                    try {{
+                        const bData = await brandRes.value.json();
+                        brandFilterList = bData?.data?.aggregations?.brand || [];
+                    }} catch (e) {{
+                        console.warn('Brand filter parse failed:', e);
+                    }}
+                }}
+
+                renderDashboardData(data, kw, brandFilterList);
             }} catch (err) {{
                 document.getElementById('guideTextBody').innerHTML = `
                     <div style="color:#ef4444; font-weight:700; font-size:0.85rem;">API 호출 실패: ${{err.message}}</div>
@@ -905,7 +921,7 @@ html_content = f"""
             }}
         }}
 
-        function renderDashboardData(data, kw) {{
+        function renderDashboardData(data, kw, brandFilterList = []) {{
             const llmInfo = data.llm_info || {{}};
             const reason = data.noshow_reason || llmInfo.noshow_reason || '';
 
@@ -929,7 +945,21 @@ html_content = f"""
             const cachedTokens = (usage1.cached_tokens || 0) + (usage2.cached_tokens || 0);
             const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0);
 
-            document.getElementById('tokenUsageText').textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} / Cached: ${{cachedTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
+            const elemReq = document.getElementById('reqTokensText');
+            const elemRes = document.getElementById('resTokensText');
+            const elemCached = document.getElementById('cachedTokensText');
+            const elemTot = document.getElementById('totalTokensText');
+
+            if (elemReq) elemReq.textContent = reqTokens ? reqTokens.toLocaleString() : '-';
+            if (elemRes) elemRes.textContent = resTokens ? resTokens.toLocaleString() : '-';
+            if (elemCached) elemCached.textContent = cachedTokens ? cachedTokens.toLocaleString() : '-';
+            if (elemTot) elemTot.textContent = totTokens ? totTokens.toLocaleString() : '-';
+
+            // 키워드 타이틀
+            const elemTitle = document.getElementById('targetKeywordTitle');
+            if (elemTitle) {{
+                elemTitle.textContent = kw;
+            }}
 
             const brandFilter = data.enable_brand_filter ?? llmInfo.enable_brand_filter;
             const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
@@ -999,6 +1029,16 @@ html_content = f"""
 
             // 브랜드명 -> 브랜드코드(brandCd) 매핑 사전 구축
             const brandToCodeMap = {{}};
+            // 1) 사내 브랜드 필터 API 결과에서 1차 매핑
+            brandFilterList.forEach(b => {{
+                const bNm = (b.name || b.brandNm || b.key || '').trim();
+                const bCd = (b.code || b.brandCd || b.brdCd || '').trim();
+                if (bNm && bCd) {{
+                    brandToCodeMap[bNm.toLowerCase()] = bCd;
+                    brandToCodeMap[bNm] = bCd;
+                }}
+            }});
+            // 2) 상품 리스트(products)에서 2차 보강 매핑
             products.forEach(p => {{
                 const bNm = (p.brandNm || p.brdNm || p.brand || '').trim();
                 const bCd = (p.brandCd || p.brdCd || p.brandCode || '').trim();
@@ -1007,6 +1047,7 @@ html_content = f"""
                     brandToCodeMap[bNm] = bCd;
                 }}
             }});
+            // 3) internal_signals 내 브랜드에서 3차 보강 매핑
             const v2Brands = data.internal_signals?.v2_brands || data.v2_brands || [];
             v2Brands.forEach(b => {{
                 const bNm = (b.name || b.brandNm || '').trim();
@@ -1018,14 +1059,37 @@ html_content = f"""
             }});
 
             // 브랜드 / 키워드 추출 칩 (하프클럽 공식 검색 / 브랜드 필터 링크 연동)
-            const brandChips = extBrands.map(b => {{
+            const brandChips = extBrands.map((b, bIdx) => {{
                 const bClean = (typeof b === 'object' ? b.name : b).trim();
-                const bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
+                let bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
+                
+                const chipId = `brandChip_${{bIdx}}`;
                 const searchUrl = bCode 
                     ? `https://halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(bCode)}}`
                     : `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + bClean)}}`;
                 const titleText = bCode ? `하프클럽 브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `하프클럽에서 '${{kw}} ${{bClean}}' 검색`;
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="${{titleText}}">${{bClean}} ↗</a>`;
+
+                // 만약 코드가 없으면 비동기 단건 조회로 실시간 코드 보정
+                if (!bCode) {{
+                    fetch(`https://hapix.halfclub.com/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
+                        .then(r => r.json())
+                        .then(resData => {{
+                            const hits = resData?.data?.result?.hits?.hits;
+                            if (hits && hits.length > 0) {{
+                                const foundCd = hits[0]?._source?.brandCd;
+                                if (foundCd) {{
+                                    const chipEl = document.getElementById(chipId);
+                                    if (chipEl) {{
+                                        chipEl.href = `https://halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(foundCd)}}`;
+                                        chipEl.title = `하프클럽 브랜드 필터 '${{bClean}}' (${{foundCd}}) 적용 검색`;
+                                    }}
+                                }}
+                            }}
+                        }})
+                        .catch(() => {{}});
+                }}
+
+                return `<a id="${{chipId}}" href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="${{titleText}}">${{bClean}} ↗</a>`;
             }}).join('');
 
             const kwChips = extKws.map(k => {{
