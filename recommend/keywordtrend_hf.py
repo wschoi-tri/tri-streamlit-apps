@@ -698,11 +698,16 @@ html_content = f"""
 
                 const action = pushHistory ? 'pushState' : 'replaceState';
 
-                // 1. Streamlit 부모 창 (window.parent) 히스토리 실시간 갱신 (뒤로가기/앞으로가기 및 새로고침 완벽 동기화)
+                // 1. Streamlit 부모 창 (window.parent) 히스토리 실시간 갱신
                 try {{
                     if (window.parent && window.parent.history && window.parent.history[action]) {{
-                        const parentPath = window.parent.location.pathname || '/';
-                        window.parent.history[action]({{ keyword: kw, tab: tab }}, '', parentPath + queryStr);
+                        let targetPath = queryStr;
+                        try {{
+                            if (window.parent.location && window.parent.location.pathname) {{
+                                targetPath = window.parent.location.pathname + queryStr;
+                            }}
+                        }} catch (err) {{}}
+                        window.parent.history[action]({{ keyword: kw, tab: tab }}, '', targetPath);
                         return;
                     }}
                 }} catch (e) {{}}
@@ -710,8 +715,13 @@ html_content = f"""
                 // 2. 최상위 창 (window.top) 히스토리 갱신 시도
                 try {{
                     if (window.top && window.top.history && window.top.history[action]) {{
-                        const topPath = window.top.location.pathname || '/';
-                        window.top.history[action]({{ keyword: kw, tab: tab }}, '', topPath + queryStr);
+                        let targetPath = queryStr;
+                        try {{
+                            if (window.top.location && window.top.location.pathname) {{
+                                targetPath = window.top.location.pathname + queryStr;
+                            }}
+                        }} catch (err) {{}}
+                        window.top.history[action]({{ keyword: kw, tab: tab }}, '', targetPath);
                         return;
                     }}
                 }} catch (e) {{}}
