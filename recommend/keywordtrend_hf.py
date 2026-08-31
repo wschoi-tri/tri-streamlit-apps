@@ -689,44 +689,73 @@ html_content = f"""
             return {{ keyword: kw, tab: tab }};
         }}
 
-        function updateUrlQuery(kw, tab) {{
+        function updateUrlQuery(kw, tab, pushHistory = true) {{
             try {{
-                const targetUrl = `/?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                const searchParams = new URLSearchParams();
+                if (kw) searchParams.set('keyword', kw);
+                if (tab) searchParams.set('tab', tab);
+                const queryStr = '?' + searchParams.toString();
+
+                const action = pushHistory ? 'pushState' : 'replaceState';
+
+                // 1. Streamlit 부모 창 (window.parent) 히스토리 실시간 갱신 (뒤로가기/앞으로가기 및 새로고침 완벽 동기화)
                 try {{
-                    if (window.parent && window.parent.location) {{
-                        window.parent.location.search = `?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                    if (window.parent && window.parent.history && window.parent.history[action]) {{
+                        const parentPath = window.parent.location.pathname || '/';
+                        window.parent.history[action]({{ keyword: kw, tab: tab }}, '', parentPath + queryStr);
                         return;
                     }}
                 }} catch (e) {{}}
 
+                // 2. 최상위 창 (window.top) 히스토리 갱신 시도
                 try {{
-                    if (window.top && window.top.location) {{
-                        window.top.location.search = `?keyword=${{encodeURIComponent(kw)}}&tab=${{encodeURIComponent(tab)}}`;
+                    if (window.top && window.top.history && window.top.history[action]) {{
+                        const topPath = window.top.location.pathname || '/';
+                        window.top.history[action]({{ keyword: kw, tab: tab }}, '', topPath + queryStr);
                         return;
                     }}
                 }} catch (e) {{}}
 
-                window.open(targetUrl, '_top');
+                // 3. iframe 자체 히스토리 갱신 (Fallback)
+                if (window.history && window.history[action]) {{
+                    window.history[action]({{ keyword: kw, tab: tab }}, '', queryStr);
+                }}
             }} catch (e) {{
-                // Fallback
+                console.error('URL update error:', e);
             }}
         }}
+
+        function handlePopState(e) {{
+            const params = getInitialParams();
+            const targetKw = (e && e.state && e.state.keyword) || params.keyword;
+            const targetTab = (e && e.state && e.state.tab) || params.tab;
+
+            if (targetTab !== currentTab) {{
+                switchViewTab(targetTab, false);
+            }}
+            if (targetKw !== currentKeyword) {{
+                selectKeyword(targetKw, false, false);
+            }}
+        }}
+
+        // 부모 창 및 현재 iframe 모두에 popstate 이벤트 리스너 등록
+        try {{
+            if (window.parent && window.parent !== window) {{
+                window.parent.addEventListener('popstate', handlePopState);
+            }}
+        }} catch (e) {{}}
+        try {{
+            if (window.top && window.top !== window && window.top !== window.parent) {{
+                window.top.addEventListener('popstate', handlePopState);
+            }}
+        }} catch (e) {{}}
+        window.addEventListener('popstate', handlePopState);
 
         if (document.readyState === 'loading') {{
             document.addEventListener('DOMContentLoaded', initApp);
         }} else {{
             initApp();
         }}
-
-        window.addEventListener('popstate', () => {{
-            const params = getInitialParams();
-            if (params.tab !== currentTab) {{
-                switchViewTab(params.tab, false);
-            }}
-            if (params.keyword !== currentKeyword) {{
-                selectKeyword(params.keyword, false);
-            }}
-        }});
 
         function initApp() {{
             const initData = getInitialParams();
@@ -737,6 +766,9 @@ html_content = f"""
             setupEventListeners();
             switchViewTab(currentTab, false);
             selectKeyword(currentKeyword, false, false);
+
+            // 초기 로딩 시 현재 URL에 쿼리가 없으면 replaceState로 동기화
+            updateUrlQuery(currentKeyword, currentTab, false);
         }}
 
         let displayedKeywords = allKeywords;
