@@ -398,6 +398,7 @@ html_content = f"""
         .badge-gray {{ background: #f1f5f9; color: #475569; }}
         .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
         .badge-media {{ background: #e0f2fe; color: #0369a1; font-weight: 700; }}
+        .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
         
         /* 데이터 테이블 */
         .data-table {{
@@ -518,6 +519,7 @@ html_content = f"""
                     <div class="guide-text" id="guideTextBody">데이터를 불러오는 중입니다...</div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:8px;" id="extractedBrandsWrap"></div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedSearchKeywordsWrap"></div>
                     
                     <!-- 참고 뉴스 기사 5건 목록 -->
                     <div style="margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0;" id="articlesWrapper">
@@ -1065,11 +1067,13 @@ html_content = f"""
             if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
 
             let guideText = data.guide_text || data.guide_text_html || '';
-            const extKws = data.extracted_keywords || [];
-            const extBrands = data.extracted_brands || [];
+            const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
+            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.stage1_guide_generation?.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
+            const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
 
-            if (extKws.length > 0) {{
-                const sortedKws = [...extKws, kw].sort((a, b) => b.length - a.length);
+            const allHighlightKws = [...new Set([...extKws, ...extSearchKws, kw])];
+            if (allHighlightKws.length > 0) {{
+                const sortedKws = allHighlightKws.sort((a, b) => b.length - a.length);
                 sortedKws.forEach(k => {{
                     if (k && k.trim()) {{
                         const cleanKw = k.trim().replace(/\\s+/g, '');
@@ -1105,9 +1109,9 @@ html_content = f"""
 
             document.getElementById('guideTextBody').innerHTML = guideText || '가이드 문구가 없습니다.';
 
-            const catTag = data.extracted_category || '기본';
-            const genTag = data.extracted_gender || '공용';
-            const seasonVal = data.extracted_season || ['사계절'];
+            const catTag = data.extracted_category || stage1.guide_result?.extracted_category || '기본';
+            const genTag = data.extracted_gender || stage1.guide_result?.extracted_gender || '공용';
+            const seasonVal = data.extracted_season || stage1.guide_result?.extracted_season || ['사계절'];
             const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(', ') : seasonVal;
 
             document.getElementById('extractedTagsHeader').innerHTML = `
@@ -1182,6 +1186,11 @@ html_content = f"""
                 return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
             }}).join('');
 
+            const searchKwChips = extSearchKws.map(k => {{
+                const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
+
             document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                     <span style="flex-shrink:0; font-weight:700;">추출 브랜드:</span>
@@ -1193,6 +1202,13 @@ html_content = f"""
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
                     <span style="flex-shrink:0; font-weight:700;">추출 키워드:</span>
                     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{kwChips}}</div>
+                </div>
+            ` : '';
+
+            document.getElementById('extractedSearchKeywordsWrap').innerHTML = searchKwChips ? `
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                    <span style="flex-shrink:0; font-weight:700;">검색 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{searchKwChips}}</div>
                 </div>
             ` : '';
 
