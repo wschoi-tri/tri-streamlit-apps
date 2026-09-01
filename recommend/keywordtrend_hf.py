@@ -204,6 +204,10 @@ html_content = f"""
             font-size: 1.35rem;
             font-weight: 800;
             color: #0f172a;
+            transition: color 0.15s ease;
+        }}
+        .navbar-title:hover, .navbar-title:hover span {{
+            color: #2563eb !important;
         }}
         .dashboard-body {{
             padding: 24px 28px;
@@ -451,7 +455,12 @@ html_content = f"""
         <main class="main-content">
             <header class="top-navbar" style="display:flex; align-items:center; justify-content:space-between; padding-bottom:14px;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0;">가디건</h1>
+                    <a id="currentKeywordTitleLink" href="https://halfclub.com/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
+                        <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            <span id="currentKeywordText">가디건</span>
+                            <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
+                        </h1>
+                    </a>
                     <span style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; padding:3px 12px; border-radius:9999px;">키워드 트렌드 추천</span>
                     <button id="btnCopyUrl" onclick="copyCurrentUrl()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer;" title="현재 키워드 URL 링크 복사">URL 복사</button>
                 </div>
@@ -812,6 +821,13 @@ html_content = f"""
                 }});
             }}
 
+            const siteSelect = document.getElementById('siteCdSelect');
+            if (siteSelect) {{
+                siteSelect.addEventListener('change', () => {{
+                    updateHeaderKeyword(currentKeyword);
+                }});
+            }}
+
             const btnFetch = document.getElementById('btnFetch');
             if (btnFetch) {{
                 btnFetch.addEventListener('click', () => {{
@@ -895,6 +911,22 @@ html_content = f"""
             }});
         }}
 
+        function updateHeaderKeyword(kw) {{
+            const txtEl = document.getElementById('currentKeywordText');
+            if (txtEl) txtEl.textContent = kw;
+            const titleEl = document.getElementById('currentKeywordTitle');
+            if (titleEl && !txtEl) titleEl.textContent = kw;
+
+            const linkEl = document.getElementById('currentKeywordTitleLink');
+            if (linkEl) {{
+                const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+                const searchBase = siteCd === '2' ? 'https://boribori.co.kr/search/' : 'https://halfclub.com/search/';
+                const siteName = siteCd === '2' ? '보리보리' : '하프클럽';
+                linkEl.href = searchBase + encodeURIComponent(kw);
+                linkEl.title = `${{siteName}}에서 '${{kw}}' 검색 (새 탭 이동)`;
+            }}
+        }}
+
         function selectKeyword(kw, updateUrl = true, resetTab = true) {{
             currentKeyword = kw;
             let activeElem = null;
@@ -913,7 +945,7 @@ html_content = f"""
                 activeElem.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
             }}
 
-            document.getElementById('currentKeywordTitle').textContent = kw;
+            updateHeaderKeyword(kw);
 
             if (resetTab) {{
                 switchViewTab('grid', false);
