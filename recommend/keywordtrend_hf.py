@@ -1193,7 +1193,7 @@ html_content = f"""
 
             document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <span style="flex-shrink:0; font-weight:700;">추출 브랜드:</span>
+                    <span style="flex-shrink:0; font-weight:700;">대상 브랜드:</span>
                     <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{brandChips}}</div>
                 </div>
             ` : '';
