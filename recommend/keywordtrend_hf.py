@@ -117,6 +117,12 @@ html_content = f"""
         .sidebar-header {{
             padding: 16px 18px;
             border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            user-select: none;
+        }}
+        .sidebar-header:hover {{
+            background-color: #f8fafc;
         }}
         .sidebar-title {{
             font-size: 1.05rem;
@@ -429,7 +435,7 @@ html_content = f"""
     <div class="app-container">
         <!-- 좌측 키워드 사이드바 -->
         <aside class="sidebar">
-            <div class="sidebar-header">
+            <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 이동 (새로고침)">
                 <div class="sidebar-title">
                     <span>타겟 키워드 목록</span>
                     <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="keywordCountBadge">0</span>
@@ -662,6 +668,29 @@ html_content = f"""
         let currentRawData = null;
         let currentApiUrl = '';
         let displayedKeywords = allKeywords;
+
+        function goToDefaultPage() {{
+            try {{
+                if (window.top && window.top.location) {{
+                    window.top.location.href = window.top.location.origin + window.top.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
+
+            try {{
+                if (window.parent && window.parent.location) {{
+                    window.parent.location.href = window.parent.location.origin + window.parent.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
+
+            const searchInput = document.getElementById('keywordSearchInput');
+            if (searchInput) searchInput.value = '';
+            renderKeywordList(allKeywords);
+            const defaultKw = allKeywords[0] || '가디건';
+            switchViewTab('grid', false);
+            selectKeyword(defaultKw, true, true);
+        }}
 
         function copyCurrentUrl() {{
             const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
