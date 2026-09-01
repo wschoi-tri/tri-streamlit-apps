@@ -57,10 +57,17 @@ def load_keywords():
 keywords_list = load_keywords()
 keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
 
-# 4. URL 쿼리 파라미터 읽기 (초기 접속 / 새로고침 / URL 직접 공유 완벽 지원)
+import urllib.parse
+
+# 4. URL 쿼리 파라미터 읽기 (URL 디코딩 및 대소문자/한글 완벽 지원)
 qp = st.query_params
-initial_kw = qp.get("keyword", keywords_list[0] if keywords_list else "가디건")
-if initial_kw not in keywords_list:
+raw_kw = qp.get("keyword", "")
+if raw_kw:
+    raw_kw = urllib.parse.unquote(str(raw_kw)).strip()
+
+if raw_kw and raw_kw in keywords_list:
+    initial_kw = raw_kw
+else:
     initial_kw = keywords_list[0] if keywords_list else "가디건"
 
 initial_tab = qp.get("tab", "grid")
@@ -710,6 +717,32 @@ html_content = f"""
             }} catch (e) {{}}
         }}
 
+        function getInitialState() {{
+            let kw = {initial_keyword_json};
+            let tab = {initial_tab_json};
+
+            // 부모 또는 최상단 창의 주소창에서 keyword/tab 파라미터 직접 추출 시도
+            try {{
+                const searchStr = (window.parent && window.parent.location && window.parent.location.search) ? window.parent.location.search :
+                                  (window.top && window.top.location && window.top.location.search) ? window.top.location.search :
+                                  window.location.search;
+                if (searchStr) {{
+                    const params = new URLSearchParams(searchStr);
+                    const pKw = params.get('keyword');
+                    const pTab = params.get('tab');
+                    if (pKw) {{
+                        const decodedKw = decodeURIComponent(pKw).trim();
+                        if (allKeywords.includes(decodedKw)) kw = decodedKw;
+                    }}
+                    if (pTab && ['grid', 'table', 'raw', 'prompt'].includes(pTab)) {{
+                        tab = pTab;
+                    }}
+                }}
+            }} catch (e) {{}}
+
+            return {{ kw, tab }};
+        }}
+
         if (document.readyState === 'loading') {{
             document.addEventListener('DOMContentLoaded', initApp);
         }} else {{
@@ -717,6 +750,10 @@ html_content = f"""
         }}
 
         function initApp() {{
+            const initState = getInitialState();
+            currentKeyword = initState.kw;
+            currentTab = initState.tab;
+
             renderKeywordList(allKeywords);
             setupEventListeners();
             switchViewTab(currentTab, false);
