@@ -1073,6 +1073,10 @@ html_content = f"""
             // API 응답 데이터의 guide_text_html을 그대로 단독 표시
             let guideText = data.guide_text_html || '';
 
+            const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
+            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.stage1_guide_generation?.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
+            const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
+
             if (reason) {{
                 guideText = `
                     <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:16px 20px; border-radius:8px; line-height:1.6; margin-bottom:12px;">
