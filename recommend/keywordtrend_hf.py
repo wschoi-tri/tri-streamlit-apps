@@ -1134,8 +1134,8 @@ html_content = f"""
                 
                 const chipId = `brandChip_${{bIdx}}`;
                 const searchUrl = bCode 
-                    ? `https://halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(bCode)}}`
-                    : `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + bClean)}}`;
+                    ? `https://dev.halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(bCode)}}`
+                    : `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + bClean)}}`;
                 const titleText = bCode ? `하프클럽 브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `하프클럽에서 '${{kw}} ${{bClean}}' 검색`;
 
                 if (!bCode) {{
@@ -1148,7 +1148,7 @@ html_content = f"""
                                 if (foundCd) {{
                                     const chipEl = document.getElementById(chipId);
                                     if (chipEl) {{
-                                        chipEl.href = `https://halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(foundCd)}}`;
+                                        chipEl.href = `https://dev.halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(foundCd)}}`;
                                         chipEl.title = `하프클럽 브랜드 필터 '${{bClean}}' (${{foundCd}}) 적용 검색`;
                                     }}
                                 }}
@@ -1161,12 +1161,12 @@ html_content = f"""
             }}).join('');
 
             const kwChips = extKws.map(k => {{
-                const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
                 return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
             }}).join('');
 
             const searchKwChips = extSearchKws.map(k => {{
-                const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
                 return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
             }}).join('');
 
@@ -1255,7 +1255,7 @@ html_content = f"""
                 }}
 
                 const kwChips = matchedKws.map(k => {{
-                    const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                    const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
                     return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
                 }}).join('');
                 const badgesHtml = renderBadgesHtml(prd);
