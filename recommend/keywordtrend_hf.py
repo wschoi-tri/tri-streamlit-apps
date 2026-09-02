@@ -463,7 +463,7 @@ html_content = f"""
         <main class="main-content">
             <header class="top-navbar" style="display:flex; align-items:center; justify-content:space-between; padding-bottom:14px;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <a id="currentKeywordTitleLink" href="https://halfclub.com/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
+                    <a id="currentKeywordTitleLink" href="https://dev.halfclub.com/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
                         <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
                             <span id="currentKeywordText">가디건</span>
                             <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
@@ -929,7 +929,7 @@ html_content = f"""
             const linkEl = document.getElementById('currentKeywordTitleLink');
             if (linkEl) {{
                 const siteCd = document.getElementById('siteCdSelect')?.value || '1';
-                const searchBase = siteCd === '2' ? 'https://boribori.co.kr/search/' : 'https://halfclub.com/search/';
+                const searchBase = siteCd === '2' ? 'https://dev.boribori.co.kr/search/' : 'https://dev.halfclub.com/search/';
                 const siteName = siteCd === '2' ? '보리보리' : '하프클럽';
                 linkEl.href = searchBase + encodeURIComponent(kw);
                 linkEl.title = `${{siteName}}에서 '${{kw}}' 검색 (새 탭 이동)`;
@@ -1315,7 +1315,7 @@ html_content = f"""
                 const discRt = rawDiscRt ? `${{rawDiscRt}}%` : '-';
 
                 const matchedKws = (prd.matched_keywords || []).map(k => {{
-                    const searchUrl = `https://halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                    const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
                     return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:600;">${{k}}</a>`;
                 }}).join(', ');
                 const rating = prd.reviewStar || prd.avgPoint || 0.0;
