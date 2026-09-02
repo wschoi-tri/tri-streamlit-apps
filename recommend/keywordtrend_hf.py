@@ -246,17 +246,24 @@ html_content = f"""
             color: #0f172a;
         }}
         .guide-text {{
-            font-size: 0.93rem;
-            line-height: 1.65;
-            color: #334155;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #1e293b;
             margin-bottom: 14px;
         }}
+        .guide-text b,
+        .guide-text strong,
+        #guideTextBody b,
+        #guideTextBody strong,
         .highlight-kw {{
-            background-color: #fef08a;
+            background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
             color: #854d0e;
-            padding: 2px 5px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-weight: 700;
+            font-weight: 800;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            border-bottom: 2px solid #eab308;
+            display: inline-block;
         }}
         
         /* 탭 서식 */
@@ -1042,18 +1049,15 @@ html_content = f"""
                 }}
             }}
 
-            const brandFilter = data.enable_brand_filter ?? llmInfo.enable_brand_filter;
             const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
             const genFilter = data.enable_gender_filter ?? llmInfo.enable_gender_filter;
 
-            const bBrand = brandFilter === true ? 'ON' : 'OFF';
             const bCat = catFilter === true ? 'ON' : 'OFF';
             const bGen = genFilter === true ? 'ON' : 'OFF';
 
             const elemFilter = document.getElementById('filterBadgesText');
             if (elemFilter) {{
                 elemFilter.innerHTML = `
-                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">브랜드: ${{bBrand}}</span>
                     <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ${{bCat}}</span>
                     <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ${{bGen}}</span>
                 `;
@@ -1066,37 +1070,8 @@ html_content = f"""
             const elemUpdateDt = document.getElementById('updateDtText');
             if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
 
-            let guideText = data.guide_text || data.guide_text_html || '';
-            const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
-            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.stage1_guide_generation?.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
-            const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
-
-            const allHighlightKws = [...new Set([...extKws, ...extSearchKws, kw])];
-            if (allHighlightKws.length > 0) {{
-                const sortedKws = allHighlightKws.sort((a, b) => b.length - a.length);
-                sortedKws.forEach(k => {{
-                    if (k && k.trim()) {{
-                        const cleanKw = k.trim().replace(/\\s+/g, '');
-                        if (cleanKw) {{
-                            let escapedPattern = '';
-                            const specialChars = '.*+?^${{}}()|[]\\\\';
-                            for (let ci = 0; ci < cleanKw.length; ci++) {{
-                                const ch = cleanKw[ci];
-                                if (specialChars.indexOf(ch) !== -1) {{
-                                    escapedPattern += '\\\\' + ch;
-                                }} else {{
-                                    escapedPattern += ch;
-                                }}
-                                if (ci < cleanKw.length - 1) {{
-                                    escapedPattern += '\\\\s*';
-                                }}
-                            }}
-                            const reg = new RegExp(`(${{escapedPattern}})`, 'gi');
-                            guideText = guideText.replace(reg, '<strong class="highlight-kw">$1</strong>');
-                        }}
-                    }}
-                }});
-            }}
+            // API 응답 데이터의 guide_text_html을 그대로 단독 표시
+            let guideText = data.guide_text_html || '';
 
             if (reason) {{
                 guideText = `
