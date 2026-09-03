@@ -1157,19 +1157,6 @@ html_content = f"""
         }}
 
         function setupEventListeners() {{
-            const searchInput = document.getElementById('typeSearchInput');
-            if (searchInput) {{
-                searchInput.addEventListener('input', (e) => {{
-                    const q = e.target.value.trim().toLowerCase();
-                    const filtered = ML_TYPES_LIST.filter(m => 
-                        m.name.toLowerCase().includes(q) || 
-                        m.id.toLowerCase().includes(q) || 
-                        m.desc.toLowerCase().includes(q)
-                    );
-                    renderTypeList(filtered);
-                }});
-            }}
-
             const directInput = document.getElementById('directPrdInput');
             if (directInput) {{
                 directInput.addEventListener('keydown', (e) => {{
@@ -1178,9 +1165,8 @@ html_content = f"""
             }}
         }}
 
-        function renderTypeList(typesToRender = null) {{
-            const list = typesToRender || ML_TYPES_LIST;
-            displayedTypes = list;
+        function renderTypeList() {{
+            const list = ML_TYPES_LIST;
             const container = document.getElementById('typeList');
             const badge = document.getElementById('typeCountBadge');
             if (badge) badge.textContent = list.length;
@@ -1206,11 +1192,11 @@ html_content = f"""
                 li.addEventListener('keydown', (e) => {{
                     if (e.key === 'ArrowDown') {{
                         e.preventDefault();
-                        if (idx + 1 < displayedTypes.length) {{
+                        if (idx + 1 < list.length) {{
                             const nextLi = container.children[idx + 1];
                             if (nextLi) {{
                                 nextLi.focus();
-                                selectMlType(displayedTypes[idx + 1].id);
+                                selectMlType(list[idx + 1].id);
                             }}
                         }}
                     }} else if (e.key === 'ArrowUp') {{
@@ -1219,10 +1205,8 @@ html_content = f"""
                             const prevLi = container.children[idx - 1];
                             if (prevLi) {{
                                 prevLi.focus();
-                                selectMlType(displayedTypes[idx - 1].id);
+                                selectMlType(list[idx - 1].id);
                             }}
-                        }} else {{
-                            document.getElementById('typeSearchInput')?.focus();
                         }}
                     }} else if (e.key === 'Enter' || e.key === ' ') {{
                         e.preventDefault();
