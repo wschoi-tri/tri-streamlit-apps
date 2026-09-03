@@ -330,7 +330,7 @@ html_content = f"""
         }}
         .tab-btn:hover {{
             color: #0f172a;
-            background: #f1f5f9;
+            background: transparent;
         }}
         .tab-btn.active {{
             color: #2563eb;
@@ -365,11 +365,11 @@ html_content = f"""
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }}
         .product-card:hover {{
-            transform: translateY(-3px);
-            box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px #3b82f6;
+            border-color: #94a3b8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
         }}
         .product-img-wrap {{
             position: relative;
@@ -383,10 +383,6 @@ html_content = f"""
             height: 100%;
             object-fit: cover;
             object-position: center;
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }}
-        .product-card:hover .product-img {{
-            transform: scale(1.06);
         }}
         .rank-badge {{
             position: absolute;
