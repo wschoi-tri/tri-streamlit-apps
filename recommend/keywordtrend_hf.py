@@ -457,6 +457,72 @@ html_content = f"""
         .json-number {{ color: #fb923c !important; font-weight: 700; }}
         .json-boolean {{ color: #c084fc !important; font-weight: 700; }}
         .json-null {{ color: #f43f5e !important; font-weight: 700; }}
+
+        /* JSON 트리 접기/펼치기 전용 스타일 */
+        .json-node-collapsible {{
+            display: inline;
+        }}
+        .json-toggle {{
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 13px;
+            font-size: 9px;
+            color: #94a3b8;
+            vertical-align: middle;
+            transition: color 0.15s ease;
+        }}
+        .json-toggle:hover {{
+            color: #38bdf8;
+        }}
+        .json-bracket {{
+            color: #cbd5e1;
+            font-weight: bold;
+        }}
+        .json-colon {{
+            color: #94a3b8;
+        }}
+        .json-comma {{
+            color: #64748b;
+        }}
+        .json-children {{
+            padding-left: 18px;
+            border-left: 1px dotted #334155;
+            margin-left: 4px;
+        }}
+        .json-node-row {{
+            line-height: 1.55;
+            word-break: break-all;
+        }}
+        .json-collapsed-text {{
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 3px;
+        }}
+        .json-collapsed-text:hover {{
+            background: #334155;
+            color: #f8fafc;
+        }}
+        .json-ctrl-btn {{
+            background: #334155;
+            color: #f8fafc;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }}
+        .json-ctrl-btn:hover {{
+            background: #475569;
+        }}
     </style>
 </head>
 <body>
@@ -633,12 +699,16 @@ html_content = f"""
                             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
-                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
                                 </div>
-                                <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage1')">전체 접기</button>
+                                    <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
                             <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptResultStage1"></code></pre>
+                                <div id="promptResultStage1" class="json-tree-container"></div>
                             </div>
                         </div>
                     </div>
@@ -681,12 +751,16 @@ html_content = f"""
                             <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
-                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
                                 </div>
-                                <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage2')">전체 접기</button>
+                                    <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
                             <div style="padding:14px 16px; background:#0f172a; max-height:400px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptResultStage2"></code></pre>
+                                <div id="promptResultStage2" class="json-tree-container"></div>
                             </div>
                         </div>
                     </div>
@@ -1363,12 +1437,17 @@ html_content = f"""
             }}).join('');
         }}
 
+        let promptResDataMap = {{}};
+
         function renderPromptInspector(stage1, stage2) {{
+            promptResDataMap = {{}};
+
             const p1Sys = stage1.prompt_info?.system_prompt;
             const cardSys1 = document.getElementById('cardSysStage1');
             const elemSys1 = document.getElementById('promptSysStage1');
             if (p1Sys && elemSys1) {{
                 if (cardSys1) cardSys1.style.display = 'block';
+                promptResDataMap['promptSysStage1'] = p1Sys;
                 elemSys1.innerHTML = highlightJsonHtml(p1Sys, true);
             }}
 
@@ -1377,6 +1456,7 @@ html_content = f"""
             const elemUser1 = document.getElementById('promptUserStage1');
             if (p1User && elemUser1) {{
                 if (cardUser1) cardUser1.style.display = 'block';
+                promptResDataMap['promptUserStage1'] = p1User;
                 elemUser1.innerHTML = highlightJsonHtml(p1User, true);
             }} else if (cardUser1) {{
                 cardUser1.style.display = 'none';
@@ -1387,7 +1467,8 @@ html_content = f"""
             const elemRes1 = document.getElementById('promptResultStage1');
             if (res1 && elemRes1) {{
                 if (cardRes1) cardRes1.style.display = 'block';
-                elemRes1.innerHTML = highlightJsonHtml(res1, true);
+                promptResDataMap['promptResultStage1'] = res1;
+                elemRes1.innerHTML = renderJsonTree(res1, true);
             }} else if (cardRes1) {{
                 cardRes1.style.display = 'none';
             }}
@@ -1397,6 +1478,7 @@ html_content = f"""
             const elemSys2 = document.getElementById('promptSysStage2');
             if (p2Sys && elemSys2) {{
                 if (cardSys2) cardSys2.style.display = 'block';
+                promptResDataMap['promptSysStage2'] = p2Sys;
                 elemSys2.innerHTML = highlightJsonHtml(p2Sys, true);
             }}
 
@@ -1405,6 +1487,7 @@ html_content = f"""
             const elemUser2 = document.getElementById('promptUserStage2');
             if (p2User && elemUser2) {{
                 if (cardUser2) cardUser2.style.display = 'block';
+                promptResDataMap['promptUserStage2'] = p2User;
                 elemUser2.innerHTML = highlightJsonHtml(p2User, true);
             }} else if (cardUser2) {{
                 cardUser2.style.display = 'none';
@@ -1415,10 +1498,119 @@ html_content = f"""
             const elemRes2 = document.getElementById('promptResultStage2');
             if (res2 && elemRes2) {{
                 if (cardRes2) cardRes2.style.display = 'block';
-                elemRes2.innerHTML = highlightJsonHtml(res2, true);
+                promptResDataMap['promptResultStage2'] = res2;
+                elemRes2.innerHTML = renderJsonTree(res2, true);
             }} else if (cardRes2) {{
                 cardRes2.style.display = 'none';
             }}
+        }}
+
+        // 계층형 JSON 트리 렌더러 (객체/배열 단위 접기/펼치기 지원)
+        function renderJsonTree(data, isRoot = true) {{
+            if (data === null) {{
+                return '<span class="json-null">null</span>';
+            }}
+            if (typeof data === 'boolean') {{
+                return `<span class="json-boolean">${{data}}</span>`;
+            }}
+            if (typeof data === 'number') {{
+                return `<span class="json-number">${{data}}</span>`;
+            }}
+            if (typeof data === 'string') {{
+                return `<span class="json-string">"${{escapeHtml(data)}}"</span>`;
+            }}
+
+            if (Array.isArray(data)) {{
+                if (data.length === 0) return '<span class="json-bracket">[]</span>';
+
+                const itemsHtml = data.map((item, idx) => {{
+                    const comma = (idx < data.length - 1) ? '<span class="json-comma">,</span>' : '';
+                    return `<div class="json-node-row">${{renderJsonTree(item, false)}}${{comma}}</div>`;
+                }}).join('');
+
+                return `
+                    <span class="json-node-collapsible">
+                        <span class="json-toggle" onclick="toggleJsonNode(this)" title="접기/펼치기">▼</span>
+                        <span class="json-bracket">[</span>
+                        <span class="json-collapsed-text" style="display:none;" onclick="toggleJsonNode(this.previousElementSibling.previousElementSibling)">... ${{data.length}} items </span>
+                        <div class="json-children">${{itemsHtml}}</div>
+                        <span class="json-bracket">]</span>
+                    </span>
+                `;
+            }}
+
+            if (typeof data === 'object') {{
+                const keys = Object.keys(data);
+                if (keys.length === 0) return '<span class="json-bracket">{{}}</span>';
+
+                const itemsHtml = keys.map((key, idx) => {{
+                    const comma = (idx < keys.length - 1) ? '<span class="json-comma">,</span>' : '';
+                    return `
+                        <div class="json-node-row">
+                            <span class="json-key">"${{escapeHtml(key)}}"</span><span class="json-colon">: </span>${{renderJsonTree(data[key], false)}}${{comma}}
+                        </div>
+                    `;
+                }}).join('');
+
+                return `
+                    <span class="json-node-collapsible">
+                        <span class="json-toggle" onclick="toggleJsonNode(this)" title="접기/펼치기">▼</span>
+                        <span class="json-bracket">{{</span>
+                        <span class="json-collapsed-text" style="display:none;" onclick="toggleJsonNode(this.previousElementSibling.previousElementSibling)">... ${{keys.length}} keys </span>
+                        <div class="json-children">${{itemsHtml}}</div>
+                        <span class="json-bracket">}}</span>
+                    </span>
+                `;
+            }}
+
+            return escapeHtml(String(data));
+        }}
+
+        function toggleJsonNode(el) {{
+            const parent = el.closest('.json-node-collapsible');
+            if (!parent) return;
+            const toggleBtn = parent.querySelector(':scope > .json-toggle');
+            const collapsedText = parent.querySelector(':scope > .json-collapsed-text');
+            const children = parent.querySelector(':scope > .json-children');
+
+            if (!children) return;
+
+            const isCollapsed = children.style.display === 'none';
+            if (isCollapsed) {{
+                children.style.display = 'block';
+                if (toggleBtn) toggleBtn.textContent = '▼';
+                if (collapsedText) collapsedText.style.display = 'none';
+            }} else {{
+                children.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '▶';
+                if (collapsedText) collapsedText.style.display = 'inline';
+            }}
+        }}
+
+        function expandAllJson(containerId) {{
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.querySelectorAll('.json-node-collapsible').forEach(node => {{
+                const toggleBtn = node.querySelector(':scope > .json-toggle');
+                const collapsedText = node.querySelector(':scope > .json-collapsed-text');
+                const children = node.querySelector(':scope > .json-children');
+                if (children) children.style.display = 'block';
+                if (toggleBtn) toggleBtn.textContent = '▼';
+                if (collapsedText) collapsedText.style.display = 'none';
+            }});
+        }}
+
+        function collapseAllJson(containerId) {{
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.querySelectorAll('.json-node-collapsible').forEach(node => {{
+                const toggleBtn = node.querySelector(':scope > .json-toggle');
+                const collapsedText = node.querySelector(':scope > .json-collapsed-text');
+                const children = node.querySelector(':scope > .json-children');
+                if (children) children.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '▶';
+                if (collapsedText) collapsedText.style.display = 'inline';
+            }});
         }}
 
         function highlightJsonHtml(obj, restoreNewlines = false) {{
@@ -1467,10 +1659,18 @@ html_content = f"""
         }}
 
         function copyPromptTextToClipboard(elemId, btnId) {{
-            const elem = document.getElementById(elemId);
             const btn = document.getElementById(btnId);
-            if (!elem) return;
-            const textToCopy = elem.innerText || elem.textContent;
+            if (!btn) return;
+            let textToCopy = '';
+            if (promptResDataMap[elemId]) {{
+                const val = promptResDataMap[elemId];
+                textToCopy = (typeof val === 'string') ? val : JSON.stringify(val, null, 2);
+            }} else {{
+                const elem = document.getElementById(elemId);
+                if (!elem) return;
+                textToCopy = elem.innerText || elem.textContent;
+            }}
+
             navigator.clipboard.writeText(textToCopy).then(() => {{
                 const origText = btn.textContent;
                 btn.textContent = '복사 완료!';
@@ -1503,7 +1703,7 @@ html_content = f"""
         function renderRawJsonView(data) {{
             const container = document.getElementById('rawJsonContainer');
             const apiUrl = currentApiUrl;
-            const highlightedJson = highlightJsonHtml(data);
+            const treeHtml = renderJsonTree(data, true);
 
             const urlCard = `
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
@@ -1519,12 +1719,16 @@ html_content = f"""
                     <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
                         <div style="display:flex; align-items:center; gap:10px;">
                             <span style="background:#10b981; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">200 OK</span>
-                            <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">키워드 트렌드 API 원본 JSON 데이터</span>
+                            <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">키워드 트렌드 API 원본 JSON 데이터 (객체/배열 접기/펼치기 가능)</span>
                         </div>
-                        <button id="btnCopyJson" onclick="copyRawJsonToClipboard('btnCopyJson')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer; transition:background 0.15s ease;">JSON 전체 복사</button>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <button class="json-ctrl-btn" onclick="expandAllJson('rawJsonTreeBody')">전체 펼치기</button>
+                            <button class="json-ctrl-btn" onclick="collapseAllJson('rawJsonTreeBody')">전체 접기</button>
+                            <button id="btnCopyJson" onclick="copyRawJsonToClipboard('btnCopyJson')" class="json-ctrl-btn">JSON 전체 복사</button>
+                        </div>
                     </div>
-                    <div style="padding:14px 16px; background:#0f172a; max-height:550px; overflow:auto;">
-                        <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all; color:#cbd5e1;"><code>${{highlightedJson}}</code></pre>
+                    <div style="padding:14px 16px; background:#0f172a; max-height:600px; overflow:auto;">
+                        <div id="rawJsonTreeBody" class="json-tree-container">${{treeHtml}}</div>
                     </div>
                 </div>
             `;
