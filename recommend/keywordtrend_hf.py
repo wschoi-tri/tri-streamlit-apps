@@ -14,20 +14,30 @@ st.set_page_config(
 # 2. 기본 CSS 덮어쓰기 (Streamlit 상단 헤더/푸터 제거 및 전체 화면 최대화)
 st.markdown("""
 <style>
+    header[data-testid="stHeader"] {display: none !important;}
+    div[data-testid="stToolbar"] {display: none !important;}
+    div[data-testid="stDecoration"] {display: none !important;}
     .stAppHeader {display: none !important;}
     footer {display: none !important;}
     #MainMenu {visibility: hidden;}
-    .block-container {
+    .main .block-container {
         padding-top: 0rem !important;
         padding-bottom: 0rem !important;
         padding-left: 0rem !important;
         padding-right: 0rem !important;
+        margin: 0 !important;
         max-width: 100% !important;
+    }
+    section.main {
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
     }
     iframe {
         border: none !important;
         width: 100% !important;
         height: 100vh !important;
+        display: block !important;
     }
 </style>
 """, unsafe_allow_html=True)
