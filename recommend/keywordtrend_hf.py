@@ -313,7 +313,7 @@ html_content = f"""
             display: flex;
             gap: 6px;
             border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 22px;
+            margin-bottom: 12px;
         }}
         .tab-btn {{
             padding: 10px 18px;
@@ -686,12 +686,6 @@ html_content = f"""
                         <div style="display:flex; gap:6px;" id="extractedTagsHeader"></div>
                     </div>
 
-                    <!-- AI 큐레이션 요약 (curation_summary) -->
-                    <div id="curationSummaryWrap" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid #2563eb; border-radius:6px; padding:8px 12px; margin-bottom:12px; align-items:center; gap:8px;">
-                        <span style="font-size:0.75rem; font-weight:800; background:#eff6ff; color:#2563eb; padding:2px 7px; border-radius:4px; flex-shrink:0;">요약</span>
-                        <span id="curationSummaryText" style="font-size:0.88rem; font-weight:700; color:#0f172a; line-height:1.5;"></span>
-                    </div>
-
                     <div class="guide-text" id="guideTextBody">데이터를 불러오는 중입니다...</div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:8px;" id="extractedBrandsWrap"></div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
@@ -718,8 +712,13 @@ html_content = f"""
                     <button class="tab-btn" id="tabBtnPrompt" onclick="switchViewTab('prompt')">LLM 프롬프트</button>
                 </nav>
 
-                <!-- 탭 1: 5열 그리드 배치 -->
+                <!-- 탭 1: 10열 그리드 배치 -->
                 <section class="tab-content active" id="tabContentGrid">
+                    <!-- AI 상품 추천 사유 요약 (LLM 2단계 산출물: curation_summary) -->
+                    <div id="curationSummaryWrap" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:8px; padding:9px 14px; margin-bottom:12px; align-items:center; gap:8px;">
+                        <span style="font-size:0.75rem; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 7px; border-radius:4px; flex-shrink:0;">AI 추천 사유</span>
+                        <span id="curationSummaryText" style="font-size:0.88rem; font-weight:700; color:#14532d; line-height:1.5;"></span>
+                    </div>
                     <div class="grid-container" id="productGridContainer"></div>
                 </section>
 
