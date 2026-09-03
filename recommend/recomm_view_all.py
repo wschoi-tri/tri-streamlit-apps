@@ -57,13 +57,14 @@ try:
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# 3. 실제 서비스 중인 추천 API 유형 정의 (전수 검증 완료: 5개 유효 엔드포인트)
+# 3. 실제 서비스 중인 추천 API 유형 정의 (전수 검증 완료: 6개 유효 엔드포인트)
 ML_TYPES = [
-    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성 및 메타데이터 기반 유사도 추천"},
-    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자 동시 조회 기반 추천"},
-    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 주문서 동시 구매 기반 추천"},
-    {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사도 추천"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 맞춤 추천"}
+    {"id": "home", "name": "홈 개인화 종합 추천 (home)", "desc": "FORYOU 종합 맞춤 추천 및 행동 시드 연계", "endpoint": "/recommend/home"},
+    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성 및 메타데이터 기반 유사도 추천", "endpoint": "/recommend/similaritem"},
+    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자 동시 조회 기반 추천", "endpoint": "/recommend/viewtogether"},
+    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 주문서 동시 구매 기반 추천", "endpoint": "/recommend/buytogether"},
+    {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사도 추천", "endpoint": "/recommend/similar-image"},
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 맞춤 추천", "endpoint": "/recommend/recommendforyou"}
 ]
 
 # 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
@@ -72,10 +73,10 @@ raw_site = qp.get("siteCd", "1")
 if raw_site not in ["1", "2"]:
     raw_site = "1"
 
-raw_type = qp.get("mlType", "similaritem")
+raw_type = qp.get("mlType", "home")
 valid_type_ids = [m["id"] for m in ML_TYPES]
 if raw_type not in valid_type_ids:
-    raw_type = "similaritem"
+    raw_type = "home"
 
 raw_prd = qp.get("prdNo", "")
 if raw_prd:
@@ -89,6 +90,11 @@ if not raw_k.isdigit() or int(raw_k) <= 0:
 
 raw_age = qp.get("age", "")
 raw_gender = qp.get("gender", "")
+raw_basket = qp.get("basketPrdNo", "")
+raw_wish = qp.get("wishPrdNo", "")
+raw_mem = qp.get("memNo", "")
+raw_self = qp.get("selfYn", "false")
+
 raw_tab = qp.get("tab", "grid")
 if raw_tab not in ["grid", "table", "raw"]:
     raw_tab = "grid"
@@ -100,6 +106,10 @@ initial_prd_json = json.dumps(raw_prd, ensure_ascii=False)
 initial_k_json = json.dumps(raw_k, ensure_ascii=False)
 initial_age_json = json.dumps(raw_age, ensure_ascii=False)
 initial_gender_json = json.dumps(raw_gender, ensure_ascii=False)
+initial_basket_json = json.dumps(raw_basket, ensure_ascii=False)
+initial_wish_json = json.dumps(raw_wish, ensure_ascii=False)
+initial_mem_json = json.dumps(raw_mem, ensure_ascii=False)
+initial_self_json = json.dumps(raw_self, ensure_ascii=False)
 initial_tab_json = json.dumps(raw_tab, ensure_ascii=False)
 
 # 5. SPA 통합 HTML/CSS/JS 템플릿
@@ -243,17 +253,36 @@ html_content = f"""
             gap: 16px;
             flex-wrap: wrap;
         }}
+        .navbar-title-wrap {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 260px;
+        }}
         .navbar-title {{
-            font-size: 1.22rem;
+            font-size: 1.26rem;
             font-weight: 800;
             color: #0f172a;
-            transition: color 0.15s ease;
             display: flex;
             align-items: center;
             gap: 6px;
         }}
-        .navbar-title:hover, .navbar-title:hover span {{
-            color: #2563eb !important;
+        .navbar-sub-badge {{
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }}
+        .navbar-sub-badge:hover {{
+            background: #e2e8f0;
+            color: #0f172a;
         }}
         .dashboard-body {{
             padding: 18px 28px;
@@ -600,6 +629,7 @@ html_content = f"""
         .badge-amber {{ background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }}
         .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
         .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
+        .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
         
         /* 데이터 테이블 */
         .data-table {{
@@ -727,7 +757,7 @@ html_content = f"""
 </head>
 <body>
     <div class="app-container">
-        <!-- 좌측 사이드바: 5대 추천 서비스 유형 목록 -->
+        <!-- 좌측 사이드바: 6대 추천 서비스 유형 목록 -->
         <aside class="sidebar">
             <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 리셋">
                 <div class="sidebar-title">
@@ -744,32 +774,46 @@ html_content = f"""
         <!-- 우측 메인 대시보드 -->
         <main class="main-content">
             <header class="top-navbar">
-                <div style="display:flex; align-items:center; gap:10px; min-width:240px;">
-                    <a id="currentPrdTitleLink" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="쇼핑몰 상세 페이지 새 탭 열기">
-                        <h1 class="navbar-title" id="currentPrdTitle">
-                            <span id="currentPrdText">상품 선택 대기</span>
-                            <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
-                        </h1>
+                <!-- 최상단 헤더: 현재 사용 중인 API 중심 타이틀 -->
+                <div class="navbar-title-wrap">
+                    <h1 class="navbar-title" id="currentApiTitle">
+                        <span id="currentApiNameText">홈 개인화 종합 추천 (home)</span>
+                    </h1>
+                    <span id="currentApiEndpointBadge" style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; font-family:monospace;">/recommend/home</span>
+                    <a id="currentPrdTitleLink" href="#" target="_blank" rel="noopener noreferrer" class="navbar-sub-badge" title="현재 대상 상품 쇼핑몰 상세 새 탭 열기">
+                        <span id="currentPrdBadgeText">대상: #380118214</span>
+                        <span style="font-size:0.85rem;">↗</span>
                     </a>
-                    <span id="navMlTypeBadge" style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; padding:3px 10px; border-radius:9999px; white-space:nowrap;">유사 상품</span>
                     <button id="btnCopyUrl" onclick="copyCurrentUrl()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer;" title="현재 상태 URL 링크 복사">URL 복사</button>
                 </div>
 
-                <div style="display:flex; align-items:center; gap:10px; font-size:0.84rem; font-weight:700; color:#334155; flex-wrap:wrap;">
-                    <!-- 상품 번호 직접 입력 -->
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <span>직접입력:</span>
-                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표 다중" style="width:140px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
+                <!-- 우측 컨트롤러 파라미터 바 -->
+                <div style="display:flex; align-items:center; gap:8px; font-size:0.83rem; font-weight:700; color:#334155; flex-wrap:wrap;">
+                    <!-- 기본 상품번호 직접 입력 -->
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <span>상품번호:</span>
+                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표 다중" style="width:130px; padding:4px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
                     </div>
 
-                    <!-- 연령/성별 필터 -->
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        <select id="ageSelect" style="padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.82rem; font-weight:600; color:#0f172a; outline:none;">
+                    <!-- home API 전용 파라미터 컨테이너 -->
+                    <div id="homeParamsWrap" style="display:flex; align-items:center; gap:6px;">
+                        <input type="text" id="basketPrdInput" placeholder="장바구니 prdNo" style="width:105px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="장바구니 상품번호 (basketPrdNo, 쉼표구분)"/>
+                        <input type="text" id="wishPrdInput" placeholder="좋아요 prdNo" style="width:95px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="좋아요 상품번호 (wishPrdNo, 쉼표구분)"/>
+                        <input type="text" id="memNoInput" placeholder="회원 memNo" style="width:85px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="회원번호 (memNo)"/>
+                        <label style="display:flex; align-items:center; gap:3px; font-size:0.78rem; cursor:pointer;" title="휴리스틱 조회 여부">
+                            <input type="checkbox" id="selfYnCheck" style="cursor:pointer;"/>
+                            <span>휴리스틱</span>
+                        </label>
+                    </div>
+
+                    <!-- 연령/성별 필터 (viewtogether, buytogether 전용) -->
+                    <div id="conditionParamsWrap" style="display:none; align-items:center; gap:4px;">
+                        <select id="ageSelect" style="padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.81rem; font-weight:600; color:#0f172a; outline:none;">
                             <option value="">연령: 전체</option>
                             <option value="01">40대 미만</option>
                             <option value="02">40대 이상</option>
                         </select>
-                        <select id="genderSelect" style="padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.82rem; font-weight:600; color:#0f172a; outline:none;">
+                        <select id="genderSelect" style="padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.81rem; font-weight:600; color:#0f172a; outline:none;">
                             <option value="">성별: 전체</option>
                             <option value="01">남성</option>
                             <option value="02">여성</option>
@@ -777,13 +821,13 @@ html_content = f"""
                     </div>
 
                     <!-- 조회 수 k -->
-                    <div style="display:flex; align-items:center; gap:4px;">
+                    <div style="display:flex; align-items:center; gap:3px;">
                         <span>k:</span>
-                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:52px; padding:5px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
+                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:50px; padding:4px 5px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
                     </div>
 
                     <!-- 조회 버튼 -->
-                    <button id="btnFetch" onclick="triggerFetch()" style="background:#0b1329; color:#ffffff; border:none; padding:7px 16px; border-radius:6px; font-weight:800; font-size:0.85rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
+                    <button id="btnFetch" onclick="triggerFetch()" style="background:#0b1329; color:#ffffff; border:none; padding:6px 15px; border-radius:6px; font-weight:800; font-size:0.84rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
                 </div>
             </header>
 
@@ -809,24 +853,24 @@ html_content = f"""
                 <!-- 메타 메타데이터 뱃지 바 -->
                 <div class="meta-badges" id="metaBadgesBar">
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
-                        <span style="color:#64748b; font-size:0.75rem;">사이트</span>
-                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="metaSiteText">하프클럽</span>
+                        <span style="color:#64748b; font-size:0.75rem;">실행 API</span>
+                        <span style="color:#0f172a; font-weight:800; font-size:0.82rem;" id="metaMlTypeText">홈 개인화 종합 추천 (home)</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
-                        <span style="color:#64748b; font-size:0.75rem;">추천 모델</span>
-                        <span style="color:#0f172a; font-weight:800; font-size:0.82rem;" id="metaMlTypeText">-</span>
+                        <span style="color:#64748b; font-size:0.75rem;">사이트</span>
+                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="metaSiteText">하프클럽</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">대상 상품번호</span>
                         <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="metaPrdNoText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
-                        <span style="color:#64748b; font-size:0.75rem;">필터 조건</span>
-                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaConditionText">연령: 전체 / 성별: 전체</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">조회 수</span>
                         <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaKText">50개</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">추가 조건</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaConditionText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px; margin-left:auto;">
                         <span style="color:#64748b; font-size:0.75rem;">응답 상태</span>
@@ -855,10 +899,10 @@ html_content = f"""
                             <div style="font-size:0.8rem; color:#64748b; font-weight:600; margin-top:4px;" id="targetCategoryPath"></div>
                         </div>
                     </div>
-                    <!-- 다중 대상 상품 칩 목록 (개인화 추천) -->
-                    <div id="multiTargetChipsWrap" style="display:none; margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9;">
-                        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;">다중 대상 상품 목록:</div>
-                        <div id="multiTargetChipsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                    <!-- home API 반환 Seed 행동 상품 목록 또는 다중 상품 칩 -->
+                    <div id="seedItemsWrap" style="display:none; margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9;">
+                        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;" id="seedItemsTitle">행동 시드 상품 (최근본/장바구니/좋아요):</div>
+                        <div id="seedItemsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
                     </div>
                 </div>
 
@@ -949,6 +993,10 @@ html_content = f"""
         let currentK = {initial_k_json};
         let currentAge = {initial_age_json};
         let currentGender = {initial_gender_json};
+        let currentBasket = {initial_basket_json};
+        let currentWish = {initial_wish_json};
+        let currentMem = {initial_mem_json};
+        let currentSelfYn = {initial_self_json} === 'true';
         let currentTab = {initial_tab_json};
 
         let currentRawData = null;
@@ -999,7 +1047,7 @@ html_content = f"""
             const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
                 ? (window.parent.location.origin + window.parent.location.pathname)
                 : (window.location.origin + window.location.pathname);
-            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&tab=${{encodeURIComponent(currentTab)}}`;
+            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
             navigator.clipboard.writeText(curUrl).then(() => {{
                 const btn = document.getElementById('btnCopyUrl');
                 if (btn) {{
@@ -1020,7 +1068,7 @@ html_content = f"""
 
         function updateUrlQuery() {{
             try {{
-                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&tab=${{encodeURIComponent(currentTab)}}`;
+                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
                 try {{
                     if (window.parent && window.parent.history && window.parent.history.replaceState) {{
                         let targetPath = queryStr;
@@ -1046,13 +1094,9 @@ html_content = f"""
         }}
 
         function initApp() {{
-            // 사이트 토글 버튼 상태 동기화
             updateSiteToggleButtons();
-
-            // 추천 유형 사이드바 렌더링
             renderTypeList();
 
-            // 필터 설정
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
 
@@ -1065,13 +1109,21 @@ html_content = f"""
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput) sizeInput.value = currentK;
 
-            // 탭 초기화
+            const basketInput = document.getElementById('basketPrdInput');
+            if (basketInput) basketInput.value = currentBasket;
+
+            const wishInput = document.getElementById('wishPrdInput');
+            if (wishInput) wishInput.value = currentWish;
+
+            const memInput = document.getElementById('memNoInput');
+            if (memInput) memInput.value = currentMem;
+
+            const selfCheck = document.getElementById('selfYnCheck');
+            if (selfCheck) selfCheck.checked = currentSelfYn;
+
+            updateControlsVisibility();
             switchViewTab(currentTab, false);
-
-            // 이벤트 리스너 등록
             setupEventListeners();
-
-            // 실시간 베스트 상품 로드 후 추천 실행
             loadBestProducts(currentSiteCd);
         }}
 
@@ -1096,8 +1148,23 @@ html_content = f"""
             loadBestProducts(currentSiteCd);
         }}
 
+        function updateControlsVisibility() {{
+            const homeWrap = document.getElementById('homeParamsWrap');
+            const condWrap = document.getElementById('conditionParamsWrap');
+
+            if (currentMlType === 'home') {{
+                if (homeWrap) homeWrap.style.display = 'flex';
+                if (condWrap) condWrap.style.display = 'none';
+            }} else if (currentMlType === 'viewtogether' || currentMlType === 'buytogether') {{
+                if (homeWrap) homeWrap.style.display = 'none';
+                if (condWrap) condWrap.style.display = 'flex';
+            }} else {{
+                if (homeWrap) homeWrap.style.display = 'none';
+                if (condWrap) condWrap.style.display = 'none';
+            }}
+        }}
+
         function setupEventListeners() {{
-            // 추천 유형 검색
             const searchInput = document.getElementById('typeSearchInput');
             if (searchInput) {{
                 searchInput.addEventListener('input', (e) => {{
@@ -1111,13 +1178,10 @@ html_content = f"""
                 }});
             }}
 
-            // 직접 입력 Enter 이벤트
             const directInput = document.getElementById('directPrdInput');
             if (directInput) {{
                 directInput.addEventListener('keydown', (e) => {{
-                    if (e.key === 'Enter') {{
-                        triggerFetch();
-                    }}
+                    if (e.key === 'Enter') triggerFetch();
                 }});
             }}
         }}
@@ -1189,10 +1253,10 @@ html_content = f"""
                 }}
             }});
 
+            updateControlsVisibility();
             executeRecommendFlow();
         }}
 
-        // 사이트별 실시간 베스트 상품 API 호출 함수
         async function loadBestProducts(siteCd) {{
             const seedStatus = document.getElementById('seedStatusText');
             if (seedStatus) seedStatus.textContent = '실시간 베스트 상품 조회 중...';
@@ -1270,7 +1334,6 @@ html_content = f"""
                 ];
             }}
 
-            // 현재 선택된 상품이 시드에 없으면 첫 번째 시드로 자동 갱신
             if (currentSeedProducts.length > 0) {{
                 const exists = currentSeedProducts.some(p => p.prd_no === currentPrdNo);
                 if (!exists) {{
@@ -1325,6 +1388,18 @@ html_content = f"""
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput && sizeInput.value) currentK = sizeInput.value;
 
+            const basketInput = document.getElementById('basketPrdInput');
+            if (basketInput) currentBasket = basketInput.value.trim();
+
+            const wishInput = document.getElementById('wishPrdInput');
+            if (wishInput) currentWish = wishInput.value.trim();
+
+            const memInput = document.getElementById('memNoInput');
+            if (memInput) currentMem = memInput.value.trim();
+
+            const selfCheck = document.getElementById('selfYnCheck');
+            if (selfCheck) currentSelfYn = selfCheck.checked;
+
             renderSeedGrid();
             executeRecommendFlow();
         }}
@@ -1364,32 +1439,50 @@ html_content = f"""
             const metaSite = document.getElementById('metaSiteText');
             if (metaSite) metaSite.textContent = siteName;
 
-            const mlObj = ML_TYPES_LIST.find(m => m.id === currentMlType);
+            const mlObj = ML_TYPES_LIST.find(m => m.id === currentMlType) || ML_TYPES_LIST[0];
             const mlName = mlObj ? mlObj.name : currentMlType;
+            const mlEndpoint = mlObj ? mlObj.endpoint : `/recommend/${{currentMlType}}`;
+
+            // 최상단 메인 타이틀을 현재 실행 중인 API 명칭으로 설정
+            const mainTitleText = document.getElementById('currentApiNameText');
+            if (mainTitleText) mainTitleText.textContent = mlName;
+
+            const endpointBadge = document.getElementById('currentApiEndpointBadge');
+            if (endpointBadge) endpointBadge.textContent = mlEndpoint;
+
             const metaMl = document.getElementById('metaMlTypeText');
             if (metaMl) metaMl.textContent = mlName;
 
-            const navBadge = document.getElementById('navMlTypeBadge');
-            if (navBadge) navBadge.textContent = mlName.split('(')[0].trim();
+            // 상단 보조 상품 뱃지 및 링크
+            const firstPrd = currentPrdNo.split(',')[0].trim();
+            const prdBadgeText = document.getElementById('currentPrdBadgeText');
+            if (prdBadgeText) prdBadgeText.textContent = `대상: #${{firstPrd}}`;
+
+            const navLink = document.getElementById('currentPrdTitleLink');
+            if (navLink) navLink.href = getProductDetailUrl(firstPrd);
 
             const metaPrd = document.getElementById('metaPrdNoText');
             if (metaPrd) metaPrd.textContent = currentPrdNo;
 
-            const ageTxt = currentAge === '01' ? '40대 미만' : (currentAge === '02' ? '40대 이상' : '전체');
-            const genTxt = currentGender === '01' ? '남성' : (currentGender === '02' ? '여성' : '전체');
-            const metaCond = document.getElementById('metaConditionText');
-            if (metaCond) metaCond.textContent = `연령: ${{ageTxt}} / 성별: ${{genTxt}}`;
-
             const metaK = document.getElementById('metaKText');
             if (metaK) metaK.textContent = `${{currentK}}개`;
 
-            const navTitle = document.getElementById('currentPrdText');
-            if (navTitle) navTitle.textContent = `상품번호 ${{currentPrdNo}}`;
-
-            const navLink = document.getElementById('currentPrdTitleLink');
-            if (navLink) {{
-                const firstPrd = currentPrdNo.split(',')[0].trim();
-                navLink.href = getProductDetailUrl(firstPrd);
+            const metaCond = document.getElementById('metaConditionText');
+            if (metaCond) {{
+                if (currentMlType === 'home') {{
+                    const parts = [];
+                    if (currentBasket) parts.push(`장바구니: ${{currentBasket}}`);
+                    if (currentWish) parts.push(`좋아요: ${{currentWish}}`);
+                    if (currentMem) parts.push(`회원: ${{currentMem}}`);
+                    if (currentSelfYn) parts.push(`휴리스틱: ON`);
+                    metaCond.textContent = parts.length > 0 ? parts.join(' / ') : '행동조건 없음';
+                }} else if (currentMlType === 'viewtogether' || currentMlType === 'buytogether') {{
+                    const ageTxt = currentAge === '01' ? '40대 미만' : (currentAge === '02' ? '40대 이상' : '전체');
+                    const genTxt = currentGender === '01' ? '남성' : (currentGender === '02' ? '여성' : '전체');
+                    metaCond.textContent = `연령: ${{ageTxt}} / 성별: ${{genTxt}}`;
+                }} else {{
+                    metaCond.textContent = '-';
+                }}
             }}
         }}
 
@@ -1397,26 +1490,8 @@ html_content = f"""
             const prdList = prdNoStr.split(',').map(s => s.trim()).filter(Boolean);
             const firstPrd = prdList[0] || '';
 
-            // 다중 상품 칩 처리
-            const multiWrap = document.getElementById('multiTargetChipsWrap');
-            const multiContainer = document.getElementById('multiTargetChipsContainer');
-            if (multiWrap && multiContainer) {{
-                if (prdList.length > 1) {{
-                    multiWrap.style.display = 'block';
-                    multiContainer.innerHTML = prdList.map(p => `
-                        <span class="badge-chip-item badge-blue" style="cursor:pointer;" onclick="selectSeedProduct('${{p}}')">
-                            #${{p}} ↗
-                        </span>
-                    `).join('');
-                }} else {{
-                    multiWrap.style.display = 'none';
-                    multiContainer.innerHTML = '';
-                }}
-            }}
-
             if (!firstPrd) return;
 
-            // 검색 API를 통해 첫 번째 대상 상품의 상세 정보 가져오기
             const searchBase = currentSiteCd === '2' ? 'https://apix.boribori.co.kr' : 'https://hapix.halfclub.com';
             const searchUrl = `${{searchBase}}/searches/prdList/?keyword=${{encodeURIComponent(firstPrd)}}&siteCd=${{currentSiteCd}}&device=mc`;
 
@@ -1459,9 +1534,6 @@ html_content = f"""
 
             const nameEl = document.getElementById('targetNameText');
             if (nameEl) nameEl.textContent = name;
-
-            const navTitle = document.getElementById('currentPrdText');
-            if (navTitle) navTitle.textContent = `${{brand}} - ${{name}}`;
 
             const priceEl = document.getElementById('targetPriceText');
             if (priceEl) priceEl.textContent = `${{Number(dcPrice).toLocaleString()}} 원`;
@@ -1527,7 +1599,6 @@ html_content = f"""
                 statusEl.style.color = '#2563eb';
             }}
 
-            // 5개 실제 서비스 엔드포인트 파라미터 매핑
             const endpoint = currentMlType;
             const params = new URLSearchParams();
             params.append('siteCd', currentSiteCd);
@@ -1535,13 +1606,26 @@ html_content = f"""
 
             const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
 
-            if (currentMlType === 'recommendforyou') {{
+            if (currentMlType === 'home') {{
+                params.append('deviceCd', '001');
+                if (currentSelfYn) params.append('selfYn', 'true');
+                prdList.forEach(p => params.append('prdNo', p));
+
+                if (currentBasket) {{
+                    currentBasket.split(',').map(s => s.trim()).filter(Boolean).forEach(b => params.append('basketPrdNo', b));
+                }}
+                if (currentWish) {{
+                    currentWish.split(',').map(s => s.trim()).filter(Boolean).forEach(w => params.append('wishPrdNo', w));
+                }}
+                if (currentMem) {{
+                    currentMem.split(',').map(s => s.trim()).filter(Boolean).forEach(m => params.append('memNo', m));
+                }}
+            }} else if (currentMlType === 'recommendforyou') {{
                 prdList.forEach(p => params.append('prdNo', p));
             }} else {{
                 params.append('prdNo', prdList[0] || '380118214');
             }}
 
-            // viewtogether 및 buytogether 연령/성별 파라미터 연동
             if (currentAge && (currentMlType === 'viewtogether' || currentMlType === 'buytogether')) {{
                 params.append('age', currentAge);
             }}
@@ -1598,6 +1682,8 @@ html_content = f"""
 
         function renderDashboardResults(data) {{
             let products = [];
+            let seedItems = [];
+
             if (Array.isArray(data)) {{
                 products = data;
             }} else if (data && typeof data === 'object') {{
@@ -1605,11 +1691,60 @@ html_content = f"""
                 if (!Array.isArray(products) && typeof products === 'object') {{
                     products = [products];
                 }}
+
+                // home API의 seed 추출
+                if (data.seed) {{
+                    if (Array.isArray(data.seed)) {{
+                        seedItems = data.seed;
+                    }} else if (data.seed.result && Array.isArray(data.seed.result)) {{
+                        seedItems = data.seed.result;
+                    }}
+                }}
             }}
+
+            // 행동 시드 상품 칩 렌더링
+            renderSeedItems(seedItems);
 
             renderProductGrid(products);
             renderProductTable(products);
             renderRawJsonView(data);
+        }}
+
+        function renderSeedItems(seedItems) {{
+            const wrap = document.getElementById('seedItemsWrap');
+            const container = document.getElementById('seedItemsContainer');
+            const titleEl = document.getElementById('seedItemsTitle');
+            if (!wrap || !container) return;
+
+            const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (currentMlType === 'home' && seedItems && seedItems.length > 0) {{
+                wrap.style.display = 'block';
+                if (titleEl) titleEl.textContent = `행동 시드 상품 (${{seedItems.length}}건 - 클릭 시 대상 변경):`;
+                container.innerHTML = seedItems.map(item => {{
+                    const pNo = item.prdNo || item.prd_no;
+                    const seedType = item.seed || 'seed';
+                    const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
+                    const typeLabel = seedLabelMap[seedType] || seedType;
+                    const brand = item.brandNm || '';
+                    return `
+                        <span class="badge-chip-item badge-purple" style="cursor:pointer; padding:3px 8px;" onclick="selectSeedProduct('${{pNo}}')">
+                            [${{typeLabel}}] ${{brand ? brand + ' ' : ''}}#${{pNo}} ↗
+                        </span>
+                    `;
+                }}).join('');
+            }} else if (prdList.length > 1) {{
+                wrap.style.display = 'block';
+                if (titleEl) titleEl.textContent = '다중 대상 상품 목록:';
+                container.innerHTML = prdList.map(p => `
+                    <span class="badge-chip-item badge-blue" style="cursor:pointer; padding:3px 8px;" onclick="selectSeedProduct('${{p}}')">
+                        #${{p}} ↗
+                    </span>
+                `).join('');
+            }} else {{
+                wrap.style.display = 'none';
+                container.innerHTML = '';
+            }}
         }}
 
         function renderProductGrid(products) {{
@@ -1630,12 +1765,15 @@ html_content = f"""
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
                 const normPrc = prd.normPrc || prd.nrmPrc || 0;
                 const discRt = prd.totRateApp || prd.discRt || (normPrc > salePrc && normPrc > 0 ? Math.round((normPrc - salePrc) / normPrc * 100) : 0);
-                const score = prd.score !== undefined ? Number(prd.score) : null;
-                const esScore = prd.esscore !== undefined ? Number(prd.esscore) : null;
+                const score = prd.score !== undefined && prd.score !== '' ? Number(prd.score) : null;
+                const esScore = prd.esscore !== undefined && prd.esscore !== '' ? Number(prd.esscore) : null;
                 const imgPath = prd.appPrdImgUrl || prd.prd_img || prd.prdImg || '';
                 const imgUrl = getImageUrl(imgPath);
 
                 const c1 = prd.dpCtgrNm1 || prd.category || '';
+                const seedVal = prd.seed || '';
+                const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
+                const seedLabel = seedLabelMap[seedVal] || seedVal;
 
                 const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
                 const rankText = rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`;
@@ -1661,8 +1799,9 @@ html_content = f"""
                                 ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
                             </div>
                             <div class="badge-chip-container">
-                                ${{score !== null ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
-                                ${{esScore !== null ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
+                                ${{score !== null && !isNaN(score) ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
+                                ${{esScore !== null && !isNaN(esScore) ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
+                                ${{seedLabel ? `<span class="badge-chip-item badge-purple" title="시드 출처">${{seedLabel}}</span>` : ''}}
                                 ${{c1 ? `<span class="badge-chip-item badge-gray">${{c1}}</span>` : ''}}
                             </div>
                         </div>
@@ -1689,8 +1828,8 @@ html_content = f"""
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
                 const normPrc = prd.normPrc || prd.nrmPrc || 0;
                 const discRt = prd.totRateApp || prd.discRt || (normPrc > salePrc && normPrc > 0 ? Math.round((normPrc - salePrc) / normPrc * 100) : 0);
-                const score = prd.score !== undefined ? Number(prd.score).toFixed(4) : '-';
-                const esScore = prd.esscore !== undefined ? Number(prd.esscore).toFixed(4) : '-';
+                const score = prd.score !== undefined && prd.score !== '' && !isNaN(Number(prd.score)) ? Number(prd.score).toFixed(4) : '-';
+                const esScore = prd.esscore !== undefined && prd.esscore !== '' && !isNaN(Number(prd.esscore)) ? Number(prd.esscore).toFixed(4) : '-';
                 const c1 = prd.dpCtgrNm1 || prd.category || '-';
 
                 return `
