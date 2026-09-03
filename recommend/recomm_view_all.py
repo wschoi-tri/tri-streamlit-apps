@@ -89,6 +89,7 @@ raw_basket = qp.get("basketPrdNo", "")
 raw_wish = qp.get("wishPrdNo", "")
 raw_mem = qp.get("memNo", "")
 raw_self = qp.get("selfYn", "false")
+raw_selected_seed = qp.get("seedPrdNo", "")
 
 raw_tab = qp.get("tab", "grid")
 if raw_tab not in ["grid", "table", "raw"]:
@@ -103,6 +104,7 @@ initial_basket_json = json.dumps(raw_basket, ensure_ascii=False)
 initial_wish_json = json.dumps(raw_wish, ensure_ascii=False)
 initial_mem_json = json.dumps(raw_mem, ensure_ascii=False)
 initial_self_json = json.dumps(raw_self, ensure_ascii=False)
+initial_selected_seed_json = json.dumps(raw_selected_seed, ensure_ascii=False)
 initial_tab_json = json.dumps(raw_tab, ensure_ascii=False)
 
 # 5. 풀스크린 일체형(Top-Down) HTML/CSS/JS 템플릿
@@ -163,7 +165,6 @@ html_content = f"""
             gap: 12px;
             flex-wrap: wrap;
         }}
-        /* 사이트 스위치 */
         .site-switch-group {{
             display: flex;
             background: #f1f5f9;
@@ -192,7 +193,6 @@ html_content = f"""
             height: 24px;
             background-color: #cbd5e1;
         }}
-        /* 6대 추천 모델 세그먼트 버튼 그룹 */
         .model-tabs-group {{
             display: flex;
             background: #f1f5f9;
@@ -287,7 +287,6 @@ html_content = f"""
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             margin-bottom: 14px;
         }}
-        /* 좌측: 현재 선택된 대상 상품 정보 */
         .target-preview-box {{
             border-right: 1px solid #f1f5f9;
             padding-right: 18px;
@@ -377,7 +376,6 @@ html_content = f"""
             text-overflow: ellipsis;
             margin-top: 2px;
         }}
-        /* 다중 선택 상품 칩 목록 */
         .multi-chips-row {{
             display: flex;
             flex-wrap: wrap;
@@ -404,7 +402,7 @@ html_content = f"""
             border-color: #fca5a5;
         }}
 
-        /* 우측: 기준 상품 선택기 (입력란 + 12개 실시간 시드 그리드) */
+        /* 우측: 기준 상품 선택기 */
         .selector-controls-box {{
             display: flex;
             flex-direction: column;
@@ -464,7 +462,6 @@ html_content = f"""
             color: #64748b;
             font-weight: 600;
         }}
-        /* 12열 실시간 시드 미니 그리드 */
         .seed-grid-row {{
             display: grid;
             grid-template-columns: repeat(12, 1fr);
@@ -536,7 +533,116 @@ html_content = f"""
             width: 100%;
         }}
 
-        /* 3단: 추천 결과 메인 뷰 (100% 가로 폭) */
+        /* home API 전용: 홈 추천 시드 탭 바 (recomm_home_hf.py 복원) */
+        .home-seed-tabs-section {{
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }}
+        .home-seed-tabs-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }}
+        .home-seed-tabs-title {{
+            font-size: 0.84rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .home-seed-cards-container {{
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }}
+        .home-seed-card {{
+            width: 110px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 5px;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+            position: relative;
+        }}
+        .home-seed-card:hover {{
+            border-color: #94a3b8;
+            transform: translateY(-2px);
+        }}
+        .home-seed-card.active {{
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.3);
+        }}
+        .home-foryou-card {{
+            width: 110px;
+            height: 124px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+        }}
+        .home-foryou-card:hover {{
+            border-color: #2563eb;
+            background: #eff6ff;
+        }}
+        .home-foryou-card.active {{
+            border-color: #2563eb;
+            background: #2563eb;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(37,99,235,0.3);
+        }}
+        .home-foryou-card.active .foryou-title, .home-foryou-card.active .foryou-desc {{
+            color: #ffffff !important;
+        }}
+        .foryou-title {{
+            font-size: 1rem;
+            font-weight: 800;
+            color: #0f172a;
+        }}
+        .foryou-desc {{
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #64748b;
+            margin-top: 2px;
+        }}
+        .home-seed-card-img {{
+            width: 100%;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #f1f5f9;
+        }}
+        .home-seed-type-tag {{
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-top: 4px;
+        }}
+        .tag-recent {{ background: #eff6ff; color: #2563eb; }}
+        .tag-basket {{ background: #fdf2f8; color: #db2777; }}
+        .tag-wish {{ background: #fef2f2; color: #ef4444; }}
+
+        /* 3단: 추천 결과 메인 뷰 */
         .results-section {{
             display: flex;
             flex-direction: column;
@@ -566,9 +672,7 @@ html_content = f"""
             margin-bottom: -4px;
             transition: all 0.15s ease;
         }}
-        .result-tab-btn:hover {{
-            color: #0f172a;
-        }}
+        .result-tab-btn:hover {{ color: #0f172a; }}
         .result-tab-btn.active {{
             color: #2563eb;
             border-bottom-color: #2563eb;
@@ -581,12 +685,8 @@ html_content = f"""
             font-family: monospace;
         }}
 
-        .tab-pane {{
-            display: none;
-        }}
-        .tab-pane.active {{
-            display: block;
-        }}
+        .tab-pane {{ display: none; }}
+        .tab-pane.active {{ display: block; }}
 
         /* 10열 그리드 */
         .grid-10-container {{
@@ -604,10 +704,17 @@ html_content = f"""
             flex-direction: column;
             justify-content: space-between;
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
         }}
         .product-card:hover {{
             border-color: #94a3b8;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+        }}
+        /* [내가 본] 선택 상품 강조 카드 스타일 */
+        .product-card.card-origin {{
+            border: 2px solid #ef4444 !important;
+            background: #fff5f5 !important;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
         }}
         .product-img-wrap {{
             position: relative;
@@ -645,6 +752,19 @@ html_content = f"""
         }}
         .rank-top2, .rank-top3 {{
             background: linear-gradient(135deg, #334155, #1e293b) !important;
+        }}
+        .origin-badge {{
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 4px;
+            z-index: 2;
+            box-shadow: 0 2px 4px rgba(239,68,68,0.3);
         }}
         .product-info {{
             padding: 8px;
@@ -712,6 +832,7 @@ html_content = f"""
         .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
         .badge-amber {{ background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }}
         .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
+        .badge-red {{ background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }}
         .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
 
         /* 데이터 테이블 */
@@ -739,9 +860,7 @@ html_content = f"""
             color: #334155;
             vertical-align: middle;
         }}
-        .data-table tr:hover {{
-            background-color: #f8fafc;
-        }}
+        .data-table tr:hover {{ background-color: #f8fafc; }}
 
         /* 슬림 스크롤바 */
         ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
@@ -777,15 +896,11 @@ html_content = f"""
         <!-- 1단: 최상단 글로벌 통합 네비게이션 헤더 -->
         <header class="top-global-header">
             <div class="header-left-cluster">
-                <!-- 사이트 토글 -->
                 <div class="site-switch-group">
                     <button id="btnSiteHalf" class="site-btn active" onclick="changeSite('1')">하프클럽</button>
                     <button id="btnSiteBori" class="site-btn" onclick="changeSite('2')">보리보리</button>
                 </div>
-
                 <div class="v-divider"></div>
-
-                <!-- 6대 추천 모델 세그먼트 버튼 그룹 -->
                 <div class="model-tabs-group" id="modelTabsGroup"></div>
             </div>
 
@@ -801,7 +916,6 @@ html_content = f"""
 
         <!-- 2단: 추천 기준 상품 설정 및 대상 정보 일체형 카드 -->
         <section class="criterion-panel">
-            <!-- 좌측: 현재 선택된 대상 상품 요약 정보 -->
             <div class="target-preview-box">
                 <div>
                     <div class="target-header-row">
@@ -826,14 +940,11 @@ html_content = f"""
                         </div>
                     </div>
                 </div>
-                <!-- 다중 선택 상품 칩 목록 -->
                 <div class="multi-chips-row" id="multiChipsContainer" style="display:none;"></div>
             </div>
 
-            <!-- 우측: 기준 상품 선택기 (직접 입력란 + 12개 실시간 시드 미니 그리드) -->
             <div class="selector-controls-box">
                 <div class="selector-top-row">
-                    <!-- 입력 컨트롤 -->
                     <div class="input-fields-cluster">
                         <span style="font-size:0.8rem; font-weight:700; color:#475569;">상품번호:</span>
                         <input type="text" id="directPrdInput" class="primary-prd-input" placeholder="단일 or 쉼표 다중"/>
@@ -857,9 +968,20 @@ html_content = f"""
                     </div>
                 </div>
 
-                <!-- 12열 실시간 시드 미니 그리드 -->
                 <div class="seed-grid-row" id="seedGridContainer"></div>
             </div>
+        </section>
+
+        <!-- [신규] home API 전용: 추천 탭 및 시드 상품 목록 바 (recomm_home_hf.py 완벽 복원) -->
+        <section class="home-seed-tabs-section" id="homeSeedTabsSection" style="display:none;">
+            <div class="home-seed-tabs-header">
+                <div class="home-seed-tabs-title">
+                    <span>홈 추천 탭 (행동 시드 상품 연계)</span>
+                    <span id="activeSeedStatus" style="font-size:0.75rem; font-weight:700; color:#2563eb; background:#eff6ff; padding:2px 8px; border-radius:4px;">전체 맞춤 추천 (FORYOU)</span>
+                </div>
+                <span style="font-size:0.75rem; color:#64748b;">시드 카드를 클릭하면 해당 상품 기준 유사 추천(similaritem)이 즉시 연동됩니다.</span>
+            </div>
+            <div class="home-seed-cards-container" id="homeSeedCardsContainer"></div>
         </section>
 
         <!-- 3단: 추천 결과 메인 뷰 (100% 가로 폭) -->
@@ -873,19 +995,18 @@ html_content = f"""
                 <div class="active-api-info-text" id="activeApiUrlSnippet">-</div>
             </div>
 
-            <!-- 탭 1: 10열 그리드 -->
             <section class="tab-pane active" id="tabContentGrid">
                 <div class="grid-10-container" id="productGridContainer">
                     <div style="grid-column:1/-1; padding:60px 20px; text-align:center; color:#64748b;">추천 데이터를 불러오는 중입니다...</div>
                 </div>
             </section>
 
-            <!-- 탭 2: 데이터 테이블 -->
             <section class="tab-pane" id="tabContentTable">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>순번</th>
+                            <th>구분</th>
                             <th>상품번호</th>
                             <th>브랜드</th>
                             <th>상품명</th>
@@ -898,12 +1019,11 @@ html_content = f"""
                         </tr>
                     </thead>
                     <tbody id="productTableBody">
-                        <tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">데이터를 불러오는 중입니다...</td></tr>
+                        <tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">데이터를 불러오는 중입니다...</td></tr>
                     </tbody>
                 </table>
             </section>
 
-            <!-- 탭 3: Raw JSON 뷰 -->
             <section class="tab-pane" id="tabContentRaw">
                 <div style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; overflow:hidden;">
                     <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
@@ -944,11 +1064,14 @@ html_content = f"""
         let currentWish = {initial_wish_json};
         let currentMem = {initial_mem_json};
         let currentSelfYn = {initial_self_json} === 'true';
+        let currentSelectedSeed = {initial_selected_seed_json};
         let currentTab = {initial_tab_json};
 
         let currentRawData = null;
         let currentApiUrl = '';
         let currentSeedProducts = [];
+        let homeExtractedSeeds = [];
+        let homeOriginalResults = [];
 
         function getWebBaseUrl() {{
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
@@ -979,7 +1102,7 @@ html_content = f"""
 
         function updateUrlQuery() {{
             try {{
-                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
+                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}&tab=${{encodeURIComponent(currentTab)}}`;
                 try {{
                     if (window.parent && window.parent.history && window.parent.history.replaceState) {{
                         let targetPath = queryStr;
@@ -1008,7 +1131,7 @@ html_content = f"""
             const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
                 ? (window.parent.location.origin + window.parent.location.pathname)
                 : (window.location.origin + window.location.pathname);
-            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
+            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}&tab=${{encodeURIComponent(currentTab)}}`;
             navigator.clipboard.writeText(curUrl).then(() => {{
                 const btn = document.getElementById('btnCopyUrl');
                 if (btn) {{
@@ -1067,6 +1190,7 @@ html_content = f"""
 
         function selectMlType(typeId) {{
             currentMlType = typeId;
+            currentSelectedSeed = "";
             renderModelTabs();
             updateHomeFieldsVisibility();
             executeRecommendFlow();
@@ -1089,15 +1213,16 @@ html_content = f"""
         function changeSite(newSiteCd) {{
             if (currentSiteCd === newSiteCd) return;
             currentSiteCd = newSiteCd;
+            currentSelectedSeed = "";
             updateSiteButtons();
             loadBestProducts(currentSiteCd);
         }}
 
         function updateHomeFieldsVisibility() {{
             const homeWrap = document.getElementById('homeFieldsWrap');
-            if (homeWrap) {{
-                homeWrap.style.display = currentMlType === 'home' ? 'flex' : 'none';
-            }}
+            const homeTabs = document.getElementById('homeSeedTabsSection');
+            if (homeWrap) homeWrap.style.display = currentMlType === 'home' ? 'flex' : 'none';
+            if (homeTabs) homeTabs.style.display = currentMlType === 'home' ? 'block' : 'none';
         }}
 
         function setupEventListeners() {{
@@ -1233,6 +1358,7 @@ html_content = f"""
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
 
+            currentSelectedSeed = "";
             renderSeedGrid();
             executeRecommendFlow();
         }}
@@ -1268,6 +1394,7 @@ html_content = f"""
             const selfCheck = document.getElementById('selfYnCheck');
             if (selfCheck) currentSelfYn = selfCheck.checked;
 
+            currentSelectedSeed = "";
             renderSeedGrid();
             executeRecommendFlow();
         }}
@@ -1305,15 +1432,12 @@ html_content = f"""
             const prdList = getSelectedPrdList();
             const firstPrd = prdList[0] || '';
 
-            // 카운트 뱃지 동기화
             const countBadge = document.getElementById('targetCountBadge');
             if (countBadge) countBadge.textContent = `${{prdList.length}}개`;
 
-            // 쇼핑몰 링크
             const mallLink = document.getElementById('targetMallLink');
             if (mallLink) mallLink.href = getProductDetailUrl(firstPrd);
 
-            // 다중 선택 칩
             const multiContainer = document.getElementById('multiChipsContainer');
             if (multiContainer) {{
                 if (prdList.length > 1) {{
@@ -1483,7 +1607,7 @@ html_content = f"""
                     statusEl.style.borderColor = '#a7f3d0';
                 }}
 
-                renderDashboardResults(data);
+                handleApiSuccessResponse(data);
             }} catch (err) {{
                 const duration = Math.round(performance.now() - startTime);
                 if (statusEl) {{
@@ -1501,30 +1625,170 @@ html_content = f"""
                 `;
 
                 document.getElementById('productTableBody').innerHTML = `
-                    <tr><td colspan="10" style="text-align:center; padding:30px; color:#ef4444;">API 호출 실패: ${{escapeHtml(err.message)}}</td></tr>
+                    <tr><td colspan="11" style="text-align:center; padding:30px; color:#ef4444;">API 호출 실패: ${{escapeHtml(err.message)}}</td></tr>
                 `;
 
                 renderRawJsonView({{ error: err.message, requested_url: currentApiUrl }});
             }}
         }}
 
-        function renderDashboardResults(data) {{
+        function handleApiSuccessResponse(data) {{
             let products = [];
+            homeExtractedSeeds = [];
+
             if (Array.isArray(data)) {{
                 products = data;
             }} else if (data && typeof data === 'object') {{
                 products = data.result || data.data || data.items || data.results || [];
-                if (!Array.isArray(products) && typeof products === 'object') {{
-                    products = [products];
+                if (!Array.isArray(products) && typeof products === 'object') products = [products];
+
+                // home API 시드 상품들 추출
+                if (data.seed) {{
+                    if (Array.isArray(data.seed)) homeExtractedSeeds = data.seed;
+                    else if (data.seed.result && Array.isArray(data.seed.result)) homeExtractedSeeds = data.seed.result;
+                    else if (typeof data.seed === 'object') {{
+                        const list = [];
+                        for (let k of ['recent', 'basket', 'wish', 'result', 'items']) {{
+                            if (Array.isArray(data.seed[k])) list.push(...data.seed[k]);
+                        }}
+                        if (list.length > 0) homeExtractedSeeds = list;
+                    }}
                 }}
             }}
 
-            renderProductGrid(products);
-            renderProductTable(products);
-            renderRawJsonView(data);
+            homeOriginalResults = products;
+
+            // home API인 경우 홈 전용 시드 탭 바 렌더링
+            if (currentMlType === 'home') {{
+                document.getElementById('homeSeedTabsSection').style.display = 'block';
+                renderHomeSeedTabs(homeExtractedSeeds);
+
+                // 만약 특정 시드 상품이 선택된 상태라면 해당 상품 기준 similaritem 호출 실행
+                if (currentSelectedSeed) {{
+                    fetchSimilarItemForSeed(currentSelectedSeed);
+                    return;
+                }}
+            }} else {{
+                document.getElementById('homeSeedTabsSection').style.display = 'none';
+            }}
+
+            renderDashboardResults(products, false);
         }}
 
-        function renderProductGrid(products) {{
+        // [recomm_home_hf.py 복원] 홈 추천 탭 (FORYOU + 행동 시드 카드들) 렌더링
+        function renderHomeSeedTabs(seeds) {{
+            const container = document.getElementById('homeSeedCardsContainer');
+            if (!container) return;
+
+            const isForyouActive = !currentSelectedSeed;
+
+            let html = `
+                <div class="home-foryou-card ${{isForyouActive ? 'active' : ''}}" onclick="selectHomeSeedTab('')" title="전체 맞춤 추천 (FORYOU)">
+                    <span style="font-size:12px; font-weight:800; color:#64748b; margin-bottom:2px;">Index 0</span>
+                    <span class="foryou-title">FORYOU</span>
+                    <span class="foryou-desc">종합 추천</span>
+                </div>
+            `;
+
+            seeds.forEach((seed, idx) => {{
+                const pNo = String(seed.prdNo || seed.prd_no || '');
+                if (!pNo) return;
+
+                const isCardActive = currentSelectedSeed === pNo;
+                const seedType = seed.seed || 'seed';
+                const tagMap = {{ 'recent': ['최근본', 'tag-recent'], 'basket': ['장바구니', 'tag-basket'], 'wish': ['좋아요', 'tag-wish'] }};
+                const tagInfo = tagMap[seedType] || [seedType, 'tag-recent'];
+                const brand = seed.brandNm || '';
+                const img = getImageUrl(seed.appPrdImgUrl || seed.prdImg || seed.prd_img || '');
+
+                html += `
+                    <div class="home-seed-card ${{isCardActive ? 'active' : ''}}" onclick="selectHomeSeedTab('${{pNo}}')" title="${{brand}} #${{pNo}}">
+                        <span style="font-size:10px; font-weight:700; color:#64748b;">Index ${{idx + 1}}</span>
+                        <img src="${{img || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="home-seed-card-img" alt="${{pNo}}" loading="lazy"/>
+                        <span class="home-seed-type-tag ${{tagInfo[1]}}">${{tagInfo[0]}}</span>
+                        <span style="font-size:0.68rem; font-weight:700; color:#0f172a; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%;">${{brand || `#${{pNo}}`}}</span>
+                    </div>
+                `;
+            }});
+
+            container.innerHTML = html;
+        }}
+
+        // 홈 시드 탭 전환 핸들러
+        function selectHomeSeedTab(seedPrdNo) {{
+            currentSelectedSeed = String(seedPrdNo).trim();
+            updateUrlQuery();
+            renderHomeSeedTabs(homeExtractedSeeds);
+
+            const activeText = document.getElementById('activeSeedStatus');
+            if (activeText) {{
+                activeText.textContent = currentSelectedSeed 
+                    ? `선택된 시드 상품 #${{currentSelectedSeed}} 기준 유사 상품 (similarItem)`
+                    : '전체 맞춤 추천 (FORYOU)';
+            }}
+
+            if (!currentSelectedSeed) {{
+                // FORYOU 전체 결과 렌더링
+                renderDashboardResults(homeOriginalResults, false);
+                const snippetEl = document.getElementById('activeApiUrlSnippet');
+                if (snippetEl) snippetEl.textContent = `/recommend/home (FORYOU)`;
+            }} else {{
+                // 선택된 시드 상품으로 similaritem 호출
+                fetchSimilarItemForSeed(currentSelectedSeed);
+            }}
+        }}
+
+        // [recomm_home_hf.py 복원] 시드 상품 클릭 시 similaritem API 호출 및 [내가 본] 선택 상품 맨 앞 표시
+        async function fetchSimilarItemForSeed(seedPrdNo) {{
+            const startTime = performance.now();
+            const apiBase = getApiBaseUrl();
+            const statusEl = document.getElementById('statusBadge');
+            if (statusEl) {{
+                statusEl.textContent = `시드 #${{seedPrdNo}} 조회 중...`;
+                statusEl.style.color = '#2563eb';
+            }}
+
+            const snippetEl = document.getElementById('activeApiUrlSnippet');
+            if (snippetEl) snippetEl.textContent = `/recommend/similaritem?prdNo=${{seedPrdNo}} (시드 연계)`;
+
+            const similarUrl = `${{apiBase}}/recommend/similaritem?siteCd=${{currentSiteCd}}&size=${{currentK}}&prdNo=${{seedPrdNo}}&originPrdYn=true&randomYn=false`;
+            const fullUrlEl = document.getElementById('calledApiUrlFull');
+            if (fullUrlEl) fullUrlEl.textContent = similarUrl;
+
+            try {{
+                const res = await fetch(similarUrl);
+                const duration = Math.round(performance.now() - startTime);
+
+                if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
+                const data = await res.json();
+                currentRawData = data;
+
+                if (statusEl) {{
+                    statusEl.textContent = `200 OK (${{duration}}ms)`;
+                    statusEl.style.color = '#059669';
+                }}
+
+                let results = [];
+                if (Array.isArray(data)) results = data;
+                else if (data && typeof data === 'object') {{
+                    results = data.result || data.data || data.items || [];
+                }}
+
+                // 선택된 시드 상품에 [내가 본] 태그 플래그 부여
+                renderDashboardResults(results, true, seedPrdNo);
+            }} catch (e) {{
+                if (statusEl) statusEl.textContent = '시드 조회 실패';
+                alert(`similaritem API 호출 오류: ${{e.message}}`);
+            }}
+        }}
+
+        function renderDashboardResults(products, isSimilarMode = false, seedPrdNo = '') {{
+            renderProductGrid(products, isSimilarMode, seedPrdNo);
+            renderProductTable(products, isSimilarMode, seedPrdNo);
+            renderRawJsonView(currentRawData);
+        }}
+
+        function renderProductGrid(products, isSimilarMode = false, seedPrdNo = '') {{
             const container = document.getElementById('productGridContainer');
             if (!container) return;
 
@@ -1535,7 +1799,7 @@ html_content = f"""
 
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
-                const prdNo = prd.prdNo || prd.prd_no || prd.id || '';
+                const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '');
                 const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '상품명 미확인';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '브랜드';
@@ -1552,13 +1816,17 @@ html_content = f"""
                 const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
+                // [recomm_home_hf.py 복원] 내가 본 선택 상품인지 확인
+                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
+
                 const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
                 const rankText = rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`;
 
                 return `
-                    <div class="product-card">
+                    <div class="product-card ${{isOriginPrd ? 'card-origin' : ''}}">
                         <div class="product-img-wrap">
                             <span class="${{rankClass}}">${{rankText}}</span>
+                            ${{isOriginPrd ? '<span class="origin-badge">[ 내가 본 ]</span>' : ''}}
                             <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="display:block; width:100%; height:100%;">
                                 <img src="${{imgUrl || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="product-img" alt="${{escapeHtml(name)}}" loading="lazy"/>
                             </a>
@@ -1576,6 +1844,7 @@ html_content = f"""
                                 ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
                             </div>
                             <div class="badge-chip-container">
+                                ${{isOriginPrd ? '<span class="badge-chip-item badge-red">선택 상품</span>' : ''}}
                                 ${{score !== null && !isNaN(score) ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
                                 ${{esScore !== null && !isNaN(esScore) ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
                                 ${{seedLabel ? `<span class="badge-chip-item badge-purple" title="시드 출처">${{seedLabel}}</span>` : ''}}
@@ -1587,18 +1856,18 @@ html_content = f"""
             }}).join('');
         }}
 
-        function renderProductTable(products) {{
+        function renderProductTable(products, isSimilarMode = false, seedPrdNo = '') {{
             const tbody = document.getElementById('productTableBody');
             if (!tbody) return;
 
             if (!products || products.length === 0) {{
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
                 return;
             }}
 
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
-                const prdNo = prd.prdNo || prd.prd_no || prd.id || '-';
+                const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '-');
                 const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '-';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
@@ -1609,9 +1878,12 @@ html_content = f"""
                 const esScore = prd.esscore !== undefined && prd.esscore !== '' && !isNaN(Number(prd.esscore)) ? Number(prd.esscore).toFixed(4) : '-';
                 const c1 = prd.dpCtgrNm1 || prd.category || '-';
 
+                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
+
                 return `
-                    <tr>
+                    <tr style="${{isOriginPrd ? 'background-color:#fff1f2;' : ''}}">
                         <td style="font-weight:700; color:#64748b;">${{rank}}</td>
+                        <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}</td>
                         <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
                         <td style="font-weight:600;">${{brand}}</td>
                         <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{name}}</td>
