@@ -32,6 +32,18 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# 2-1. Streamlit 시크릿 (.streamlit/secrets.toml) 도메인 로드 (기본값 금지 원칙 준수)
+try:
+    domains_conf = st.secrets["domains"]
+    HALFCLUB_WEB_URL = str(domains_conf["halfclub_web"]).rstrip("/")
+    HALFCLUB_API_URL = str(domains_conf["halfclub_api"]).rstrip("/")
+    HALFCLUB_CDN_URL = str(domains_conf["halfclub_cdn"]).rstrip("/")
+    BORIBORI_WEB_URL = str(domains_conf["boribori_web"]).rstrip("/")
+    BORIBORI_API_URL = str(domains_conf["boribori_api"]).rstrip("/")
+    BORIBORI_CDN_URL = str(domains_conf["boribori_cdn"]).rstrip("/")
+except Exception as e:
+    raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
+
 # 3. 타겟 키워드 리스트 로드 (keywords.json 연동)
 def load_keywords():
     kw_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "keywords.json")
@@ -463,7 +475,7 @@ html_content = f"""
         <main class="main-content">
             <header class="top-navbar" style="display:flex; align-items:center; justify-content:space-between; padding-bottom:14px;">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <a id="currentKeywordTitleLink" href="https://dev.halfclub.com/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
+                    <a id="currentKeywordTitleLink" href="{HALFCLUB_WEB_URL}/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
                         <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
                             <span id="currentKeywordText">가디건</span>
                             <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
@@ -680,6 +692,57 @@ html_content = f"""
     </div>
 
     <script>
+        // Streamlit secrets 기반 통합 도메인 설정
+        const DOMAINS = {{
+            HALFCLUB_WEB: "{HALFCLUB_WEB_URL}",
+            HALFCLUB_API: "{HALFCLUB_API_URL}",
+            HALFCLUB_CDN: "{HALFCLUB_CDN_URL}",
+            BORIBORI_WEB: "{BORIBORI_WEB_URL}",
+            BORIBORI_API: "{BORIBORI_API_URL}",
+            BORIBORI_CDN: "{BORIBORI_CDN_URL}"
+        }};
+
+        // 현재 선택된 사이트 기준 웹 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getWebBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
+        }}
+
+        // 현재 선택된 사이트 기준 API 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getApiBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_API : DOMAINS.HALFCLUB_API;
+        }}
+
+        // 현재 선택된 사이트 기준 이미지 CDN 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getCdnBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
+        }}
+
+        // 사이트 기준 통합 검색 URL 생성 헬퍼 함수
+        function getSearchUrl(keyword, brandCode = null) {{
+            const base = getWebBaseUrl();
+            const cleanKw = encodeURIComponent((keyword || '').trim());
+            if (brandCode) {{
+                return `${{base}}/search/${{cleanKw}}?brandCd=${{encodeURIComponent(brandCode)}}`;
+            }}
+            return `${{base}}/search/${{cleanKw}}`;
+        }}
+
+        // 상품 상세 페이지 이동 URL 생성 헬퍼 함수 (사이트별 분기 지원)
+        function getProductDetailUrl(prdNo) {{
+            if (!prdNo || prdNo === '-') return '#';
+            return `${{getWebBaseUrl()}}/product/${{prdNo}}`;
+        }}
+
+        // 상품 이미지 CDN 통합 URL 생성 헬퍼 함수 (사이트별 CDN 분기)
+        function getImageUrl(imgPath) {{
+            if (!imgPath) return '';
+            if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+            return `${{getCdnBaseUrl()}}/rimg/330x440/contain/${{imgPath}}`;
+        }}
+
         const allKeywords = {keywords_json_str};
         let currentKeyword = {initial_keyword_json};
         let currentTab = {initial_tab_json};
@@ -929,9 +992,8 @@ html_content = f"""
             const linkEl = document.getElementById('currentKeywordTitleLink');
             if (linkEl) {{
                 const siteCd = document.getElementById('siteCdSelect')?.value || '1';
-                const searchBase = siteCd === '2' ? 'https://dev.boribori.co.kr/search/' : 'https://dev.halfclub.com/search/';
                 const siteName = siteCd === '2' ? '보리보리' : '하프클럽';
-                linkEl.href = searchBase + encodeURIComponent(kw);
+                linkEl.href = getSearchUrl(kw);
                 linkEl.title = `${{siteName}}에서 '${{kw}}' 검색 (새 탭 이동)`;
             }}
         }}
@@ -975,8 +1037,8 @@ html_content = f"""
         async function fetchKeywordTrend(kw) {{
             const siteCd = document.getElementById('siteCdSelect').value || '1';
             const size = document.getElementById('sizeInput')?.value || '50';
-            currentApiUrl = `https://dev-api.halfclub.com/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
-            const brandFilterUrl = `https://hapix.halfclub.com/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
+            currentApiUrl = `${{DOMAINS.API_BASE}}/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+            const brandFilterUrl = `${{DOMAINS.API_BASE}}/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
 
             try {{
                 const [recRes, brandRes] = await Promise.allSettled([
@@ -1133,13 +1195,11 @@ html_content = f"""
                 let bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
                 
                 const chipId = `brandChip_${{bIdx}}`;
-                const searchUrl = bCode 
-                    ? `https://dev.halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(bCode)}}`
-                    : `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + bClean)}}`;
-                const titleText = bCode ? `하프클럽 브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `하프클럽에서 '${{kw}} ${{bClean}}' 검색`;
+                const searchUrl = bCode ? getSearchUrl(kw, bCode) : getSearchUrl(kw + ' ' + bClean);
+                const titleText = bCode ? `브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `'${{kw}} ${{bClean}}' 검색`;
 
                 if (!bCode) {{
-                    fetch(`https://hapix.halfclub.com/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
+                    fetch(`${{DOMAINS.API_BASE}}/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
                         .then(r => r.json())
                         .then(resData => {{
                             const hits = resData?.data?.result?.hits?.hits;
@@ -1148,8 +1208,8 @@ html_content = f"""
                                 if (foundCd) {{
                                     const chipEl = document.getElementById(chipId);
                                     if (chipEl) {{
-                                        chipEl.href = `https://dev.halfclub.com/search/${{encodeURIComponent(kw)}}?brandCd=${{encodeURIComponent(foundCd)}}`;
-                                        chipEl.title = `하프클럽 브랜드 필터 '${{bClean}}' (${{foundCd}}) 적용 검색`;
+                                        chipEl.href = getSearchUrl(kw, foundCd);
+                                        chipEl.title = `브랜드 필터 '${{bClean}}' (${{foundCd}}) 적용 검색`;
                                     }}
                                 }}
                             }}
@@ -1161,13 +1221,13 @@ html_content = f"""
             }}).join('');
 
             const kwChips = extKws.map(k => {{
-                const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                const searchUrl = getSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
             }}).join('');
 
             const searchKwChips = extSearchKws.map(k => {{
-                const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                const searchUrl = getSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
             }}).join('');
 
             document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
@@ -1237,7 +1297,7 @@ html_content = f"""
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = prd.prdNo || prd.product_no || prd.id || '';
-                const prdUrl = prd.prd_url || (prdNo ? `https://halfclub.com/product/${{prdNo}}` : '#');
+                const prdUrl = prd.prd_url || getProductDetailUrl(prdNo);
                 const hasPrdUrl = prdUrl && prdUrl !== '#';
 
                 const name = prd.prdNm || prd.name || '상품명 없음';
@@ -1249,14 +1309,11 @@ html_content = f"""
                 const reviews = prd.reviewQty || prd.revCnt || 0;
                 const matchedKws = prd.matched_keywords || [];
 
-                let imgUrl = prd.appPrdImgUrl || prd.prdImg || '';
-                if (imgUrl && !imgUrl.startsWith('http')) {{
-                    imgUrl = `https://cdn2.halfclub.com/rimg/330x440/contain/${{imgUrl}}`;
-                }}
+                const imgUrl = getImageUrl(prd.appPrdImgUrl || prd.prdImg || '');
 
                 const kwChips = matchedKws.map(k => {{
-                    const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
-                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="하프클럽에서 '${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                    const searchUrl = getSearchUrl(kw + ' ' + k);
+                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
                 }}).join('');
                 const badgesHtml = renderBadgesHtml(prd);
 
@@ -1300,7 +1357,7 @@ html_content = f"""
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = prd.prdNo || prd.product_no || prd.id || '-';
-                const prdUrl = prd.prd_url || (prdNo !== '-' ? `https://halfclub.com/product/${{prdNo}}` : '#');
+                const prdUrl = prd.prd_url || getProductDetailUrl(prdNo);
                 const hasPrdUrl = prdUrl && prdUrl !== '#';
 
                 const brand = prd.brandNm || prd.brdNm || prd.brand || '-';
@@ -1315,7 +1372,7 @@ html_content = f"""
                 const discRt = rawDiscRt ? `${{rawDiscRt}}%` : '-';
 
                 const matchedKws = (prd.matched_keywords || []).map(k => {{
-                    const searchUrl = `https://dev.halfclub.com/search/${{encodeURIComponent(kw + ' ' + k)}}`;
+                    const searchUrl = getSearchUrl(kw + ' ' + k);
                     return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:600;">${{k}}</a>`;
                 }}).join(', ');
                 const rating = prd.reviewStar || prd.avgPoint || 0.0;
