@@ -774,11 +774,8 @@ html_content = f"""
             <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 리셋">
                 <div class="sidebar-title">
                     <span>추천 서비스 유형</span>
-                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="typeCountBadge">0</span>
+                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="typeCountBadge">6</span>
                 </div>
-            </div>
-            <div class="search-box">
-                <input type="text" id="typeSearchInput" class="search-input" placeholder="추천 유형 검색..."/>
             </div>
             <ul class="type-list" id="typeList"></ul>
         </aside>
