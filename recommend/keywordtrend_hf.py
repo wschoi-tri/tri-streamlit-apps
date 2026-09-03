@@ -263,11 +263,12 @@ html_content = f"""
         .guide-card-box {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-left: 4px solid #2563eb;
             border-radius: 12px;
             padding: 22px 26px;
-            box-shadow: 0 2px 12px -2px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             margin-bottom: 22px;
+            box-sizing: border-box;
+            width: 100%;
         }}
         .guide-card-header {{
             display: flex;
@@ -1356,23 +1357,23 @@ html_content = f"""
             }}).join('');
 
             document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <span style="flex-shrink:0; font-weight:700;">대상 브랜드:</span>
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{brandChips}}</div>
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:8px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">대상 브랜드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{brandChips}}</div>
                 </div>
             ` : '';
 
             document.getElementById('extractedKeywordsWrap').innerHTML = kwChips ? `
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
-                    <span style="flex-shrink:0; font-weight:700;">추출 키워드:</span>
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{kwChips}}</div>
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:6px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">추출 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{kwChips}}</div>
                 </div>
             ` : '';
 
             document.getElementById('extractedSearchKeywordsWrap').innerHTML = searchKwChips ? `
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">
-                    <span style="flex-shrink:0; font-weight:700;">검색 키워드:</span>
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">${{searchKwChips}}</div>
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:6px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">검색 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{searchKwChips}}</div>
                 </div>
             ` : '';
 
