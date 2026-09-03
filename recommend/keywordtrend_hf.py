@@ -11,33 +11,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. 기본 CSS 덮어쓰기 (Streamlit 상단 헤더/푸터 제거 및 전체 화면 최대화)
+# 2. 기본 CSS 덮어쓰기 (Streamlit 사방 여백 완전 제거 및 뷰포트 100% 풀스크린 고정)
 st.markdown("""
 <style>
-    header[data-testid="stHeader"] {display: none !important;}
-    div[data-testid="stToolbar"] {display: none !important;}
-    div[data-testid="stDecoration"] {display: none !important;}
-    .stAppHeader {display: none !important;}
-    footer {display: none !important;}
-    #MainMenu {visibility: hidden;}
-    .main .block-container {
-        padding-top: 0rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 0rem !important;
-        padding-right: 0rem !important;
-        margin: 0 !important;
-        max-width: 100% !important;
+    /* 1. Streamlit 헤더, 툴바, 풋터 일체 은폐 */
+    header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], .stAppHeader, footer, #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
     }
-    section.main {
+    /* 2. Streamlit 루트 앱 및 메인 컨테이너 사방 여백 완전 제거 */
+    html, body, .stApp, section.main, .main, .block-container, div[data-testid="stBlockContainer"], div[data-testid="stCustomComponentV1"] {
         padding: 0 !important;
         margin: 0 !important;
-        overflow: hidden !important;
-    }
-    iframe {
-        border: none !important;
+        max-width: 100% !important;
         width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        background-color: #ffffff !important;
+    }
+    /* 3. iframe을 브라우저 뷰포트 전체(100vw x 100vh)로 강제 고정하여 사방 여백 완전 제거 */
+    iframe {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
         height: 100vh !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
         display: block !important;
+        z-index: 99999 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -296,13 +299,13 @@ html_content = f"""
         #guideTextBody b,
         #guideTextBody strong,
         .highlight-kw {{
-            background: #fef3c7;
-            color: #92400e;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-weight: 700;
-            border: 1px solid #fde68a;
-            display: inline-block;
+            color: #1d4ed8;
+            font-weight: 800;
+            background: #eff6ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border-bottom: 2px solid #93c5fd;
+            display: inline;
         }}
         
         /* 탭 서식 */
@@ -681,13 +684,16 @@ html_content = f"""
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedSearchKeywordsWrap"></div>
                     
-                    <!-- 참고 뉴스 기사 5건 목록 -->
-                    <div style="margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0;" id="articlesWrapper">
-                        <div style="font-size:0.8rem; font-weight:700; color:#475569; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
-                            <span>참고 뉴스 기사 목록</span>
-                            <span style="font-size:0.72rem; color:#94a3b8; font-weight:normal;">원문 클릭 이동</span>
+                    <!-- 참고 뉴스 기사 (아코디언 토글) -->
+                    <div style="margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9;" id="articlesWrapper">
+                        <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:4px 0;" onclick="toggleArticlesAccordion()" title="참고 뉴스 목록 접기/펼치기">
+                            <div style="font-size:0.8rem; font-weight:700; color:#475569; display:flex; align-items:center; gap:6px;">
+                                <span>참고 뉴스 기사</span>
+                                <span id="articlesCountBadge" style="font-size:0.72rem; background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px;">0건</span>
+                            </div>
+                            <span id="articlesToggleIcon" style="font-size:0.75rem; color:#2563eb; font-weight:700;">목록 펼치기 ▼</span>
                         </div>
-                        <div id="articlesListContainer"></div>
+                        <div id="articlesListContainer" style="display:none; margin-top:8px;"></div>
                     </div>
                 </div>
 
@@ -1196,6 +1202,17 @@ html_content = f"""
             fetchKeywordTrend(kw);
         }}
 
+        function toggleArticlesAccordion() {{
+            const container = document.getElementById('articlesListContainer');
+            const icon = document.getElementById('articlesToggleIcon');
+            if (!container) return;
+            const isHidden = container.style.display === 'none' || !container.style.display;
+            container.style.display = isHidden ? 'block' : 'none';
+            if (icon) {{
+                icon.textContent = isHidden ? '목록 접기 ▲' : '목록 펼치기 ▼';
+            }}
+        }}
+
         async function fetchKeywordTrend(kw) {{
             const siteCd = document.getElementById('siteCdSelect')?.value || '1';
             const size = document.getElementById('sizeInput')?.value || '50';
@@ -1379,10 +1396,17 @@ html_content = f"""
 
             const articles = data.keyword_articles || llmInfo.keyword_articles || [];
             const articlesContainer = document.getElementById('articlesListContainer');
+            const countBadge = document.getElementById('articlesCountBadge');
+            const wrap = document.getElementById('articlesWrapper');
+            if (countBadge) {{
+                countBadge.textContent = `${{articles.length}}건`;
+            }}
             if (articlesContainer) {{
                 if (!articles || articles.length === 0) {{
-                    articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8;">참고 뉴스 기사가 없습니다.</div>';
+                    if (wrap) wrap.style.display = 'none';
+                    articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8; padding:6px 0;">참고 뉴스 기사가 없습니다.</div>';
                 }} else {{
+                    if (wrap) wrap.style.display = 'block';
                     const artHtml = articles.map(art => {{
                         const linkUrl = art.link || art.url || '#';
                         const sourceName = art.source || art.media || '뉴스';
