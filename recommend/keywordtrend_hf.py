@@ -374,7 +374,7 @@ html_content = f"""
         .product-img-wrap {{
             position: relative;
             width: 100%;
-            height: 220px;
+            aspect-ratio: 1 / 1.15;
             background-color: #f8fafc;
             overflow: hidden;
         }}
@@ -382,6 +382,7 @@ html_content = f"""
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: top center;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }}
         .product-card:hover .product-img {{
@@ -1311,6 +1312,19 @@ html_content = f"""
             if (elemCreateDt) elemCreateDt.textContent = createDt;
             const elemUpdateDt = document.getElementById('updateDtText');
             if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
+
+            // 큐레이션 요약문 (curation_summary) 바인딩
+            const curationSummary = data.curation_summary || llmInfo.curation_summary || stage1.guide_result?.curation_summary || '';
+            const summaryWrap = document.getElementById('curationSummaryWrap');
+            const summaryText = document.getElementById('curationSummaryText');
+            if (summaryWrap && summaryText) {{
+                if (curationSummary && curationSummary.trim()) {{
+                    summaryText.textContent = curationSummary.trim();
+                    summaryWrap.style.display = 'flex';
+                }} else {{
+                    summaryWrap.style.display = 'none';
+                }}
+            }}
 
             // API 응답 데이터의 guide_text_html을 그대로 단독 표시
             let guideText = data.guide_text_html || '';
