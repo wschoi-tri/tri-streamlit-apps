@@ -57,17 +57,13 @@ try:
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# 3. 추천 서비스 유형 정의
+# 3. 실제 서비스 중인 추천 API 유형 정의 (전수 검증 완료: 5개 유효 엔드포인트)
 ML_TYPES = [
     {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성 및 메타데이터 기반 유사도 추천"},
     {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자 동시 조회 기반 추천"},
     {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 주문서 동시 구매 기반 추천"},
     {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사도 추천"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 개인화 추천"},
-    {"id": "multiSimilarItem", "name": "유사 상품 조합 (multiSimilarItem)", "desc": "다중 상품 입력 기반 결합 유사도 추천"},
-    {"id": "meanSimilarItem", "name": "평균 유사 상품 (meanSimilarItem)", "desc": "다중 상품 임베딩 평균 기반 유사 추천"},
-    {"id": "meanSimilarItemView", "name": "평균 유사 상품 조회 (meanSimilarItemView)", "desc": "조회 이력 임베딩 평균 기반 유사 추천"},
-    {"id": "meanSimilarItemBuy", "name": "평균 유사 상품 구매 (meanSimilarItemBuy)", "desc": "구매 이력 임베딩 평균 기반 유사 추천"}
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 맞춤 추천"}
 ]
 
 # 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
@@ -189,7 +185,7 @@ html_content = f"""
             padding: 8px 0;
         }}
         .type-item {{
-            padding: 10px 14px;
+            padding: 11px 14px;
             margin: 3px 10px;
             font-size: 0.86rem;
             color: #334155;
@@ -731,7 +727,7 @@ html_content = f"""
 </head>
 <body>
     <div class="app-container">
-        <!-- 좌측 사이드바: 추천 서비스 유형 목록 -->
+        <!-- 좌측 사이드바: 5대 추천 서비스 유형 목록 -->
         <aside class="sidebar">
             <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 리셋">
                 <div class="sidebar-title">
@@ -859,7 +855,7 @@ html_content = f"""
                             <div style="font-size:0.8rem; color:#64748b; font-weight:600; margin-top:4px;" id="targetCategoryPath"></div>
                         </div>
                     </div>
-                    <!-- 다중 대상 상품 칩 목록 (개인화 추천 등) -->
+                    <!-- 다중 대상 상품 칩 목록 (개인화 추천) -->
                     <div id="multiTargetChipsWrap" style="display:none; margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9;">
                         <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;">다중 대상 상품 목록:</div>
                         <div id="multiTargetChipsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
@@ -1196,7 +1192,7 @@ html_content = f"""
             executeRecommendFlow();
         }}
 
-        // 사이트별 실시간 베스트 상품 API 호출 함수 (기존 get_best_products 로직 완벽 복원)
+        // 사이트별 실시간 베스트 상품 API 호출 함수
         async function loadBestProducts(siteCd) {{
             const seedStatus = document.getElementById('seedStatusText');
             if (seedStatus) seedStatus.textContent = '실시간 베스트 상품 조회 중...';
@@ -1257,7 +1253,6 @@ html_content = f"""
                 }}
             }} catch (e) {{
                 if (seedStatus) seedStatus.textContent = '베스트 기본 상품 모드';
-                // 폴백 기본 시드
                 currentSeedProducts = siteCd === '1' ? [
                     {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": ""}},
                     {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": ""}},
@@ -1532,27 +1527,28 @@ html_content = f"""
                 statusEl.style.color = '#2563eb';
             }}
 
-            // 엔드포인트 및 파라미터 구성
-            let endpoint = currentMlType;
-            if ((currentMlType === 'viewtogether' || currentMlType === 'buytogether') && (currentAge || currentGender)) {{
-                endpoint = currentMlType === 'viewtogether' ? 'viewuser' : 'buyuser';
-            }}
-
+            // 5개 실제 서비스 엔드포인트 파라미터 매핑
+            const endpoint = currentMlType;
             const params = new URLSearchParams();
             params.append('siteCd', currentSiteCd);
             params.append('size', currentK);
 
             const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
 
-            if (['recommendforyou', 'multiSimilarItem', 'meanSimilarItem', 'meanSimilarItemView', 'meanSimilarItemBuy'].includes(currentMlType)) {{
+            if (currentMlType === 'recommendforyou') {{
                 prdList.forEach(p => params.append('prdNo', p));
             }} else {{
                 params.append('prdNo', prdList[0] || '380118214');
             }}
 
-            if (currentAge) params.append('age', currentAge);
-            if (currentGender) params.append('gender', currentGender);
-            if (currentMlType === 'similaritem' || currentMlType === 'multiSimilarItem') {{
+            // viewtogether 및 buytogether 연령/성별 파라미터 연동
+            if (currentAge && (currentMlType === 'viewtogether' || currentMlType === 'buytogether')) {{
+                params.append('age', currentAge);
+            }}
+            if (currentGender && (currentMlType === 'viewtogether' || currentMlType === 'buytogether')) {{
+                params.append('gender', currentGender);
+            }}
+            if (currentMlType === 'similaritem') {{
                 params.append('randomYn', 'false');
             }}
 
