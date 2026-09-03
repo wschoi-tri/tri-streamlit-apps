@@ -647,7 +647,7 @@ html_content = f"""
 
             <div class="dashboard-body">
                 <!-- 메타 메타데이터 뱃지 바 -->
-                <div class="meta-badges" id="metaBadgesBar" style="display:flex; gap:10px; margin-bottom:16px;">
+                <div class="meta-badges" id="metaBadgesBar" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; padding:7px 16px;">
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">모델</span>
                         <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="llmModelText">-</span>
@@ -657,19 +657,20 @@ html_content = f"""
                         <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 / Cached: 0 (Total: 0)</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
-                        <span style="color:#64748b; font-size:0.75rem;">필터</span>
-                        <span id="filterBadgesText" style="display:flex; gap:4px;">
-                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">브랜드: ON</span>
-                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">카테고리: ON</span>
-                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">성별: ON</span>
-                        </span>
-                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">생성일시</span>
                         <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="createDtText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">갱신일시</span>
                         <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="updateDtText">-</span>
+                    </div>
+                    <!-- 필터링 상태 (오른쪽 끝 정렬) -->
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px; margin-left:auto;">
+                        <span style="color:#64748b; font-size:0.75rem; font-weight:700;">필터링</span>
+                        <span id="filterBadgesText" style="display:flex; gap:4px;">
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">카테고리: ON</span>
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">성별: ON</span>
+                        </span>
                     </div>
                 </div>
 
