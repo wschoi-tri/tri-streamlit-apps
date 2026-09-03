@@ -116,16 +116,20 @@ html_content = f"""
             padding: 0;
             font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
         }}
-        body {{
+        html, body {{
             background-color: #ffffff;
             color: #0f172a;
-            height: 100vh;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
             overflow: hidden;
         }}
         .app-container {{
             display: flex;
             height: 100vh;
-            width: 100vw;
+            width: 100%;
+            overflow: hidden;
         }}
         /* 좌측 사이드바 */
         .sidebar {{
