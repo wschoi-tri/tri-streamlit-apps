@@ -673,10 +673,14 @@ html_content = f"""
                                     <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
                                     <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트</span>
                                 </div>
-                                <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage1')">전체 접기</button>
+                                    <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
-                            <div style="padding:14px 16px; background:#0f172a; max-height:280px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; color:#cbd5e1; white-space:pre-wrap; word-break:break-all;"><code id="promptSysStage1"></code></pre>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptSysStage1" class="json-tree-container"></div>
                             </div>
                         </div>
 
@@ -687,10 +691,14 @@ html_content = f"""
                                     <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
                                     <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트 (실 데이터)</span>
                                 </div>
-                                <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage1')">전체 접기</button>
+                                    <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
                             <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptUserStage1"></code></pre>
+                                <div id="promptUserStage1" class="json-tree-container"></div>
                             </div>
                         </div>
 
@@ -725,10 +733,14 @@ html_content = f"""
                                     <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
                                     <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트</span>
                                 </div>
-                                <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage2')">전체 접기</button>
+                                    <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
-                            <div style="padding:14px 16px; background:#0f172a; max-height:280px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; color:#cbd5e1; white-space:pre-wrap; word-break:break-all;"><code id="promptSysStage2"></code></pre>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptSysStage2" class="json-tree-container"></div>
                             </div>
                         </div>
 
@@ -739,10 +751,14 @@ html_content = f"""
                                     <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
                                     <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트 (실 데이터)</span>
                                 </div>
-                                <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" style="background:#334155; color:#f8fafc; border:none; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer;">내용 복사</button>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage2')">전체 접기</button>
+                                    <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
                             </div>
                             <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
-                                <pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all;"><code id="promptUserStage2"></code></pre>
+                                <div id="promptUserStage2" class="json-tree-container"></div>
                             </div>
                         </div>
 
@@ -1448,7 +1464,7 @@ html_content = f"""
             if (p1Sys && elemSys1) {{
                 if (cardSys1) cardSys1.style.display = 'block';
                 promptResDataMap['promptSysStage1'] = p1Sys;
-                elemSys1.innerHTML = highlightJsonHtml(p1Sys, true);
+                elemSys1.innerHTML = renderJsonTree(p1Sys, true);
             }}
 
             const p1User = stage1.prompt_info?.user_prompt;
@@ -1457,7 +1473,7 @@ html_content = f"""
             if (p1User && elemUser1) {{
                 if (cardUser1) cardUser1.style.display = 'block';
                 promptResDataMap['promptUserStage1'] = p1User;
-                elemUser1.innerHTML = highlightJsonHtml(p1User, true);
+                elemUser1.innerHTML = renderJsonTree(p1User, true);
             }} else if (cardUser1) {{
                 cardUser1.style.display = 'none';
             }}
@@ -1479,7 +1495,7 @@ html_content = f"""
             if (p2Sys && elemSys2) {{
                 if (cardSys2) cardSys2.style.display = 'block';
                 promptResDataMap['promptSysStage2'] = p2Sys;
-                elemSys2.innerHTML = highlightJsonHtml(p2Sys, true);
+                elemSys2.innerHTML = renderJsonTree(p2Sys, true);
             }}
 
             const p2User = stage2.prompt_info?.user_prompt;
@@ -1488,7 +1504,7 @@ html_content = f"""
             if (p2User && elemUser2) {{
                 if (cardUser2) cardUser2.style.display = 'block';
                 promptResDataMap['promptUserStage2'] = p2User;
-                elemUser2.innerHTML = highlightJsonHtml(p2User, true);
+                elemUser2.innerHTML = renderJsonTree(p2User, true);
             }} else if (cardUser2) {{
                 cardUser2.style.display = 'none';
             }}
@@ -1505,9 +1521,9 @@ html_content = f"""
             }}
         }}
 
-        // 계층형 JSON 트리 렌더러 (객체/배열 단위 접기/펼치기 지원)
+        // 계층형 JSON 트리 렌더러 (객체/배열 단위 접기/펼치기 및 JSON 문자열 자동 파싱 지원)
         function renderJsonTree(data, isRoot = true) {{
-            if (data === null) {{
+            if (data === null || data === undefined) {{
                 return '<span class="json-null">null</span>';
             }}
             if (typeof data === 'boolean') {{
@@ -1517,6 +1533,16 @@ html_content = f"""
                 return `<span class="json-number">${{data}}</span>`;
             }}
             if (typeof data === 'string') {{
+                const trimmed = data.trim();
+                if ((trimmed.startsWith('{{') && trimmed.endsWith('}}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {{
+                    try {{
+                        const parsed = JSON.parse(trimmed);
+                        return renderJsonTree(parsed, false);
+                    }} catch (e) {{}}
+                }}
+                if (data.includes(String.fromCharCode(10))) {{
+                    return `<pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all; color:#cbd5e1;">${{escapeHtml(data)}}</pre>`;
+                }}
                 return `<span class="json-string">"${{escapeHtml(data)}}"</span>`;
             }}
 
