@@ -629,30 +629,29 @@ html_content = f"""
 
             <div class="dashboard-body">
                 <!-- 메타 메타데이터 뱃지 바 -->
-                <div class="meta-badges" id="metaBadgesBar">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>LLM 모델:</span>
-                        <span style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="llmModelText">-</span>
+                <div class="meta-badges" id="metaBadgesBar" style="display:flex; gap:10px; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">모델</span>
+                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="llmModelText">-</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>LLM 토큰:</span>
-                        <span style="background:#fdf2f8; border:1px solid #fbcfe8; color:#db2777; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 / Cached: 0 (Total: 0)</span>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">토큰</span>
+                        <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 / Cached: 0 (Total: 0)</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>필터링 적용:</span>
-                        <span id="filterBadgesText" style="display:flex; gap:6px;">
-                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">브랜드: ON</span>
-                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ON</span>
-                            <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ON</span>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">필터</span>
+                        <span id="filterBadgesText" style="display:flex; gap:4px;">
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">브랜드: ON</span>
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">카테고리: ON</span>
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">성별: ON</span>
                         </span>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">생성일시</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="createDtText">-</span>
                     </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>생성일시:</span>
-                        <span style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="createDtText">-</span>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>갱신일시:</span>
-                        <span style="background:#f1f5f9; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="updateDtText">-</span>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">갱신일시</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="updateDtText">-</span>
                     </div>
                 </div>
 
