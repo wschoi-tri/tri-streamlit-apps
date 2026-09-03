@@ -1,1092 +1,1732 @@
+import os
+import json
+import urllib.parse
 import streamlit as st
-import requests
-from pymilvus import connections, Collection
+import streamlit.components.v1 as components
 
-# 페이지 설정
+# 1. 페이지 기본 설정 (전체 화면 모드)
 st.set_page_config(
-    page_title="상품 추천 서비스",
-    page_icon="🛍️",
-    layout="centered",
+    page_title="AI Recomm Service Dashboard",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 커스텀 CSS
+# 2. 기본 CSS 덮어쓰기 (Streamlit 사방 여백 완전 제거 및 뷰포트 100% 풀스크린 고정)
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-        text-align: center;
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    /* 1. Streamlit 헤더, 툴바, 풋터 일체 은폐 */
+    header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], .stAppHeader, footer, #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
     }
-    .main-header h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: white !important;
+    /* 2. Streamlit 루트 앱 및 메인 컨테이너 사방 여백 완전 제거 */
+    html, body, .stApp, section.main, .main, .block-container, div[data-testid="stBlockContainer"], div[data-testid="stCustomComponentV1"] {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        background-color: #ffffff !important;
     }
-    .main-header p {
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
-        opacity: 0.9;
-        color: white !important;
-    }
-    .section-card {
-        background: rgba(255, 255, 255, 0.05);
-        color: inherit;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1.5rem;
-        border-left: 4px solid #3498db;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-    }
-    .section-card h3 {
-        color: #3498db !important;
-        margin-top: 0;
-    }
-    .section-card p {
-        color: inherit !important;
-        opacity: 0.8;
-    }
-    .stButton > button {
-        border-radius: 8px;
-        border: none;
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
-        color: white !important;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        margin-top: 27px !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    /* 3. iframe을 브라우저 뷰포트 전체(100vw x 100vh)로 강제 고정하여 사방 여백 완전 제거 */
+    iframe {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        z-index: 99999 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 메인 헤더
-st.markdown("""
-<div class="main-header">
-    <h1>🛍️ 상품 추천 서비스</h1>
-    <p>머신러닝 기반 상품 추천 시스템</p>
-</div>
-""", unsafe_allow_html=True)
+# 2-1. Streamlit 시크릿 (.streamlit/secrets.toml) 도메인 로드 (기본값 금지 원칙 준수)
+try:
+    domains_conf = st.secrets["domains"]
+    HALFCLUB_WEB_URL = str(domains_conf["halfclub_web"]).rstrip("/")
+    HALFCLUB_API_URL = str(domains_conf["halfclub_api"]).rstrip("/")
+    HALFCLUB_CDN_URL = str(domains_conf["halfclub_cdn"]).rstrip("/")
+    BORIBORI_WEB_URL = str(domains_conf["boribori_web"]).rstrip("/")
+    BORIBORI_API_URL = str(domains_conf["boribori_api"]).rstrip("/")
+    BORIBORI_CDN_URL = str(domains_conf["boribori_cdn"]).rstrip("/")
+except Exception as e:
+    raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# URL 파라미터 처리
-query_params = st.query_params
-url_site = query_params.get("siteCd", "1")
-url_type = query_params.get("mlType", "")
-url_prd = query_params.get("prdNo", "")
-url_k = query_params.get("k", "")
-
-# 기본 사이트 설정
-if "siteCd" not in query_params:
-    st.query_params["siteCd"] = "1"
-
-
-
-col1, col2 = st.columns([3, 1])
-with col1:
-    site_cd = st.selectbox("사이트 선택", options=[1, 2], format_func=lambda x: "🛍️ 하프클럽" if x == 1 else "🌾 보리보리", index=int(url_site)-1 if url_site in ["1", "2"] else 0)
-with col2:
-    if st.button("🔄 초기화", type="secondary", use_container_width=True):
-        # 세션 상태 초기화
-        st.session_state.prd_no_list = set()
-        st.session_state.prd_no = ""
-        st.session_state.prd_nm = ""
-        st.session_state.gender = ""
-        st.session_state.age = ""
-        st.session_state.type = ""
-        st.session_state.type_nm = ""
-        st.session_state.show_type = ""
-        st.session_state.show_prd = []
-        if 'last_api_url' in st.session_state:
-            del st.session_state.last_api_url
-        if 'last_api_response' in st.session_state:
-            del st.session_state.last_api_response
-        # 모든 URL 파라미터 초기화
-        st.query_params.clear()
-        st.rerun()
-
-# 사이트 선택 시 URL 업데이트 및 상품 선택 초기화
-if site_cd != int(url_site) if url_site in ["1", "2"] else 1:
-    st.query_params["siteCd"] = str(site_cd)
-    # 선택된 상품 초기화
-    st.session_state.prd_no_list = set()
-    st.session_state.prd_no = ""
-    st.session_state.prd_nm = ""
-    st.session_state.show_prd = []
-    if 'last_api_url' in st.session_state:
-        del st.session_state.last_api_url
-    if 'last_api_response' in st.session_state:
-        del st.session_state.last_api_response
-    # URL에서 prdNo 파라미터 제거
-    if "prdNo" in st.query_params:
-        del st.query_params["prdNo"]
-    st.rerun()
-
-
-# --- BERT & Milvus 설정 ---
-MODEL_NAME = "klue/bert-base"
-MILVUS_URI = st.secrets["MILVUS"]["MILVUS_URI"]
-MILVUS_TOKEN = st.secrets["MILVUS"]["MILVUS_TOKEN"]
-
-@st.cache_resource
-def load_resources(collection_alias):
-    """모델 로드 및 Milvus 연결 (캐싱)"""
-    connections.connect(uri=MILVUS_URI, token=MILVUS_TOKEN)
-    collection = Collection(collection_alias)
-    collection.load()
-    return None, None, collection, None
-
-def get_product_detail_info(prd_no, site_cd):
-    """외부 API에서 상품 이미지 및 상세 정보를 가져옵니다."""
-    base_url = "http://hapix.halfclub.com/searches/prdList/" if site_cd == 1 else "http://apix.boribori.co.kr/searches/prdList/"
-    try:
-        params = {"keyword": prd_no, "siteCd": site_cd, "device": "mc"}
-        response = requests.get(base_url, params=params, timeout=0.5)
-        if response.status_code == 200:
-            data = response.json()
-            hits = data.get("data", {}).get("result", {}).get("hits", {}).get("hits", [])
-            if hits:
-                return hits[0].get("_source", {})
-    except Exception:
-        pass
-    return {}
-
-# API_URL = "https://cf-api.boribori.co.kr/recommend"
-API_URL = "https://cf-hapi.halfclub.com/recommend"
-self_yn = False
-if url_k and url_k.isdigit():
-    k = int(url_k)
-else:
-    k = 50
-select_prd_no = ""
-select_prd_nm = ""
-recomm_typ = ""
-age = ""
-gender = ""
-
-if site_cd == 1:
-    API_URL = "https://cf-hapi.halfclub.com/recommend"
-else:
-    API_URL = "https://cf-api.boribori.co.kr/recommend"
-
-ml_types = [
-    {"함께 본 상품 (viewTogether)": "viewtogether"},
-    {"함께 구매한 상품 (buyTogether)": "buytogether"},
-    {"유사 상품 (similarItem)": "similaritem"},
-    {"유사 이미지 상품 (similarImage)": "similar-image"},
-    {"개인화 추천 (recommendForYou)": "recommendforyou"},
-    {"유사 상품 (BERT)": "bert_similar"},
-    {"유사 상품 (조합)": "multiSimilarItem"},
-    {"평균 meanSimilarItem":"meanSimilarItem"},
-    {"평균 meanSimilarItemView":"meanSimilarItemView"},
-    {"평균 meanSimilarItemBuy":"meanSimilarItemBuy"},
-]
-
-def get_best_products(site_cd):
-    try:
-        if site_cd == 1:
-            url = "https://hapix.halfclub.com/searches/best/?offset=0&limit=200&dealYn=N&interval=24&countryCd=001&langCd=001&siteCd=1&deviceCd=001&device=pc&mandM=halfclub"
-        else:
-            url = "https://apix.boribori.co.kr/searches/best/?dealYn=N&interval=24&siteCd=2&limit=0,200&countryCd=001&langCd=001&deviceCd=001&mandM=b_boribori"
-        
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            
-            products = []
-            seen_categories = set()
-            
-
-            if "data" in data:
-                result_data = data["data"]
-                if "result" in result_data:
-                    hits_data = result_data["result"]
-                    if "hits" in hits_data and "hits" in hits_data["hits"]:
-                        hits = hits_data["hits"]["hits"]
-                    else:
-                        hits = hits_data.get("hits", [])
-                else:
-                    hits = result_data if isinstance(result_data, list) else []
-            else:
-                hits = data if isinstance(data, list) else []
-            
-
-            
-            for i, hit in enumerate(hits):
-                if isinstance(hit, dict) and len(products) < 12:
-                    source = hit.get("_source", hit)
-                    prd_no = source.get("prdNo")
-                    prd_nm = source.get("prdNm", f"상품{i+1}")
-                    prd_img = source.get("appPrdImgUrl", "")
-                    
-
-                    dp_ctgr_nm1 = source.get("dpCtgrNm1", "")
-                    
-
-                    if dp_ctgr_nm1 and "@" in dp_ctgr_nm1:
-                        dp_ctgr_nm1 = dp_ctgr_nm1.split("@")[0].strip()
-                    
-                    if not dp_ctgr_nm1:
-                        continue
-                    
-
-                    display_name = dp_ctgr_nm1
-                    
-
-                    if prd_no and dp_ctgr_nm1 not in seen_categories:
-                        seen_categories.add(dp_ctgr_nm1)
-
-                        if len(display_name) > 6:
-                            formatted_name = display_name[:5] + "…"
-                        else:
-                            formatted_name = display_name.ljust(6, '　')
-                        
-                        products.append({
-                            "prd_nm": formatted_name,
-                            "prd_no": prd_no,
-                            "prd_img": prd_img or f"https://via.placeholder.com/200x250/CCCCCC/000000?text={prd_no}",
-                            "full_name": display_name
-                        })
-            
-
-            if products:
-                return products
-                
-    except Exception as e:
-        st.error(f"베스트 상품 로드 오류: {e}")
-    
-
-    return [
-        {"prd_nm": "여성의류", "prd_no": 380118214, "prd_img": "https://via.placeholder.com/200x250/FFB6C1/000000?text=여성의류"},
-        {"prd_nm": "남성의류", "prd_no": 402544118, "prd_img": "https://via.placeholder.com/200x250/DDA0DD/000000?text=남성의류"},
-        {"prd_nm": "신발", "prd_no": 379859455, "prd_img": "https://via.placeholder.com/200x250/F0E68C/000000?text=신발"},
-        {"prd_nm": "가방", "prd_no": 393954850, "prd_img": "https://via.placeholder.com/200x250/87CEEB/000000?text=가방"},
-        {"prd_nm": "스포츠", "prd_no": 391016367, "prd_img": "https://via.placeholder.com/200x250/98FB98/000000?text=스포츠"},
-        {"prd_nm": "액세서리", "prd_no": 380115991, "prd_img": "https://via.placeholder.com/200x250/F4A460/000000?text=액세서리"}
+# 3. 기본 시드 상품(베스트 상품) 데이터 정의 (하프클럽 & 보리보리)
+SEED_PRODUCTS = {
+    "1": [
+        {"prd_no": "380118214", "prd_nm": "여성의류", "full_name": "여성의류 베스트", "category": "여성의류", "brand_nm": "모조에스핀", "img_url": ""},
+        {"prd_no": "402544118", "prd_nm": "남성의류", "full_name": "남성의류 베스트", "category": "남성의류", "brand_nm": "헤지스", "img_url": ""},
+        {"prd_no": "379859455", "prd_nm": "신발", "full_name": "신발 베스트", "category": "신발", "brand_nm": "나이키", "img_url": ""},
+        {"prd_no": "393954850", "prd_nm": "가방", "full_name": "가방 베스트", "category": "가방", "brand_nm": "닥스", "img_url": ""},
+        {"prd_no": "391016367", "prd_nm": "스포츠", "full_name": "스포츠 베스트", "category": "스포츠", "brand_nm": "아디다스", "img_url": ""},
+        {"prd_no": "380115991", "prd_nm": "액세서리", "full_name": "액세서리 베스트", "category": "액세서리", "brand_nm": "골든듀", "img_url": ""},
+        {"prd_no": "377519208", "prd_nm": "골프웨어", "full_name": "골프웨어 베스트", "category": "골프", "brand_nm": "캘러웨이", "img_url": ""},
+        {"prd_no": "383412091", "prd_nm": "아우터", "full_name": "아우터 베스트", "category": "여성의류", "brand_nm": "온앤온", "img_url": ""},
+        {"prd_no": "390124890", "prd_nm": "원피스", "full_name": "원피스 베스트", "category": "여성의류", "brand_nm": "샤틴", "img_url": ""},
+        {"prd_no": "385901234", "prd_nm": "슬랙스", "full_name": "슬랙스 베스트", "category": "남성의류", "brand_nm": "지오지아", "img_url": ""},
+        {"prd_no": "388712345", "prd_nm": "스니커즈", "full_name": "스니커즈 베스트", "category": "신발", "brand_nm": "뉴발란스", "img_url": ""},
+        {"prd_no": "391234567", "prd_nm": "이너웨어", "full_name": "이너웨어 베스트", "category": "언더웨어", "brand_nm": "비너스", "img_url": ""}
+    ],
+    "2": [
+        {"prd_no": "380118214", "prd_nm": "베이비의류", "full_name": "베이비의류 베스트", "category": "베이비", "brand_nm": "모이몰른", "img_url": ""},
+        {"prd_no": "402544118", "prd_nm": "키즈의류", "full_name": "키즈의류 베스트", "category": "키즈", "brand_nm": "닥스키즈", "img_url": ""},
+        {"prd_no": "379859455", "prd_nm": "주니어의류", "full_name": "주니어의류 베스트", "category": "주니어", "brand_nm": "뉴에라키즈", "img_url": ""},
+        {"prd_no": "393954850", "prd_nm": "유아신발", "full_name": "유아신발 베스트", "category": "신발", "brand_nm": "아디다스키즈", "img_url": ""},
+        {"prd_no": "391016367", "prd_nm": "아동가방", "full_name": "아동가방 베스트", "category": "가방/잡화", "brand_nm": "휠라키즈", "img_url": ""},
+        {"prd_no": "380115991", "prd_nm": "출산/육아용품", "full_name": "출산/육아용품 베스트", "category": "육아용품", "brand_nm": "블루래빗", "img_url": ""}
     ]
+}
 
-
-if f"best_products_{site_cd}" not in st.session_state:
-    st.session_state[f"best_products_{site_cd}"] = get_best_products(site_cd)
-
-view_options = st.session_state[f"best_products_{site_cd}"] or [
-    {"prd_nm": "여성의류", "prd_no": 380118214, "prd_img": "https://via.placeholder.com/200x250/FFB6C1/000000?text=여성의류"},
-    {"prd_nm": "남성의류", "prd_no": 402544118, "prd_img": "https://via.placeholder.com/200x250/DDA0DD/000000?text=남성의류"},
-    {"prd_nm": "신발", "prd_no": 379859455, "prd_img": "https://via.placeholder.com/200x250/F0E68C/000000?text=신발"},
-    {"prd_nm": "가방", "prd_no": 393954850, "prd_img": "https://via.placeholder.com/200x250/87CEEB/000000?text=가방"},
-    {"prd_nm": "스포츠", "prd_no": 391016367, "prd_img": "https://via.placeholder.com/200x250/98FB98/000000?text=스포츠"},
-    {"prd_nm": "액세서리", "prd_no": 380115991, "prd_img": "https://via.placeholder.com/200x250/F4A460/000000?text=액세서리"}
+# 4. 추천 모델 서비스 목록 정의
+ML_TYPES = [
+    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "상품 간 속성 및 임베딩 기반 유사 추천"},
+    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자가 함께 조회한 상품"},
+    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 장바구니/주문서 함께 구매 상품"},
+    {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사 상품"},
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 맞춤 추천"},
+    {"id": "multiSimilarItem", "name": "유사 상품 조합 (multiSimilarItem)", "desc": "다중 상품 입력 기반 결합 유사도"},
+    {"id": "meanSimilarItem", "name": "평균 유사 상품 (meanSimilarItem)", "desc": "다중 상품 벡터 평균 기반 유사 추천"},
+    {"id": "meanSimilarItemView", "name": "평균 유사 상품 조회 (meanSimilarItemView)", "desc": "조회 이력 벡터 평균 기반 유사 추천"},
+    {"id": "meanSimilarItemBuy", "name": "평균 유사 상품 구매 (meanSimilarItemBuy)", "desc": "구매 이력 벡터 평균 기반 유사 추천"}
 ]
-search_gender_options = {
-    "남성": "male",
-    "여성": "female"
-}
-gender_options = {
-    "남성": "01",
-    "여성": "02"
-}
-age_options = {
-    "40대 미만": "01",
-    "40대 이상": "02"
-}
-recommend_sample = view_options
-gender_params = gender_options
-age_params = age_options
-select_type = "함께 본 상품"
-input_yn = False
-user_yn = False
 
-recommend_type = ""
-recommend_type_nm = ""
+# 5. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
+qp = st.query_params
+raw_site = qp.get("siteCd", "1")
+if raw_site not in ["1", "2"]:
+    raw_site = "1"
 
-service_type = "추천"
+raw_type = qp.get("mlType", "similaritem")
+valid_type_ids = [m["id"] for m in ML_TYPES]
+if raw_type not in valid_type_ids:
+    raw_type = "similaritem"
 
-if "gender" not in st.session_state:
-    st.session_state.gender = ""
+raw_prd = qp.get("prdNo", "")
+if raw_prd:
+    raw_prd = urllib.parse.unquote(str(raw_prd)).strip()
 else:
-    gender = st.session_state.gender
-    
-if "age" not in st.session_state:
-    st.session_state.age = ""
-else:
-    age = st.session_state.age
-    
-if "prd_no_list" not in st.session_state:
-    st.session_state.prd_no_list = set()
-    
-if "prd_no" not in st.session_state:
-    st.session_state.prd_no = ""
-            
-    
-if "prd_nm" not in st.session_state:
-    st.session_state.prd_nm = ""
-else:
-    select_prd_nm = st.session_state.prd_nm
+    default_seeds = SEED_PRODUCTS.get(raw_site, [])
+    raw_prd = default_seeds[0]["prd_no"] if default_seeds else "380118214"
 
-if "type" not in st.session_state:
-    st.session_state.type = ""
-if "type_nm" not in st.session_state:
-    st.session_state.type_nm = ""
-if "show_type" not in st.session_state:
-    st.session_state.show_type = ""
-if "show_prd" not in st.session_state:
-    st.session_state.show_prd = []
+raw_k = qp.get("k", "50")
+if not raw_k.isdigit() or int(raw_k) <= 0:
+    raw_k = "50"
 
-#  추천 대상 상품 표시
-def show_target(items, columns_per_row=5, title=None):    
-    if title:
-        if input_yn:
-            title = title + ": 직접 입력"
-        else:
-            if st.session_state.prd_nm:
-                title = title + f": {st.session_state.prd_nm}"
-        st.subheader(title)
-    try:
-        rows = [items[i: i + columns_per_row] for i in range(0, len(items), columns_per_row)]
-        cols = st.columns([1.5, 8.5])
-        for row in rows:
-            rec = row[0]
-            img_url = rec.get("prd_img", "")
-            prd_nm = rec.get("prd_nm", "")
-            with cols[0]:
-                st.image(img_url, width=100)
-            with cols[1]:
-                st.markdown(prd_nm, unsafe_allow_html=True)
-        # 가로선
-        st.markdown("---")
-    except Exception as e:
-        st.error(f"이미지 표시 오류: {e}")
+raw_age = qp.get("age", "")
+raw_gender = qp.get("gender", "")
+raw_tab = qp.get("tab", "grid")
+if raw_tab not in ["grid", "table", "raw"]:
+    raw_tab = "grid"
 
-# 추천 결과 상품 리스트 표시
-def show_grid(items, columns_per_row=5, title=None, img_width=220):
-    if title:
-        st.subheader(title)
-    try:
-        rows = [items[i: i + columns_per_row] for i in range(0, len(items), columns_per_row)]
-        for row in rows:
-            cols = st.columns(len(row), gap="small")
-            for col, rec in zip(cols, row):
-                img_url = rec.get("prd_img")
-                prd_nm = rec.get("prd_nm")
-                with col:
-                    if img_url:
-                        st.markdown(
-                            f'<div style="text-align: center; width: {img_width}px; height: {int(img_width * 1.2)}px; overflow: hidden; border-radius: 8px; margin: 0 auto;"><img src="{img_url}" style="width: 100%; height: 100%; object-fit: cover;"></div>',
-                            unsafe_allow_html=True
-                        )
-                        st.markdown(prd_nm, unsafe_allow_html=True)
-                    else:
-                        continue
-    except Exception as e:
-        return
-  
+seed_products_json = json.dumps(SEED_PRODUCTS, ensure_ascii=False)
+ml_types_json = json.dumps(ML_TYPES, ensure_ascii=False)
+initial_site_json = json.dumps(raw_site, ensure_ascii=False)
+initial_type_json = json.dumps(raw_type, ensure_ascii=False)
+initial_prd_json = json.dumps(raw_prd, ensure_ascii=False)
+initial_k_json = json.dumps(raw_k, ensure_ascii=False)
+initial_age_json = json.dumps(raw_age, ensure_ascii=False)
+initial_gender_json = json.dumps(raw_gender, ensure_ascii=False)
+initial_tab_json = json.dumps(raw_tab, ensure_ascii=False)
 
-# 추천 대상 이미지 버튼 CSS 설정
-st.markdown("""
+# 6. SPA 통합 HTML/CSS/JS 템플릿
+html_content = f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Recomm Service Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-    .stButton > button {
-        width: 100% !important;
-        height: 40px !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 13px !important;
-        font-weight: bold !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        padding: 0 5px !important;
-        border: 2px solid transparent !important;
-        border-radius: 8px !important;
-    }
-    .stButton > button:hover {
-        border-color: #aaa !important;
-    }
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+        }}
+        html, body {{
+            background-color: #ffffff;
+            color: #0f172a;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }}
+        .app-container {{
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+        }}
+        /* 좌측 사이드바 */
+        .sidebar {{
+            width: 270px;
+            background-color: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }}
+        .sidebar-header {{
+            padding: 16px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            user-select: none;
+        }}
+        .sidebar-header:hover {{
+            background-color: #f8fafc;
+        }}
+        .sidebar-title {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        .search-box {{
+            padding: 12px 18px;
+            border-bottom: 1px solid #f1f5f9;
+        }}
+        .search-input {{
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }}
+        .search-input:focus {{
+            border-color: #2563eb;
+        }}
+        .seed-list {{
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+            padding: 8px 0;
+        }}
+        .seed-item {{
+            padding: 8px 14px;
+            margin: 2px 10px;
+            font-size: 0.86rem;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            gap: 8px;
+        }}
+        .seed-item:hover {{
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }}
+        .seed-item:focus {{
+            outline: 2px solid #2563eb;
+            outline-offset: -2px;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }}
+        .seed-item.active {{
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 800;
+            border-left: 3px solid #2563eb;
+        }}
+        
+        /* 우측 메인 대시보드 */
+        .main-content {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background-color: #f8fafc;
+        }}
+        .top-navbar {{
+            padding: 12px 28px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            gap: 16px;
+            flex-wrap: wrap;
+        }}
+        .navbar-title {{
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #0f172a;
+            transition: color 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }}
+        .navbar-title:hover, .navbar-title:hover span {{
+            color: #2563eb !important;
+        }}
+        .dashboard-body {{
+            padding: 20px 28px;
+            flex: 1;
+        }}
+        
+        /* 헤더 메타 뱃지 */
+        .meta-badges {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 16px;
+            margin-bottom: 16px;
+            font-size: 0.82rem;
+            color: #64748b;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            flex-wrap: wrap;
+        }}
+        
+        /* 추천 대상 상품 카드 */
+        .target-card-box {{
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            margin-bottom: 18px;
+            box-sizing: border-box;
+            width: 100%;
+        }}
+        .target-card-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f1f5f9;
+        }}
+        .target-title {{
+            font-size: 1.02rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .target-content-body {{
+            display: flex;
+            gap: 18px;
+            align-items: center;
+        }}
+        .target-img-wrap {{
+            width: 80px;
+            height: 96px;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #f1f5f9;
+            flex-shrink: 0;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        .target-img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }}
+        .target-info-wrap {{
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 0;
+        }}
+        
+        /* 탭 서식 */
+        .tab-navigation {{
+            display: flex;
+            gap: 6px;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 14px;
+        }}
+        .tab-btn {{
+            padding: 9px 18px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #64748b;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.15s ease;
+        }}
+        .tab-btn:hover {{
+            color: #0f172a;
+            background: transparent;
+        }}
+        .tab-btn.active {{
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: transparent;
+        }}
+        .tab-content {{
+            display: none;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
+        
+        /* 10열 그리드 카드 배치 */
+        .grid-container {{
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 10px;
+        }}
+        .product-card {{
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }}
+        .product-card:hover {{
+            border-color: #94a3b8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+        }}
+        .product-img-wrap {{
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #f8fafc;
+            overflow: hidden;
+        }}
+        .product-img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform 0.2s ease;
+        }}
+        .product-card:hover .product-img {{
+            transform: scale(1.04);
+        }}
+        .rank-badge {{
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(4px);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 4px;
+            letter-spacing: 0.2px;
+            z-index: 2;
+        }}
+        .rank-top1 {{
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+        }}
+        .rank-top2, .rank-top3 {{
+            background: linear-gradient(135deg, #334155, #1e293b) !important;
+            color: #ffffff !important;
+        }}
+        .product-info {{
+            padding: 8px 8px 6px 8px;
+        }}
+        .brand-name {{
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        .product-name {{
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0f172a;
+            height: 34px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }}
+        .price-wrap {{
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
+        }}
+        .discount-rate {{
+            font-size: 0.88rem;
+            color: #f43f5e;
+            font-weight: 800;
+        }}
+        .sale-price {{
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #0f172a;
+        }}
+        .normal-price {{
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-decoration: line-through;
+        }}
+        .badge-chip-container {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 4px;
+        }}
+        .badge-chip-item {{
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }}
+        .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
+        .badge-amber {{ background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }}
+        .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
+        .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
+        .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
+        
+        /* 데이터 테이블 */
+        .data-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+        }}
+        .data-table th {{
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            padding: 11px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }}
+        .data-table td {{
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            vertical-align: middle;
+        }}
+        .data-table tr:hover {{
+            background-color: #f8fafc;
+        }}
 
-    .full-btn > button {
-        width: 100% !important;
-        height: auto !important;
-        padding: 0 !important;
-        border: 3px solid transparent;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    .full-btn > button:hover {
-        border-color: #aaa;
-    }
-    .full-btn {
-        margin-bottom: 10px;
-    }
-    .selected-btn > button {
-        border-color: #ff4b4b !important;
-    }
-    .btn-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    .btn-content img {
-        width: 80px;
-        height: 100px;
-        object-fit: cover;
-    }
-    .btn-text {
-        font-weight: bold;
-        font-size: 14px;
-        padding: 8px;
-        text-align: center;
-        width: 100%;
-        font-family: monospace;
-        letter-spacing: -0.5px;
-    }
+        /* 슬림 스크롤바 */
+        ::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: transparent;
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: #cbd5e1;
+            border-radius: 3px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
+        }}
+        
+        pre, code, pre code {{
+            color: #f8fafc !important;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.84rem;
+            line-height: 1.6;
+        }}
+        .json-key {{ color: #38bdf8 !important; font-weight: 700; }}
+        .json-string {{ color: #4ade80 !important; }}
+        .json-number {{ color: #fb923c !important; font-weight: 700; }}
+        .json-boolean {{ color: #c084fc !important; font-weight: 700; }}
+        .json-null {{ color: #f43f5e !important; font-weight: 700; }}
+
+        /* JSON 트리 전용 스타일 */
+        .json-node-collapsible {{
+            display: inline;
+        }}
+        .json-toggle {{
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 13px;
+            font-size: 9px;
+            color: #94a3b8;
+            vertical-align: middle;
+            transition: color 0.15s ease;
+        }}
+        .json-toggle:hover {{
+            color: #38bdf8;
+        }}
+        .json-bracket {{
+            color: #cbd5e1;
+            font-weight: bold;
+        }}
+        .json-colon {{
+            color: #94a3b8;
+        }}
+        .json-comma {{
+            color: #64748b;
+        }}
+        .json-children {{
+            padding-left: 18px;
+            border-left: 1px dotted #334155;
+            margin-left: 4px;
+        }}
+        .json-node-row {{
+            line-height: 1.55;
+            word-break: break-all;
+        }}
+        .json-collapsed-text {{
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 3px;
+        }}
+        .json-collapsed-text:hover {{
+            background: #334155;
+            color: #f8fafc;
+        }}
+        .json-ctrl-btn {{
+            background: #334155;
+            color: #f8fafc;
+            border: none;
+            padding: 4px 9px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }}
+        .json-ctrl-btn:hover {{
+            background: #475569;
+        }}
     </style>
-""", unsafe_allow_html=True)
+</head>
+<body>
+    <div class="app-container">
+        <!-- 좌측 사이드바: 추천 시드 상품 목록 -->
+        <aside class="sidebar">
+            <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 리셋">
+                <div class="sidebar-title">
+                    <span>추천 시드 상품</span>
+                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="seedCountBadge">0</span>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="seedSearchInput" class="search-input" placeholder="상품명/카테고리 검색..."/>
+            </div>
+            <ul class="seed-list" id="seedList"></ul>
+        </aside>
 
+        <!-- 우측 메인 대시보드 -->
+        <main class="main-content">
+            <header class="top-navbar">
+                <div style="display:flex; align-items:center; gap:10px; min-width:240px;">
+                    <a id="currentPrdTitleLink" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="쇼핑몰 상세 페이지 새 탭 열기">
+                        <h1 class="navbar-title" id="currentPrdTitle">
+                            <span id="currentPrdText">상품 선택 대기</span>
+                            <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
+                        </h1>
+                    </a>
+                    <span id="navMlTypeBadge" style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; padding:3px 10px; border-radius:9999px; white-space:nowrap;">유사 상품</span>
+                    <button id="btnCopyUrl" onclick="copyCurrentUrl()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer;" title="현재 상태 URL 링크 복사">URL 복사</button>
+                </div>
 
+                <div style="display:flex; align-items:center; gap:10px; font-size:0.84rem; font-weight:700; color:#334155; flex-wrap:wrap;">
+                    <!-- 사이트 선택 -->
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span>사이트:</span>
+                        <select id="siteCdSelect" style="padding:5px 9px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; outline:none;">
+                            <option value="1">1 (하프클럽)</option>
+                            <option value="2">2 (보리보리)</option>
+                        </select>
+                    </div>
 
-col_count = 6
-if service_type == "검색":
-    col_count = 4
-    
-# 이미지 버튼 표시
-cols = st.columns(col_count)
-button_clicked = False
-for i, value in enumerate(recommend_sample):
-    prd_nm = value.get("prd_nm", "")
-    prd_img = value.get("prd_img", "")
-    prd_no = value.get("prd_no", "")
-    
-    selected_class = ""
-    if str(prd_no) in st.session_state.prd_no_list:
-        selected_class = "selected-button"
-    
-    with cols[i % col_count]:
-        with st.container():
-            if st.button(
-                label=prd_nm,
-                key=f"btn_{prd_no}",
-                use_container_width=True
-            ):
-                button_clicked = True
-                # 선택 표시
-                selected_class = "selected-btn"
-                
-                if st.session_state.type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-                    if str(prd_no) not in st.session_state.prd_no_list:
-                        st.session_state.prd_no_list.add(str(prd_no))
-                    else:
-                        st.session_state.prd_no_list.remove(str(prd_no))
-                    # 개인화 추천용 다중 상품 URL 업데이트
-                    st.query_params["prdNo"] = ",".join(st.session_state.prd_no_list)
-                else:
-                    select_prd_no = str(prd_no)
-                    st.session_state.prd_no = str(prd_no)
-                    full_name = value.get("full_name", prd_nm)
-                    select_prd_nm = str(full_name)
-                    st.session_state.prd_nm = str(full_name)
-                    st.session_state.prd_no_list = set()
-                    st.session_state.prd_no_list.add(str(prd_no))
-                    # 단일 상품 URL 업데이트
-                    st.query_params["prdNo"] = str(prd_no)
-            if prd_img:
-                if (
-                    st.session_state.prd_no_list
-                    and str(prd_no) in st.session_state.prd_no_list
-                ):
-                    selected_class = "selected-btn"
-                product_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-                st.markdown(
-                    f"""
-                    <div class="full-btn {selected_class}">
-                        <div class="btn-content">
-                            <img src="{prd_img}" />
-                            <a href="{product_url}">{prd_no}</a>
+                    <!-- 추천 모델 선택 -->
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span>추천 유형:</span>
+                        <select id="mlTypeSelect" style="padding:5px 9px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; outline:none; max-width:200px;"></select>
+                    </div>
+
+                    <!-- 상품 번호 직접 입력 -->
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span>상품번호:</span>
+                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표구분 다중" style="width:140px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
+                    </div>
+
+                    <!-- 연령/성별 필터 -->
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <select id="ageSelect" style="padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.82rem; font-weight:600; color:#0f172a; outline:none;">
+                            <option value="">연령: 전체</option>
+                            <option value="01">40대 미만</option>
+                            <option value="02">40대 이상</option>
+                        </select>
+                        <select id="genderSelect" style="padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.82rem; font-weight:600; color:#0f172a; outline:none;">
+                            <option value="">성별: 전체</option>
+                            <option value="01">남성</option>
+                            <option value="02">여성</option>
+                        </select>
+                    </div>
+
+                    <!-- 조회 수 k -->
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <span>k:</span>
+                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:52px; padding:5px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
+                    </div>
+
+                    <!-- 조회 버튼 -->
+                    <button id="btnFetch" onclick="triggerFetch()" style="background:#0b1329; color:#ffffff; border:none; padding:7px 16px; border-radius:6px; font-weight:800; font-size:0.85rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
+                </div>
+            </header>
+
+            <div class="dashboard-body">
+                <!-- 메타 메타데이터 뱃지 바 -->
+                <div class="meta-badges" id="metaBadgesBar">
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">사이트</span>
+                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="metaSiteText">하프클럽</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">추천 모델</span>
+                        <span style="color:#0f172a; font-weight:800; font-size:0.82rem;" id="metaMlTypeText">-</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">대상 상품번호</span>
+                        <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="metaPrdNoText">-</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">필터 조건</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaConditionText">연령: 전체 / 성별: 전체</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">조회 수</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaKText">50개</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px; margin-left:auto;">
+                        <span style="color:#64748b; font-size:0.75rem;">응답 상태</span>
+                        <span style="color:#059669; font-weight:800; font-size:0.82rem;" id="metaStatusText">-</span>
+                    </div>
+                </div>
+
+                <!-- 추천 대상 상품 상세 정보 카드 -->
+                <div class="target-card-box" id="targetCard">
+                    <div class="target-card-header">
+                        <div class="target-title">추천 대상 상품 정보</div>
+                        <div style="display:flex; gap:6px;" id="targetTagsHeader"></div>
+                    </div>
+                    <div class="target-content-body" id="targetContentBody">
+                        <div class="target-img-wrap" id="targetImgWrap">
+                            <span style="font-size:0.72rem; color:#94a3b8;">이미지 로딩</span>
+                        </div>
+                        <div class="target-info-wrap">
+                            <div style="font-size:0.82rem; font-weight:700; color:#64748b;" id="targetBrandText">-</div>
+                            <div style="font-size:1.02rem; font-weight:800; color:#0f172a; line-height:1.4;" id="targetNameText">상품 정보를 조회 중입니다...</div>
+                            <div style="display:flex; align-items:baseline; gap:6px; margin-top:2px;">
+                                <span style="font-size:1.05rem; font-weight:800; color:#0f172a;" id="targetPriceText">- 원</span>
+                                <span style="font-size:0.82rem; color:#94a3b8; text-decoration:line-through;" id="targetNormPriceText"></span>
+                                <span style="font-size:0.85rem; font-weight:800; color:#f43f5e;" id="targetDiscRateText"></span>
+                            </div>
+                            <div style="font-size:0.8rem; color:#64748b; font-weight:600; margin-top:4px;" id="targetCategoryPath"></div>
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-# 가로선
-st.markdown("---")
+                    <!-- 다중 대상 상품 칩 목록 (개인화 추천 등) -->
+                    <div id="multiTargetChipsWrap" style="display:none; margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9;">
+                        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;">다중 대상 상품 목록:</div>
+                        <div id="multiTargetChipsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+                    </div>
+                </div>
 
+                <!-- 뷰 탭 네비게이션 -->
+                <nav class="tab-navigation">
+                    <button class="tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품</button>
+                    <button class="tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
+                    <button class="tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
+                </nav>
 
+                <!-- 탭 1: 10열 그리드 배치 -->
+                <section class="tab-content active" id="tabContentGrid">
+                    <div class="grid-container" id="productGridContainer">
+                        <div style="grid-column:1/-1; padding:40px 20px; text-align:center; color:#64748b;">추천 상품 데이터를 불러오는 중입니다...</div>
+                    </div>
+                </section>
 
-def show_target_list():
-    if service_type != "검색":
-        st.session_state.show_type = st.session_state.type
-        
-        target_prds = []
-        if st.session_state.type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            target_prds = list(st.session_state.prd_no_list)
-        elif st.session_state.prd_no:
-            target_prds = [st.session_state.prd_no]
-            
-        if target_prds:
-            with st.container():
-                ori_prd_list = []
-                st.session_state.show_prd = target_prds
-                for resp_prd_no in target_prds:
-                    search_url = f"http://hapix.halfclub.com/searches/prdList/?keyword={resp_prd_no}&siteCd={site_cd}&device=mc" if site_cd == 1 else f"http://apix.boribori.co.kr/searches/prdList/?keyword={resp_prd_no}&siteCd={site_cd}&device=mc"
-                    try:
-                        ori_img_resp = requests.get(search_url, timeout=2)
-                    except Exception:
-                        continue
+                <!-- 탭 2: 데이터 테이블 배치 -->
+                <section class="tab-content" id="tabContentTable">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>순번</th>
+                                <th>상품번호</th>
+                                <th>브랜드</th>
+                                <th>상품명</th>
+                                <th>판매가</th>
+                                <th>정가</th>
+                                <th>할인율</th>
+                                <th>추천 스코어</th>
+                                <th>ES 스코어</th>
+                                <th>카테고리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody">
+                            <tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">데이터를 불러오는 중입니다...</td></tr>
+                        </tbody>
+                    </table>
+                </section>
 
-                    if ori_img_resp.status_code == 200:
-                        try:
-                            j = ori_img_resp.json()
-                            resp_data = j["data"]["result"]["hits"]["hits"][0]["_source"]
-                            prdNo = resp_data.get("prdNo", "")
-                            prdNm = resp_data.get("prdNm", "")
-                            dcPrc = resp_data.get("dcPrcMc", 0)
-                            imgUrl = resp_data.get("appPrdImgUrl", "")
-                            brandNm = resp_data.get("brandNm", "")
-                            prdUrl = f"https://www.halfclub.com/product/{prdNo}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prdNo}"
-                            
-                            text = ""
-                            if len(target_prds) > 1:
-                                text = text + "<p style='font-size:10pt;margin:0;padding:0;'>"
+                <!-- 탭 3: Raw JSON 데이터 배치 -->
+                <section class="tab-content" id="tabContentRaw">
+                    <div id="rawJsonContainer">
+                        <div style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                                    <span style="background:#0284c7; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">API URL</span>
+                                    <span id="calledApiUrlText" style="font-size:0.83rem; font-weight:600; color:#94a3b8; word-break:break-all;">-</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                                    <button class="json-ctrl-btn" onclick="openApiUrlInNewTab()">새 창 열기 ↗</button>
+                                    <button class="json-ctrl-btn" onclick="copyApiUrlToClipboard()">URL 복사</button>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <span style="font-size:0.8rem; font-weight:700; color:#cbd5e1;">Response JSON</span>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('rawJsonBody')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('rawJsonBody')">전체 접기</button>
+                                    <button id="btnCopyJson" class="json-ctrl-btn" onclick="copyJsonTextToClipboard()">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:600px; overflow:auto;">
+                                <div id="rawJsonBody" class="json-tree-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
 
-                            dp_ctgr_nm1 = resp_data.get("dpCtgrNm1", "")
-                            dp_ctgr_nm2 = resp_data.get("dpCtgrNm2", "")
-                            dp_ctgr_nm3 = resp_data.get("dpCtgrNm3", "")
-                            
+    <script>
+        const DOMAINS = {{
+            HALFCLUB_WEB: "{HALFCLUB_WEB_URL}",
+            HALFCLUB_API: "{HALFCLUB_API_URL}",
+            HALFCLUB_CDN: "{HALFCLUB_CDN_URL}",
+            BORIBORI_WEB: "{BORIBORI_WEB_URL}",
+            BORIBORI_API: "{BORIBORI_API_URL}",
+            BORIBORI_CDN: "{BORIBORI_CDN_URL}"
+        }};
 
-                            category_path = []
-                            if dp_ctgr_nm1: category_path.append(dp_ctgr_nm1)
-                            if dp_ctgr_nm2: category_path.append(dp_ctgr_nm2)
-                            if dp_ctgr_nm3: category_path.append(dp_ctgr_nm3)
-                            category_str = " > ".join(category_path) if category_path else ""
-                            
-                            text = text + f"브랜드 : {brandNm}<br/>"
-                            product_link_url = f"https://www.halfclub.com/product/{prdNo}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prdNo}"
-                            text = text + f"상 품 : <a href='{product_link_url}'>{prdNo}</a><br/>"
-                            text = text + f"가 격 : {dcPrc:,}<br/>"
-                            if len(target_prds) > 1:
-                                text = text + f"상품명 :<br/>{prdNm}<br/>"
-                            else:
-                                text = text + f"상품명 : {prdNm}<br/>"
-                            if category_str:
-                                text = text + f"{category_str}"
-                                
-                            if age or gender:
-                                text = text + f"<br/>"
-                                if age:
-                                    text = text + f" ■ 선택 나이 : {age}<br/>"
-                                if gender:
-                                    text = text + f" ■ 선택 성별 : {gender}<br/>"
-                            if len(target_prds) > 1:
-                                text = text + f"</p><br/>"
-                            
-                            ori_prd_list.append({
-                                "prd_no": prdNo
-                                , "score": 0
-                                , "prd_nm": text
-                                , "prd_url": prdUrl
-                                , "prd_img": imgUrl
-                            })
-                        except Exception as ex:
-                            continue
-                if ori_prd_list:
-                    if len(ori_prd_list) == 1:
-                        show_target(ori_prd_list, columns_per_row=1, title="추천 대상 상품")
-                    else:
-                        show_grid(ori_prd_list, columns_per_row=5, title="추천 대상 상품", img_width=100)
-show_target_list()
+        const SEED_DATA = {seed_products_json};
+        const ML_TYPES_LIST = {ml_types_json};
 
+        let currentSiteCd = {initial_site_json};
+        let currentMlType = {initial_type_json};
+        let currentPrdNo = {initial_prd_json};
+        let currentK = {initial_k_json};
+        let currentAge = {initial_age_json};
+        let currentGender = {initial_gender_json};
+        let currentTab = {initial_tab_json};
 
+        let currentRawData = null;
+        let currentApiUrl = '';
+        let displayedSeeds = [];
 
+        function getWebBaseUrl() {{
+            return currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
+        }}
 
+        function getApiBaseUrl() {{
+            return currentSiteCd === '2' ? DOMAINS.BORIBORI_API : DOMAINS.HALFCLUB_API;
+        }}
 
+        function getCdnBaseUrl() {{
+            return currentSiteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
+        }}
 
+        function getProductDetailUrl(prdNo) {{
+            if (!prdNo || prdNo === '-') return '#';
+            return `${{getWebBaseUrl()}}/product/${{prdNo}}`;
+        }}
 
-if service_type == "추천":
+        function getImageUrl(imgPath) {{
+            if (!imgPath) return '';
+            if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+            return `${{getCdnBaseUrl()}}/rimg/330x440/contain/${{imgPath}}`;
+        }}
 
-    
-    # type_options = [
-    #     list(ml_types[0].keys())[0],
-    #     list(ml_types[2].keys())[0],
-    #     list(ml_types[4].keys())[0],
-    #     list(ml_types[5].keys())[0],
-    #     list(ml_types[6].keys())[0],
-    #     list(ml_types[7].keys())[0]
-    # ]
-    
-    type_options = [list(item.keys())[0] for item in ml_types]
-    
-    
-    # type_options = ["함께 본 상품 (view-together)","함께 구매한 상품 (buy-together)","유사 상품 (similar-item)","유사 이미지 상품 (similar-image)","개인화 추천 (recommend-for-you)"]
-    
-    # if site_cd == 2:
-    #     type_options = ["함께 본 상품 (view-together)","함께 구매한 상품 (buy-together)","유사 상품 (similar-item)","유사 이미지 상품 (similar-image)","개인화 추천 (recommend-for-you)","유사 상품 (BERT)","유사 상품 (조합)"]
-    
-#     ml_types = [
-#     {"함께 본 상품 (view-together)": "viewtogether"},
-#     {"함께 본 상품 (연령/성별)": "viewuser"},
-#     {"함께 구매한 상품 (buy-together)": "buytogether"},
-#     {"함께 구매한 상품 (연령/성별)": "buyuser"},
-#     {"유사 상품 (similar-item)": "similaritem"},
-#     {"유사 이미지 상품 (similar-image)": "similar-image"},
-#     {"개인화 추천 (recommend-for-you)": "recommendforyou"},
-# ]
-    
-    # URL 파라미터로 추천 서비스 유형 설정
-    default_index = 0
-    if url_type:
-        for i, option in enumerate(type_options):
-            for item in ml_types:
-                if list(item.values())[0] == url_type and list(item.keys())[0] == option:
-                    default_index = i
-                    break
-    
-    select_type = st.selectbox("추천 서비스 유형", options=type_options, index=default_index)
-    for item in ml_types:
-        if list(item.keys())[0] == select_type:
-            recommend_type = list(item.values())[0]
-            st.session_state.type = recommend_type
-            recommend_type_nm = list(item.keys())[0]
-            st.session_state.type_nm = recommend_type_nm
-            # 추천 서비스 유형 선택 시 URL 업데이트
-            if recommend_type != url_type:
-                st.query_params["mlType"] = recommend_type
-            break
-    
-    # URL 파라미터로 상품 설정
-    if url_prd and not button_clicked:
-        # prdNo 파라미터 처리
-        if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            # 기존 리스트 초기화 후 URL 파라미터로 설정
-            st.session_state.prd_no_list = set()
-            if "," in url_prd:
-                for prd in url_prd.split(","):
-                    st.session_state.prd_no_list.add(prd.strip())
-            else:
-                st.session_state.prd_no_list.add(url_prd.strip())
-        else:
-            if not st.session_state.prd_no:
-                # 단일 상품 추천의 경우 첫 번째 상품만 사용
-                first_prd = url_prd.split(",")[0].strip() if "," in url_prd else url_prd
-                st.session_state.prd_no = first_prd
-                st.session_state.prd_no_list.add(first_prd)
+        function goToDefaultPage() {{
+            try {{
+                if (window.top && window.top.location) {{
+                    window.top.location.href = window.top.location.origin + window.top.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
+            try {{
+                if (window.parent && window.parent.location) {{
+                    window.parent.location.href = window.parent.location.origin + window.parent.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
+            location.reload();
+        }}
 
-input_yn = st.checkbox("📝 상품번호 직접 입력", value=False, key="direct_input")
+        function copyCurrentUrl() {{
+            const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
+                ? (window.parent.location.origin + window.parent.location.pathname)
+                : (window.location.origin + window.location.pathname);
+            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&tab=${{encodeURIComponent(currentTab)}}`;
+            navigator.clipboard.writeText(curUrl).then(() => {{
+                const btn = document.getElementById('btnCopyUrl');
+                if (btn) {{
+                    const orig = btn.textContent;
+                    btn.textContent = '복사완료!';
+                    btn.style.background = '#dcfce7';
+                    btn.style.color = '#15803d';
+                    setTimeout(() => {{
+                        btn.textContent = orig;
+                        btn.style.background = '#f1f5f9';
+                        btn.style.color = '#475569';
+                    }}, 1500);
+                }}
+            }}).catch(() => {{
+                alert('URL: ' + curUrl);
+            }});
+        }}
 
-submit_button = None
-# 직접 입력 표시
-if input_yn:
-    with st.form(key="view_form"):
-        input_text = "상품번호"
-        input_value = ""
-        
-        # 선택된 상품번호를 텍스트 박스에 표시
-        if recommend_type in ["keyword-search"]:
-            input_text = "검색어"
-            input_value = st.session_state.prd_nm if st.session_state.prd_nm != "직접입력" else ""
-        elif recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            input_text = "상품번호 리스트 (ex. 상품번호1,상품번호2,상품번호3)"
-            input_value = ",".join(st.session_state.prd_no_list) if st.session_state.prd_no_list else ""
-        else:
-            input_value = st.session_state.prd_no if st.session_state.prd_no else ""
-            
-        prd_no = st.text_input(input_text, value=input_value, placeholder="여기에 입력해주세요...")
-        submit_button = st.form_submit_button(label="🔍 조회 시작", use_container_width=True)
-        
-# 성별 선택 섹션
-if recommend_type in ["keyword-search"]:
-    gender = st.selectbox("성별", options=["", "👨 남성", "👩 여성"], index=0)
-    if gender:
-        st.session_state.gender = gender.replace("👨 ", "").replace("👩 ", "")
+        function updateUrlQuery() {{
+            try {{
+                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&tab=${{encodeURIComponent(currentTab)}}`;
+                try {{
+                    if (window.parent && window.parent.history && window.parent.history.replaceState) {{
+                        let targetPath = queryStr;
+                        if (window.parent.location && window.parent.location.pathname) {{
+                            targetPath = window.parent.location.pathname + queryStr;
+                        }}
+                        window.parent.history.replaceState({{}}, '', targetPath);
+                    }}
+                }} catch (e) {{}}
+                try {{
+                    if (window.top && window.top.history && window.top.history.replaceState) {{
+                        let targetPath = queryStr;
+                        if (window.top.location && window.top.location.pathname) {{
+                            targetPath = window.top.location.pathname + queryStr;
+                        }}
+                        window.top.history.replaceState({{}}, '', targetPath);
+                    }}
+                }} catch (e) {{}}
+                if (window.history && window.history.replaceState) {{
+                    window.history.replaceState({{}}, '', queryStr);
+                }}
+            }} catch (e) {{}}
+        }}
 
-if st.session_state.type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-    st.session_state.prd_no_list = set()
-    
-# 가로선
-st.markdown("---")
+        function initApp() {{
+            // 사이트 셀렉트 설정
+            const siteSelect = document.getElementById('siteCdSelect');
+            if (siteSelect) siteSelect.value = currentSiteCd;
 
-# 추천 조회
-def submit():
-    global recommend_type, gender, age
-    # 추천 서비스 유형 선택
-    if not select_type:
-        return
-    # 상품 번호 입력 (개인화 추천은 리스트로 확인)
-    if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if not st.session_state.prd_no_list:
-            return
-    else:
-        if not st.session_state.prd_no and not st.session_state.prd_nm:
-            return
-    
-    try:
-        selected_gender = ""
-        selected_age = ""
-        if recommend_type in ["viewtogether", "buytogether"]:
-            if not gender and st.session_state.gender:
-                gender = st.session_state.gender
-            if gender:
-                for item in gender_options:
-                    if item == gender:
-                        selected_gender = gender_options[item]
-                        break
-            if not age and st.session_state.age:
-                age = st.session_state.age
-            if age:
-                for item in age_options:
-                    if item == age:
-                        selected_age = age_options[item]
-                        break
-            if gender and age:
-                if recommend_type in ["viewtogether"]:
-                    recommend_type = "viewuser"
-                elif recommend_type in ["buytogether"]:
-                    recommend_type = "buyuser"
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    age=selected_age,
-                    gender=selected_gender,
-                    siteCd=site_cd,
-                    size=int(k),
-                    # score=True
-                )
-            else:
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    siteCd=site_cd,
-                    size=int(k),
-                    # score=True
-                )
-        elif recommend_type in ["keyword-search"]:
-            if st.session_state.gender:
-                gender = st.session_state.gender
-            else:
-                gender = ""
-            if gender:
-                for item in search_gender_options:
-                    if item == gender:
-                        selected_gender = search_gender_options[item]
-                        break
-            params = dict(
-                keyword=st.session_state.prd_nm,
-                gender=selected_gender,
-                siteCd=site_cd,
-                limit=int(k),
-                # score=True
-            )
-        elif recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            params = dict(
-                prdNo=[int(prd) for prd in st.session_state.prd_no_list],
-                siteCd=site_cd,
-                size=int(k),
-                # score=True
-            )
-        elif recommend_type == "bert_similar":
-            pass
-        else:
-            # similar-image만 size=50, 나머지는 기본값 사용
-            size_param = 100 if recommend_type == "similar-image" else int(k)
-            
-            # similar-image는 단일 상품만, 나머지는 여러 상품 처리
-            if recommend_type == "similar-image":
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    siteCd=site_cd,
-                    size=size_param
-                )
-            else:
-                # 여러 상품번호가 있으면 모두 처리
-                if st.session_state.prd_no_list and len(st.session_state.prd_no_list) > 1:
-                    prd_list = [int(prd) for prd in st.session_state.prd_no_list]
-                else:
-                    prd_list = [int(st.session_state.prd_no)]
-                
-                params = dict(
-                    prdNo=prd_list,
-                    siteCd=site_cd,
-                    size=size_param,
-                    # score=True
-                    randomYn=False,
-                )
-        
-        if recommend_type == "bert_similar":
-            with st.spinner("BERT 모델로 유사 상품을 검색 중입니다..."):
-                # 1. 리소스 로드
-                alias = "hf_prd" if site_cd == 1 else "br_prd"
-                tokenizer, model, collection, device = load_resources(alias)
-                
-                # 2. 상품 번호로 벡터 조회
-                target_prd_no = int(st.session_state.prd_no)
-                res = collection.query(
-                    expr=f"prd_no == {target_prd_no}",
-                    output_fields=["vector"],
-                    limit=1
-                )
-                
-                if not res:
-                    st.warning(f"Milvus에서 상품 번호 {target_prd_no}에 대한 데이터를 찾을 수 없습니다.")
-                    return
-                
-                query_vector = res[0]["vector"]
+            // 추천 모델 셀렉트박스 채우기
+            const mlSelect = document.getElementById('mlTypeSelect');
+            if (mlSelect) {{
+                mlSelect.innerHTML = ML_TYPES_LIST.map(m => `<option value="${{m.id}}">${{m.name}}</option>`).join('');
+                mlSelect.value = currentMlType;
+            }}
 
-                # 3. Milvus 검색
-                search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
-                results = collection.search(
-                    data=[query_vector], 
-                    anns_field="vector", 
-                    param=search_params, 
-                    limit=int(k),
-                    output_fields=["vector"]
-                )
+            // 필터 설정
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = currentPrdNo;
 
-                # 4. 결과 매핑
-                data = []
-                for hits in results:
-                    for hit in hits:
-                        detail = get_product_detail_info(hit.id, site_cd)
-                        item = detail.copy()
-                        item["prd_no"] = hit.id
-                        item["score"] = hit.distance
-                        data.append(item)
-                
-                st.session_state.last_api_url = "Local Milvus Query"
-                st.session_state.last_api_response = data
-        else:
-            api_url = f"{API_URL}/{recommend_type}"
-            response = requests.get(api_url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            
-            # 실제 호출된 URL 및 JSON 데이터 저장
-            st.session_state.last_api_url = response.url
-            st.session_state.last_api_response = data
-        
-        if not data:
-            st.error("API 응답이 비어있습니다.")
-            return
-        
-        # 추천 대상 상품 표시
-        if recommend_type in ["keyword-search"]:
-            if gender:
-                st.subheader(f"검색 키워드: {st.session_state.prd_nm} ({gender})")
-            else:
-                st.subheader(f"검색 키워드: {st.session_state.prd_nm}")
-            st.markdown("---")
+            const ageSelect = document.getElementById('ageSelect');
+            if (ageSelect) ageSelect.value = currentAge;
 
-                
-        # 추천 상품 이미지 및 점수
-        recs = []
-        recs_title = "추천"
-        ml_type = ""
-                
-        ml_data = []
-        if recommend_type in ["keyword-search"]:
-            if isinstance(data, list):
-                ml_data = data
-            elif isinstance(data, dict):
-                ml_data = data.get("results", data.get("data", []))
-            else:
-                ml_data = []
-        else:
-            if isinstance(data, dict):
-                ml_data = data.get("result", data.get("data", []))
-            elif isinstance(data, list):
-                ml_data = data
-            else:
-                ml_data = []
-            ml_type = data.get("ml_type", "") if isinstance(data, dict) else ""
-            if ml_type:
-                if ml_type == "ml":
-                    recs_title = recs_title + f": {recommend_type_nm} ML"
-                else:
-                    recs_title = recs_title + f": {recommend_type_nm}"
-            else:
-                recs_title = recs_title + f": {recommend_type_nm}"
-                            
-        if not ml_data:
-            st.warning("추천 결과가 없습니다.")
-            return
-            
-        for rec in ml_data:
-            if not rec or not isinstance(rec, dict):
-                continue
-                
-            # 필드명 호환성 처리
-            prd_no = rec.get("prd_no") or rec.get("prdNo")
-            if not prd_no:
-                continue
-                
-            score = rec.get("score", 0.0)
-            esscore = rec.get("esscore", 0.0)
-            sgn = rec.get("sgnCd", [])
-            prd_nm = rec.get("prd_nm") or rec.get("prdNm", "")
-            prd_img = rec.get("prd_img") or rec.get("appPrdImgUrl", "")
-            prc = rec.get("price") or rec.get("dcPrcMc", 0)
-            brandNm = rec.get("brandNm", "")
-                
-                        
-            text = ""
-            
-            # 추천 정보 표시
-            if rec.get("rcm_prd_no", ""):
-                text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                text = text + f"추천 대상: {rec.get("rcm_prd_no", "")}<br/>"
-                text = text + f"</p>"
-            if rec.get("age", ""):
-                for item in age_options:
-                    if age_options[item] == rec.get("age", ""):
-                        text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                        text = text + f"■ 나이: {item}<br/>"
-                        text = text + f"</p>"
-                        break
-            if rec.get("gender", ""):
-                for item in gender_options:
-                    if gender_options[item] == rec.get("gender", ""):
-                        text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                        text = text + f"■ 성별: {item}<br/>"
-                        text = text + f"</p>"
-                        break
-            
-            # 카테고리 정보 추가 (추천 결과용)
-            dp_ctgr_nm1 = rec.get("dpCtgrNm1", "")
-            dp_ctgr_nm2 = rec.get("dpCtgrNm2", "")
-            dp_ctgr_nm3 = rec.get("dpCtgrNm3", "")
-            
-            # 카테고리 경로 생성
-            category_path = []
-            if dp_ctgr_nm1: category_path.append(dp_ctgr_nm1)
-            if dp_ctgr_nm2: category_path.append(dp_ctgr_nm2)
-            if dp_ctgr_nm3: category_path.append(dp_ctgr_nm3)
-            category_str = " > ".join(category_path) if category_path else ""
-            
-            # 상품 정보 표시
-            text = text + f"<p style='font-size:10pt;margin:0;padding:0;'>"
-            if score:
-                text = text + f"추천 스코어 : {score:.4f}<br/>"
-            if esscore:
-                text = text + f"ES 스코어 : {esscore:.4f}<br/>"
-            text = text + f"브랜드 : {brandNm}<br/>"
-            product_link_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-            text = text + f"상 품 : <a href='{product_link_url}'>{prd_no}</a><br/>"
-            text = text + f"가 격 : {prc:,} 원<br/>"
-            text = text + f"상품명 :<br/>{prd_nm}<br/>"
-            if category_str:
-                text = text + f"{category_str}"
-            if sgn and isinstance(sgn, list) and len(sgn) > 0:
-                for i, code in enumerate(sgn):
-                    if code == "01":
-                        sgn[i] = "봄"
-                    elif code == "02":
-                        sgn[i] = "여름"
-                    elif code == "03":
-                        sgn[i] = "가을"
-                    elif code == "04":
-                        sgn[i] = "겨울"
-                    elif code == "05":
-                        sgn[i] = "사계절"
-                sgn_str = ", ".join(sgn)
-                text = text + f"<br/>시즌 : {sgn_str}<br/>"
-            text = text + f"</p><br/>"
-            
-            product_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-            recs.append({"prd_no": prd_no, "score": score, "prd_nm": text, "prd_url": product_url, "prd_img": prd_img})
+            const genderSelect = document.getElementById('genderSelect');
+            if (genderSelect) genderSelect.value = currentGender;
 
-        if not recs:
-            st.error("리스트 결과 없음")
-        else:
-            # 4의 배수로 결과 제한
-            total_count = len(recs)
-            display_count = (total_count // 4) * 4
-            if display_count > 0:
-                recs = recs[:display_count]
-            show_grid(recs, columns_per_row=4, title=recs_title, img_width=150)
+            const sizeInput = document.getElementById('sizeInput');
+            if (sizeInput) sizeInput.value = currentK;
 
-    except requests.exceptions.Timeout:
-        st.error("API 요청 시간이 초과되었습니다.")
-    except requests.exceptions.ConnectionError:
-        st.error("API 서버에 연결할 수 없습니다.")
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP 에러 ({http_err.response.status_code}): {http_err}")
-    except ValueError as json_err:
-        st.error(f"API 응답 파싱 오류: {json_err}")
-    except Exception as err:
-        st.error(f"예상치 못한 오류: {err}")
+            // 시드 상품 목록 렌더링
+            renderSeedList();
 
-# 폼 제출 시 API 호출 및 이미지 표시
-if submit_button:
-    select_prd_no = prd_no
-    st.session_state.prd_no = select_prd_no
-    st.session_state.prd_nm = "직접입력"
-    
-    if recommend_type in ["buytogether","viewtogether","keyword-search"]:
-        if gender:
-            st.session_state.gender = gender
-    if recommend_type in ["buytogether","viewtogether"]:
-        if age:
-            st.session_state.age = age
-    if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if prd_no:
-            st.session_state.prd_no_list = set()
-            for prd in prd_no.split(","):
-                st.session_state.prd_no_list.add(prd.strip())
-            # URL 파라미터 업데이트
-            st.query_params["prdNo"] = ",".join(st.session_state.prd_no_list)
-            if st.session_state.show_prd != st.session_state.prd_no_list:
-                st.rerun()
-    elif recommend_type != "similar-image":
-        # similar-image를 제외한 다른 추천 유형에서 여러 상품 처리
-        if prd_no and "," in prd_no:
-            st.session_state.prd_no_list = set()
-            for prd in prd_no.split(","):
-                st.session_state.prd_no_list.add(prd.strip())
-            st.session_state.prd_no = prd_no.split(",")[0].strip()  # 첫 번째 상품을 대표로
-        else:
-            st.session_state.prd_no = prd_no
-            st.session_state.prd_no_list = {str(prd_no)}
-        
-        # URL 파라미터 업데이트
-        st.query_params["prdNo"] = str(st.session_state.prd_no)
-    
-    st.rerun()
+            // 탭 초기화
+            switchViewTab(currentTab, false);
 
-# URL 파라미터 또는 상품 선택 시 자동 실행
-auto_submit = False
+            // 이벤트 리스너 등록
+            setupEventListeners();
 
-# URL 파라미터로 모든 값이 설정된 경우
-if url_prd and url_type and recommend_type:
-    auto_submit = True
-# 또는 상품이 선택되고 추천 유형이 설정된 경우
-elif (select_prd_no or st.session_state.prd_no_list) and recommend_type:
-    auto_submit = True
+            // 초기 데이터 조회
+            executeRecommendFlow();
+        }}
 
-if auto_submit:
-    if recommend_type in ["keyword-search"]:
-        if gender:
-            st.session_state.gender = gender
-    
-    # recommendforyou가 아닌 경우에만 prd_no_list 초기화
-    if recommend_type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if st.session_state.prd_no_list:
-            st.session_state.prd_no_list = set()
-        
-    if st.session_state.show_type != recommend_type:
-        if st.session_state.show_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"] and recommend_type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            st.session_state.prd_no_list = set()
-        st.rerun()
+        function setupEventListeners() {{
+            // 검색 필터링
+            const searchInput = document.getElementById('seedSearchInput');
+            if (searchInput) {{
+                searchInput.addEventListener('input', (e) => {{
+                    const q = e.target.value.trim().toLowerCase();
+                    const allSeeds = SEED_DATA[currentSiteCd] || [];
+                    const filtered = allSeeds.filter(s => 
+                        (s.prd_nm && s.prd_nm.toLowerCase().includes(q)) ||
+                        (s.full_name && s.full_name.toLowerCase().includes(q)) ||
+                        (s.category && s.category.toLowerCase().includes(q)) ||
+                        (s.prd_no && s.prd_no.includes(q))
+                    );
+                    renderSeedList(filtered);
+                }});
+            }}
 
-    submit()
+            // 사이트 전환 이벤트
+            const siteSelect = document.getElementById('siteCdSelect');
+            if (siteSelect) {{
+                siteSelect.addEventListener('change', (e) => {{
+                    currentSiteCd = e.target.value;
+                    const seeds = SEED_DATA[currentSiteCd] || [];
+                    if (seeds.length > 0) {{
+                        currentPrdNo = seeds[0].prd_no;
+                        const directInput = document.getElementById('directPrdInput');
+                        if (directInput) directInput.value = currentPrdNo;
+                    }}
+                    renderSeedList();
+                    executeRecommendFlow();
+                }});
+            }}
 
-# API 정보 섹션
-if 'last_api_url' in st.session_state:
-        
-    with st.expander("🔗 호출된 API URL", expanded=False):
-        st.markdown(f"[{st.session_state.last_api_url}]({st.session_state.last_api_url})")
-    
-    if 'last_api_response' in st.session_state:
-        with st.expander("📊 API 응답 JSON", expanded=False):
-            st.json(st.session_state.last_api_response)
+            // 추천 모델 전환 이벤트
+            const mlSelect = document.getElementById('mlTypeSelect');
+            if (mlSelect) {{
+                mlSelect.addEventListener('change', (e) => {{
+                    currentMlType = e.target.value;
+                    executeRecommendFlow();
+                }});
+            }}
+
+            // 직접 입력 Enter 이벤트
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) {{
+                directInput.addEventListener('keydown', (e) => {{
+                    if (e.key === 'Enter') {{
+                        triggerFetch();
+                    }}
+                }});
+            }}
+        }}
+
+        function renderSeedList(seedsToRender = null) {{
+            const list = seedsToRender || SEED_DATA[currentSiteCd] || [];
+            displayedSeeds = list;
+            const container = document.getElementById('seedList');
+            const badge = document.getElementById('seedCountBadge');
+            if (badge) badge.textContent = list.length;
+            if (!container) return;
+
+            container.innerHTML = '';
+            list.forEach((item, idx) => {{
+                const li = document.createElement('li');
+                const isSelected = item.prd_no === currentPrdNo;
+                li.className = `seed-item ${{isSelected ? 'active' : ''}}`;
+                li.setAttribute('data-prd-no', item.prd_no);
+                li.setAttribute('tabindex', '0');
+
+                const name = item.prd_nm || item.category || '상품';
+                const no = item.prd_no;
+
+                li.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                        <span style="font-weight:700;">${{name}}</span>
+                        <span style="font-size:0.75rem; color:#64748b;">#${{no}}</span>
+                    </div>
+                    <span style="font-size:0.72rem; color:#94a3b8;">${{item.category || ''}}</span>
+                `;
+
+                li.addEventListener('click', () => {{
+                    selectSeedProduct(item.prd_no);
+                }});
+
+                li.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        if (idx + 1 < displayedSeeds.length) {{
+                            const nextLi = container.children[idx + 1];
+                            if (nextLi) {{
+                                nextLi.focus();
+                                selectSeedProduct(displayedSeeds[idx + 1].prd_no);
+                            }}
+                        }}
+                    }} else if (e.key === 'ArrowUp') {{
+                        e.preventDefault();
+                        if (idx > 0) {{
+                            const prevLi = container.children[idx - 1];
+                            if (prevLi) {{
+                                prevLi.focus();
+                                selectSeedProduct(displayedSeeds[idx - 1].prd_no);
+                            }}
+                        }} else {{
+                            document.getElementById('seedSearchInput')?.focus();
+                        }}
+                    }} else if (e.key === 'Enter' || e.key === ' ') {{
+                        e.preventDefault();
+                        selectSeedProduct(item.prd_no);
+                    }}
+                }});
+
+                container.appendChild(li);
+            }});
+        }}
+
+        function selectSeedProduct(prdNo) {{
+            currentPrdNo = String(prdNo).trim();
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = currentPrdNo;
+
+            document.querySelectorAll('.seed-item').forEach(el => {{
+                if (el.getAttribute('data-prd-no') === currentPrdNo) {{
+                    el.classList.add('active');
+                    el.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
+                }} else {{
+                    el.classList.remove('active');
+                }}
+            }});
+
+            executeRecommendFlow();
+        }}
+
+        function triggerFetch() {{
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput && directInput.value.trim()) {{
+                currentPrdNo = directInput.value.trim();
+            }}
+            const siteSelect = document.getElementById('siteCdSelect');
+            if (siteSelect) currentSiteCd = siteSelect.value;
+
+            const mlSelect = document.getElementById('mlTypeSelect');
+            if (mlSelect) currentMlType = mlSelect.value;
+
+            const ageSelect = document.getElementById('ageSelect');
+            if (ageSelect) currentAge = ageSelect.value;
+
+            const genderSelect = document.getElementById('genderSelect');
+            if (genderSelect) currentGender = genderSelect.value;
+
+            const sizeInput = document.getElementById('sizeInput');
+            if (sizeInput && sizeInput.value) currentK = sizeInput.value;
+
+            executeRecommendFlow();
+        }}
+
+        function switchViewTab(tabName, updateUrl = true) {{
+            currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (tabName === 'grid') {{
+                document.getElementById('tabBtnGrid')?.classList.add('active');
+                document.getElementById('tabContentGrid')?.classList.add('active');
+            }} else if (tabName === 'table') {{
+                document.getElementById('tabBtnTable')?.classList.add('active');
+                document.getElementById('tabContentTable')?.classList.add('active');
+            }} else if (tabName === 'raw') {{
+                document.getElementById('tabBtnRaw')?.classList.add('active');
+                document.getElementById('tabContentRaw')?.classList.add('active');
+            }}
+
+            if (updateUrl) updateUrlQuery();
+        }}
+
+        async function executeRecommendFlow() {{
+            updateUrlQuery();
+            updateMetaHeaderInfo();
+
+            // 1. 대상 상품 정보 비동기 로드
+            loadTargetProductInfo(currentPrdNo);
+
+            // 2. 추천 API 호출
+            await fetchRecommendationApi();
+        }}
+
+        function updateMetaHeaderInfo() {{
+            const siteName = currentSiteCd === '2' ? '보리보리' : '하프클럽';
+            const metaSite = document.getElementById('metaSiteText');
+            if (metaSite) metaSite.textContent = siteName;
+
+            const mlObj = ML_TYPES_LIST.find(m => m.id === currentMlType);
+            const mlName = mlObj ? mlObj.name : currentMlType;
+            const metaMl = document.getElementById('metaMlTypeText');
+            if (metaMl) metaMl.textContent = mlName;
+
+            const navBadge = document.getElementById('navMlTypeBadge');
+            if (navBadge) navBadge.textContent = mlName.split('(')[0].trim();
+
+            const metaPrd = document.getElementById('metaPrdNoText');
+            if (metaPrd) metaPrd.textContent = currentPrdNo;
+
+            const ageTxt = currentAge === '01' ? '40대 미만' : (currentAge === '02' ? '40대 이상' : '전체');
+            const genTxt = currentGender === '01' ? '남성' : (currentGender === '02' ? '여성' : '전체');
+            const metaCond = document.getElementById('metaConditionText');
+            if (metaCond) metaCond.textContent = `연령: ${{ageTxt}} / 성별: ${{genTxt}}`;
+
+            const metaK = document.getElementById('metaKText');
+            if (metaK) metaK.textContent = `${{currentK}}개`;
+
+            const navTitle = document.getElementById('currentPrdText');
+            if (navTitle) navTitle.textContent = `상품번호 ${{currentPrdNo}}`;
+
+            const navLink = document.getElementById('currentPrdTitleLink');
+            if (navLink) {{
+                const firstPrd = currentPrdNo.split(',')[0].trim();
+                navLink.href = getProductDetailUrl(firstPrd);
+            }}
+        }}
+
+        async function loadTargetProductInfo(prdNoStr) {{
+            const prdList = prdNoStr.split(',').map(s => s.trim()).filter(Boolean);
+            const firstPrd = prdList[0] || '';
+
+            // 다중 상품 칩 처리
+            const multiWrap = document.getElementById('multiTargetChipsWrap');
+            const multiContainer = document.getElementById('multiTargetChipsContainer');
+            if (multiWrap && multiContainer) {{
+                if (prdList.length > 1) {{
+                    multiWrap.style.display = 'block';
+                    multiContainer.innerHTML = prdList.map(p => `
+                        <span class="badge-chip-item badge-blue" style="cursor:pointer;" onclick="selectSeedProduct('${{p}}')">
+                            #${{p}} ↗
+                        </span>
+                    `).join('');
+                }} else {{
+                    multiWrap.style.display = 'none';
+                    multiContainer.innerHTML = '';
+                }}
+            }}
+
+            if (!firstPrd) return;
+
+            // 검색 API를 통해 첫 번째 대상 상품의 상세 정보 가져오기
+            const searchBase = currentSiteCd === '2' ? 'https://apix.boribori.co.kr' : 'https://hapix.halfclub.com';
+            const searchUrl = `${{searchBase}}/searches/prdList/?keyword=${{encodeURIComponent(firstPrd)}}&siteCd=${{currentSiteCd}}&device=mc`;
+
+            try {{
+                const res = await fetch(searchUrl);
+                if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
+                const data = await res.json();
+                const hits = data?.data?.result?.hits?.hits || [];
+                if (hits.length > 0) {{
+                    const src = hits[0]._source || hits[0];
+                    renderTargetProductCard(src);
+                }} else {{
+                    renderTargetProductCardFallback(firstPrd);
+                }}
+            }} catch (e) {{
+                renderTargetProductCardFallback(firstPrd);
+            }}
+        }}
+
+        function renderTargetProductCard(src) {{
+            const name = src.prdNm || '상품명 미확인';
+            const brand = src.brandNm || src.brdNm || '브랜드 미확인';
+            const dcPrice = src.dcPrcMc || src.dcPrcApp || src.selPrc || src.price || 0;
+            const normPrice = src.normPrc || 0;
+            const imgPath = src.appPrdImgUrl || src.prdImg || '';
+            const fullImg = getImageUrl(imgPath);
+
+            const c1 = src.dpCtgrNm1 || '';
+            const c2 = src.dpCtgrNm2 || '';
+            const c3 = src.dpCtgrNm3 || '';
+            const catPath = [c1, c2, c3].filter(Boolean).join(' > ');
+
+            const imgWrap = document.getElementById('targetImgWrap');
+            if (imgWrap) {{
+                imgWrap.innerHTML = fullImg ? `<img src="${{fullImg}}" class="target-img" alt="${{name}}"/>` : '<span style="font-size:0.72rem; color:#94a3b8;">No Image</span>';
+            }}
+
+            const brandEl = document.getElementById('targetBrandText');
+            if (brandEl) brandEl.textContent = brand;
+
+            const nameEl = document.getElementById('targetNameText');
+            if (nameEl) nameEl.textContent = name;
+
+            const navTitle = document.getElementById('currentPrdText');
+            if (navTitle) navTitle.textContent = `${{brand}} - ${{name}}`;
+
+            const priceEl = document.getElementById('targetPriceText');
+            if (priceEl) priceEl.textContent = `${{Number(dcPrice).toLocaleString()}} 원`;
+
+            const normEl = document.getElementById('targetNormPriceText');
+            if (normEl) normEl.textContent = normPrice > dcPrice ? `${{Number(normPrice).toLocaleString()}} 원` : '';
+
+            const discEl = document.getElementById('targetDiscRateText');
+            if (discEl) {{
+                if (normPrice > dcPrice && normPrice > 0) {{
+                    const rate = Math.round((normPrice - dcPrice) / normPrice * 100);
+                    discEl.textContent = `${{rate}}%`;
+                }} else {{
+                    discEl.textContent = '';
+                }}
+            }}
+
+            const catEl = document.getElementById('targetCategoryPath');
+            if (catEl) catEl.textContent = catPath ? `카테고리: ${{catPath}}` : '';
+
+            const tagsHeader = document.getElementById('targetTagsHeader');
+            if (tagsHeader) {{
+                tagsHeader.innerHTML = `
+                    <span class="badge-chip-item badge-brand">브랜드: ${{brand}}</span>
+                    ${{c1 ? `<span class="badge-chip-item badge-blue">${{c1}}</span>` : ''}}
+                `;
+            }}
+        }}
+
+        function renderTargetProductCardFallback(prdNo) {{
+            const imgWrap = document.getElementById('targetImgWrap');
+            if (imgWrap) {{
+                imgWrap.innerHTML = `<span style="font-size:0.72rem; color:#94a3b8;">#${{prdNo}}</span>`;
+            }}
+            const brandEl = document.getElementById('targetBrandText');
+            if (brandEl) brandEl.textContent = '상품 상세';
+
+            const nameEl = document.getElementById('targetNameText');
+            if (nameEl) nameEl.textContent = `상품번호 #${{prdNo}} (API 직접 조회)`;
+
+            const priceEl = document.getElementById('targetPriceText');
+            if (priceEl) priceEl.textContent = '-';
+
+            const normEl = document.getElementById('targetNormPriceText');
+            if (normEl) normEl.textContent = '';
+
+            const discEl = document.getElementById('targetDiscRateText');
+            if (discEl) discEl.textContent = '';
+
+            const catEl = document.getElementById('targetCategoryPath');
+            if (catEl) catEl.textContent = '';
+
+            const tagsHeader = document.getElementById('targetTagsHeader');
+            if (tagsHeader) tagsHeader.innerHTML = '';
+        }}
+
+        async function fetchRecommendationApi() {{
+            const startTime = performance.now();
+            const apiBase = getApiBaseUrl();
+            const statusEl = document.getElementById('metaStatusText');
+            if (statusEl) {{
+                statusEl.textContent = '조회 중...';
+                statusEl.style.color = '#2563eb';
+            }}
+
+            // 엔드포인트 및 파라미터 구성
+            let endpoint = currentMlType;
+            if ((currentMlType === 'viewtogether' || currentMlType === 'buytogether') && (currentAge || currentGender)) {{
+                endpoint = currentMlType === 'viewtogether' ? 'viewuser' : 'buyuser';
+            }}
+
+            const params = new URLSearchParams();
+            params.append('siteCd', currentSiteCd);
+            params.append('size', currentK);
+
+            const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (['recommendforyou', 'multiSimilarItem', 'meanSimilarItem', 'meanSimilarItemView', 'meanSimilarItemBuy'].includes(currentMlType)) {{
+                prdList.forEach(p => params.append('prdNo', p));
+            }} else {{
+                params.append('prdNo', prdList[0] || '380118214');
+            }}
+
+            if (currentAge) params.append('age', currentAge);
+            if (currentGender) params.append('gender', currentGender);
+            if (currentMlType === 'similaritem' || currentMlType === 'multiSimilarItem') {{
+                params.append('randomYn', 'false');
+            }}
+
+            currentApiUrl = `${{apiBase}}/recommend/${{endpoint}}?${{params.toString()}}`;
+
+            const urlText = document.getElementById('calledApiUrlText');
+            if (urlText) urlText.textContent = currentApiUrl;
+
+            try {{
+                const res = await fetch(currentApiUrl);
+                const duration = Math.round(performance.now() - startTime);
+
+                if (!res.ok) {{
+                    throw new Error(`HTTP ${{res.status}}: ${{res.statusText}}`);
+                }}
+
+                const data = await res.json();
+                currentRawData = data;
+
+                if (statusEl) {{
+                    statusEl.textContent = `200 OK (${{duration}}ms)`;
+                    statusEl.style.color = '#059669';
+                }}
+
+                renderDashboardResults(data);
+            }} catch (err) {{
+                const duration = Math.round(performance.now() - startTime);
+                if (statusEl) {{
+                    statusEl.textContent = `실패 (${{duration}}ms)`;
+                    statusEl.style.color = '#ef4444';
+                }}
+
+                document.getElementById('productGridContainer').innerHTML = `
+                    <div style="grid-column:1/-1; padding:40px 20px; text-align:center; color:#ef4444; font-weight:700;">
+                        <div>API 호출에 실패하였습니다: ${{escapeHtml(err.message)}}</div>
+                        <div style="font-size:0.8rem; color:#94a3b8; margin-top:6px; word-break:break-all;">요청 URL: ${{currentApiUrl}}</div>
+                    </div>
+                `;
+
+                document.getElementById('productTableBody').innerHTML = `
+                    <tr><td colspan="10" style="text-align:center; padding:30px; color:#ef4444;">API 호출 실패: ${{escapeHtml(err.message)}}</td></tr>
+                `;
+
+                renderRawJsonView({{ error: err.message, requested_url: currentApiUrl }});
+            }}
+        }}
+
+        function renderDashboardResults(data) {{
+            let products = [];
+            if (Array.isArray(data)) {{
+                products = data;
+            }} else if (data && typeof data === 'object') {{
+                products = data.result || data.data || data.items || data.results || [];
+                if (!Array.isArray(products) && typeof products === 'object') {{
+                    products = [products];
+                }}
+            }}
+
+            renderProductGrid(products);
+            renderProductTable(products);
+            renderRawJsonView(data);
+        }}
+
+        function renderProductGrid(products) {{
+            const container = document.getElementById('productGridContainer');
+            if (!container) return;
+
+            if (!products || products.length === 0) {{
+                container.innerHTML = '<div style="grid-column:1/-1; padding:40px 20px; text-align:center; color:#64748b;">추천 상품 결과가 없습니다.</div>';
+                return;
+            }}
+
+            container.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.prd_no || prd.id || '';
+                const prdUrl = getProductDetailUrl(prdNo);
+                const name = prd.prdNm || prd.prd_nm || prd.name || '상품명 미확인';
+                const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '브랜드';
+                const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const normPrc = prd.normPrc || prd.nrmPrc || 0;
+                const discRt = prd.totRateApp || prd.discRt || (normPrc > salePrc && normPrc > 0 ? Math.round((normPrc - salePrc) / normPrc * 100) : 0);
+                const score = prd.score !== undefined ? Number(prd.score) : null;
+                const esScore = prd.esscore !== undefined ? Number(prd.esscore) : null;
+                const imgPath = prd.appPrdImgUrl || prd.prd_img || prd.prdImg || '';
+                const imgUrl = getImageUrl(imgPath);
+
+                const c1 = prd.dpCtgrNm1 || prd.category || '';
+
+                const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
+                const rankText = rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`;
+
+                return `
+                    <div class="product-card">
+                        <div class="product-img-wrap">
+                            <span class="${{rankClass}}">${{rankText}}</span>
+                            <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="display:block; width:100%; height:100%;">
+                                <img src="${{imgUrl || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="product-img" alt="${{escapeHtml(name)}}" loading="lazy"/>
+                            </a>
+                        </div>
+                        <div class="product-info">
+                            <div class="brand-name" title="${{escapeHtml(brand)}}">${{brand}}</div>
+                            <div class="product-name" title="${{escapeHtml(name)}}">
+                                <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                                    ${{name}}
+                                </a>
+                            </div>
+                            <div class="price-wrap">
+                                ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
+                                <span class="sale-price">${{Number(salePrc).toLocaleString()}}원</span>
+                                ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
+                            </div>
+                            <div class="badge-chip-container">
+                                ${{score !== null ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
+                                ${{esScore !== null ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
+                                ${{c1 ? `<span class="badge-chip-item badge-gray">${{c1}}</span>` : ''}}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }}).join('');
+        }}
+
+        function renderProductTable(products) {{
+            const tbody = document.getElementById('productTableBody');
+            if (!tbody) return;
+
+            if (!products || products.length === 0) {{
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                return;
+            }}
+
+            tbody.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.prd_no || prd.id || '-';
+                const prdUrl = getProductDetailUrl(prdNo);
+                const name = prd.prdNm || prd.prd_nm || prd.name || '-';
+                const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
+                const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const normPrc = prd.normPrc || prd.nrmPrc || 0;
+                const discRt = prd.totRateApp || prd.discRt || (normPrc > salePrc && normPrc > 0 ? Math.round((normPrc - salePrc) / normPrc * 100) : 0);
+                const score = prd.score !== undefined ? Number(prd.score).toFixed(4) : '-';
+                const esScore = prd.esscore !== undefined ? Number(prd.esscore).toFixed(4) : '-';
+                const c1 = prd.dpCtgrNm1 || prd.category || '-';
+
+                return `
+                    <tr>
+                        <td style="font-weight:700; color:#64748b;">${{rank}}</td>
+                        <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
+                        <td style="font-weight:600;">${{brand}}</td>
+                        <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{name}}</td>
+                        <td style="font-weight:700; color:#0f172a;">${{Number(salePrc).toLocaleString()}}원</td>
+                        <td style="color:#94a3b8; text-decoration:line-through;">${{normPrc > 0 ? Number(normPrc).toLocaleString() + '원' : '-'}}</td>
+                        <td style="font-weight:800; color:#f43f5e;">${{discRt > 0 ? discRt + '%' : '-'}}</td>
+                        <td style="font-weight:700; color:#2563eb;">${{score}}</td>
+                        <td style="color:#64748b;">${{esScore}}</td>
+                        <td><span class="badge-chip-item badge-gray">${{c1}}</span></td>
+                    </tr>
+                `;
+            }}).join('');
+        }}
+
+        function renderRawJsonView(data) {{
+            const container = document.getElementById('rawJsonBody');
+            if (!container) return;
+            container.innerHTML = '';
+            container.appendChild(createJsonTree(data, true));
+        }}
+
+        function createJsonTree(value, isRoot = false) {{
+            if (value === null) {{
+                const s = document.createElement('span');
+                s.className = 'json-null';
+                s.textContent = 'null';
+                return s;
+            }}
+            if (typeof value === 'boolean') {{
+                const s = document.createElement('span');
+                s.className = 'json-boolean';
+                s.textContent = value ? 'true' : 'false';
+                return s;
+            }}
+            if (typeof value === 'number') {{
+                const s = document.createElement('span');
+                s.className = 'json-number';
+                s.textContent = String(value);
+                return s;
+            }}
+            if (typeof value === 'string') {{
+                const s = document.createElement('span');
+                s.className = 'json-string';
+                s.textContent = JSON.stringify(value);
+                return s;
+            }}
+
+            const isArray = Array.isArray(value);
+            const openBracket = isArray ? '[' : '{{';
+            const closeBracket = isArray ? ']' : '}}';
+            const keys = Object.keys(value);
+
+            const wrap = document.createElement('div');
+            wrap.className = 'json-node-collapsible';
+
+            if (keys.length === 0) {{
+                wrap.innerHTML = `<span class="json-bracket">${{openBracket}}${{closeBracket}}</span>`;
+                return wrap;
+            }}
+
+            const headerRow = document.createElement('span');
+            headerRow.className = 'json-node-row';
+
+            const toggle = document.createElement('span');
+            toggle.className = 'json-toggle';
+            toggle.textContent = '▼';
+            headerRow.appendChild(toggle);
+
+            const openSpan = document.createElement('span');
+            openSpan.className = 'json-bracket';
+            openSpan.textContent = openBracket;
+            headerRow.appendChild(openSpan);
+
+            const collapsedSummary = document.createElement('span');
+            collapsedSummary.className = 'json-collapsed-text';
+            collapsedSummary.style.display = 'none';
+            collapsedSummary.textContent = isArray ? `... ${{keys.length}} items ...` : `... ${{keys.length}} keys ...`;
+            headerRow.appendChild(collapsedSummary);
+
+            const childrenContainer = document.createElement('div');
+            childrenContainer.className = 'json-children';
+
+            keys.forEach((key, idx) => {{
+                const row = document.createElement('div');
+                row.className = 'json-node-row';
+
+                if (!isArray) {{
+                    const kSpan = document.createElement('span');
+                    kSpan.className = 'json-key';
+                    kSpan.textContent = `"${{key}}"`;
+                    row.appendChild(kSpan);
+
+                    const colon = document.createElement('span');
+                    colon.className = 'json-colon';
+                    colon.textContent = ': ';
+                    row.appendChild(colon);
+                }}
+
+                row.appendChild(createJsonTree(value[key]));
+
+                if (idx < keys.length - 1) {{
+                    const comma = document.createElement('span');
+                    comma.className = 'json-comma';
+                    comma.textContent = ',';
+                    row.appendChild(comma);
+                }}
+
+                childrenContainer.appendChild(row);
+            }});
+
+            const footerRow = document.createElement('div');
+            footerRow.className = 'json-node-row';
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'json-bracket';
+            closeSpan.textContent = closeBracket;
+            footerRow.appendChild(closeSpan);
+
+            function toggleNode() {{
+                const isHidden = childrenContainer.style.display === 'none';
+                childrenContainer.style.display = isHidden ? 'block' : 'none';
+                footerRow.style.display = isHidden ? 'block' : 'none';
+                collapsedSummary.style.display = isHidden ? 'none' : 'inline';
+                toggle.textContent = isHidden ? '▼' : '▶';
+            }}
+
+            toggle.addEventListener('click', toggleNode);
+            collapsedSummary.addEventListener('click', toggleNode);
+
+            wrap.appendChild(headerRow);
+            wrap.appendChild(childrenContainer);
+            wrap.appendChild(footerRow);
+
+            return wrap;
+        }}
+
+        function expandAllJson(containerId) {{
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.querySelectorAll('.json-children').forEach(c => c.style.display = 'block');
+            el.querySelectorAll('.json-node-row').forEach(r => r.style.display = 'block');
+            el.querySelectorAll('.json-collapsed-text').forEach(t => t.style.display = 'none');
+            el.querySelectorAll('.json-toggle').forEach(tg => tg.textContent = '▼');
+        }}
+
+        function collapseAllJson(containerId) {{
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            el.querySelectorAll('.json-children').forEach(c => c.style.display = 'none');
+            el.querySelectorAll('.json-collapsed-text').forEach(t => t.style.display = 'inline');
+            el.querySelectorAll('.json-toggle').forEach(tg => tg.textContent = '▶');
+        }}
+
+        function openApiUrlInNewTab() {{
+            if (currentApiUrl) {{
+                window.open(currentApiUrl, '_blank', 'noopener,noreferrer');
+            }}
+        }}
+
+        function copyApiUrlToClipboard() {{
+            if (!currentApiUrl) return;
+            navigator.clipboard.writeText(currentApiUrl).then(() => {{
+                alert('API URL이 클립보드에 복사되었습니다.');
+            }}).catch(() => {{
+                prompt('API URL 복사:', currentApiUrl);
+            }});
+        }}
+
+        function copyJsonTextToClipboard() {{
+            if (!currentRawData) return;
+            const str = JSON.stringify(currentRawData, null, 2);
+            navigator.clipboard.writeText(str).then(() => {{
+                const btn = document.getElementById('btnCopyJson');
+                if (btn) {{
+                    const orig = btn.textContent;
+                    btn.textContent = '복사완료!';
+                    setTimeout(() => {{ btn.textContent = orig; }}, 1500);
+                }}
+            }}).catch(() => {{
+                alert('JSON 내용 복사에 실패했습니다.');
+            }});
+        }}
+
+        function escapeHtml(str) {{
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }}
+
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', initApp);
+        }} else {{
+            initApp();
+        }}
+    </script>
+</body>
+</html>
+"""
+
+# 7. Streamlit 컴포넌트 렌더링 (사방 여백 완전 제거 및 풀스크린 뷰포트)
+components.html(html_content, height=1000, scrolling=False)
