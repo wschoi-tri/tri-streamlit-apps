@@ -167,14 +167,16 @@ html_content = f"""
             padding: 8px 0;
         }}
         .keyword-item {{
-            padding: 9px 18px;
+            padding: 9px 14px;
+            margin: 2px 10px;
             font-size: 0.88rem;
             color: #334155;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: background 0.12s ease, color 0.12s ease;
+            border-radius: 8px;
+            transition: all 0.15s ease;
         }}
         .keyword-item:hover {{
             background-color: #f1f5f9;
@@ -189,8 +191,7 @@ html_content = f"""
         .keyword-item.active {{
             background-color: #eff6ff;
             color: #2563eb;
-            font-weight: 700;
-            border-left: 3px solid #2563eb;
+            font-weight: 800;
         }}
         
         /* 우측 메인 대시보드 */
@@ -199,18 +200,19 @@ html_content = f"""
             display: flex;
             flex-direction: column;
             overflow-y: auto;
-            background-color: #ffffff;
+            background-color: #f8fafc;
         }}
         .top-navbar {{
-            padding: 16px 28px;
+            padding: 14px 28px;
             border-bottom: 1px solid #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background-color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
             position: sticky;
             top: 0;
-            z-index: 10;
+            z-index: 20;
         }}
         .navbar-title {{
             font-size: 1.35rem;
@@ -222,7 +224,7 @@ html_content = f"""
             color: #2563eb !important;
         }}
         .dashboard-body {{
-            padding: 24px 28px;
+            padding: 22px 28px;
             flex: 1;
         }}
         
@@ -230,64 +232,70 @@ html_content = f"""
         .meta-badges {{
             display: flex;
             align-items: center;
-            gap: 20px;
-            background: #f8fafc;
+            gap: 12px;
+            background: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            border-radius: 10px;
             padding: 9px 16px;
-            margin-bottom: 18px;
-            font-size: 0.83rem;
+            margin-bottom: 20px;
+            font-size: 0.82rem;
             color: #64748b;
             font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            flex-wrap: wrap;
         }}
         
         /* 트렌드 가이드 박스 */
         .guide-card-box {{
             background-color: #ffffff;
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #2563eb;
+            border-radius: 12px;
+            padding: 22px 26px;
+            box-shadow: 0 2px 12px -2px rgba(15, 23, 42, 0.04);
             margin-bottom: 22px;
         }}
         .guide-card-header {{
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }}
         .guide-title {{
-            font-size: 1.05rem;
+            font-size: 1.08rem;
             font-weight: 800;
             color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }}
         .guide-text {{
-            font-size: 0.95rem;
-            line-height: 1.7;
+            font-size: 1.02rem;
+            line-height: 1.8;
             color: #1e293b;
-            margin-bottom: 14px;
+            letter-spacing: -0.01em;
+            margin-bottom: 16px;
         }}
         .guide-text b,
         .guide-text strong,
         #guideTextBody b,
         #guideTextBody strong,
         .highlight-kw {{
-            background: linear-gradient(120deg, #fef08a 0%, #fde047 100%);
-            color: #854d0e;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 800;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            border-bottom: 2px solid #eab308;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            border: 1px solid #fde68a;
             display: inline-block;
         }}
         
         /* 탭 서식 */
         .tab-navigation {{
             display: flex;
-            gap: 8px;
+            gap: 6px;
             border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 20px;
+            margin-bottom: 22px;
         }}
         .tab-btn {{
             padding: 10px 18px;
@@ -299,11 +307,17 @@ html_content = f"""
             cursor: pointer;
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
-            transition: color 0.15s ease, border-color 0.15s ease;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.15s ease;
+        }}
+        .tab-btn:hover {{
+            color: #0f172a;
+            background: #f1f5f9;
         }}
         .tab-btn.active {{
             color: #2563eb;
             border-bottom-color: #2563eb;
+            background: transparent;
         }}
         .tab-content {{
             display: none;
@@ -326,83 +340,101 @@ html_content = f"""
         }}
         .product-card {{
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            border-radius: 12px;
             overflow: hidden;
             background: #ffffff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }}
         .product-card:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.12), 0 0 0 1px #3b82f6;
         }}
         .product-img-wrap {{
             position: relative;
             width: 100%;
-            height: 210px;
-            background-color: #f1f5f9;
+            height: 220px;
+            background-color: #f8fafc;
+            overflow: hidden;
         }}
         .product-img {{
             width: 100%;
             height: 100%;
             object-fit: cover;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }}
+        .product-card:hover .product-img {{
+            transform: scale(1.06);
         }}
         .rank-badge {{
             position: absolute;
             top: 8px;
             left: 8px;
-            background-color: #0f172a;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
             color: #ffffff;
             font-size: 11px;
             font-weight: 800;
-            padding: 2px 7px;
-            border-radius: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }}
+        .rank-top1 {{
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+        }}
+        .rank-top2, .rank-top3 {{
+            background: linear-gradient(135deg, #334155, #1e293b) !important;
+            color: #ffffff !important;
         }}
         .product-info {{
-            padding: 12px;
+            padding: 14px 14px 8px 14px;
         }}
         .brand-name {{
-            font-size: 0.76rem;
+            font-size: 0.78rem;
             color: #64748b;
             font-weight: 700;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
         }}
         .product-name {{
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             font-weight: 600;
             color: #0f172a;
-            height: 38px;
+            height: 40px;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            line-height: 1.35;
-            margin-bottom: 8px;
+            line-height: 1.42;
+            margin-bottom: 10px;
         }}
         .price-wrap {{
             display: flex;
             align-items: baseline;
-            gap: 4px;
+            gap: 6px;
             margin-bottom: 6px;
         }}
+        .discount-rate {{
+            font-size: 1.05rem;
+            color: #f43f5e;
+            font-weight: 800;
+        }}
         .sale-price {{
-            font-size: 0.95rem;
+            font-size: 1.05rem;
             font-weight: 800;
             color: #0f172a;
         }}
         .normal-price {{
-            font-size: 0.75rem;
+            font-size: 0.78rem;
             color: #94a3b8;
             text-decoration: line-through;
-        }}
-        .discount-rate {{
-            font-size: 0.75rem;
-            color: #ef4444;
-            font-weight: 700;
         }}
         .badge-chip-container {{
             display: flex;
@@ -411,39 +443,64 @@ html_content = f"""
             margin-top: 6px;
         }}
         .badge-chip-item {{
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 5px;
             font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
         }}
-        .badge-blue {{ background: #eff6ff; color: #2563eb; }}
-        .badge-red {{ background: #fef2f2; color: #dc2626; }}
-        .badge-gray {{ background: #f1f5f9; color: #475569; }}
+        .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
+        .badge-red {{ background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }}
+        .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
         .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
-        .badge-media {{ background: #e0f2fe; color: #0369a1; font-weight: 700; }}
+        .badge-media {{ background: #e0f2fe; color: #0369a1; font-weight: 700; border: 1px solid #bae6fd; }}
         .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
         
         /* 데이터 테이블 */
         .data-table {{
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.84rem;
+            font-size: 0.85rem;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
         }}
         .data-table th {{
             background-color: #f8fafc;
             color: #475569;
             font-weight: 700;
-            padding: 10px 12px;
+            padding: 12px 14px;
             border-bottom: 1px solid #e2e8f0;
             text-align: left;
         }}
         .data-table td {{
-            padding: 10px 12px;
+            padding: 12px 14px;
             border-bottom: 1px solid #f1f5f9;
             color: #334155;
+            vertical-align: middle;
         }}
         .data-table tr:hover {{
             background-color: #f8fafc;
+        }}
+
+        /* 슬림 스크롤바 */
+        ::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: transparent;
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: #cbd5e1;
+            border-radius: 3px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
         }}
         
         pre, code, pre code {{
