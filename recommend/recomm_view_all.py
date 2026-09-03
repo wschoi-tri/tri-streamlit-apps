@@ -1,1092 +1,1923 @@
+import os
+import json
+import urllib.parse
 import streamlit as st
-import requests
-from pymilvus import connections, Collection
+import streamlit.components.v1 as components
 
-# 페이지 설정
+# 1. 페이지 기본 설정 (전체 화면 모드)
 st.set_page_config(
-    page_title="상품 추천 서비스",
-    page_icon="🛍️",
-    layout="centered",
+    page_title="Halfclub Trend AI Curation Dashboard",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# 커스텀 CSS
+# 2. 기본 CSS 덮어쓰기 (Streamlit 사방 여백 완전 제거 및 뷰포트 100% 풀스크린 고정)
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-        text-align: center;
-        color: white !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    /* 1. Streamlit 헤더, 툴바, 풋터 일체 은폐 */
+    header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], .stAppHeader, footer, #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
     }
-    .main-header h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: white !important;
+    /* 2. Streamlit 루트 앱 및 메인 컨테이너 사방 여백 완전 제거 */
+    html, body, .stApp, section.main, .main, .block-container, div[data-testid="stBlockContainer"], div[data-testid="stCustomComponentV1"] {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        background-color: #ffffff !important;
     }
-    .main-header p {
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
-        opacity: 0.9;
-        color: white !important;
-    }
-    .section-card {
-        background: rgba(255, 255, 255, 0.05);
-        color: inherit;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1.5rem;
-        border-left: 4px solid #3498db;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
-    }
-    .section-card h3 {
-        color: #3498db !important;
-        margin-top: 0;
-    }
-    .section-card p {
-        color: inherit !important;
-        opacity: 0.8;
-    }
-    .stButton > button {
-        border-radius: 8px;
-        border: none;
-        background: linear-gradient(135deg, #3498db 0%, #2980b9 100%) !important;
-        color: white !important;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        margin-top: 27px !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    /* 3. iframe을 브라우저 뷰포트 전체(100vw x 100vh)로 강제 고정하여 사방 여백 완전 제거 */
+    iframe {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        z-index: 99999 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 메인 헤더
-st.markdown("""
-<div class="main-header">
-    <h1>🛍️ 상품 추천 서비스</h1>
-    <p>머신러닝 기반 상품 추천 시스템</p>
-</div>
-""", unsafe_allow_html=True)
+# 2-1. Streamlit 시크릿 (.streamlit/secrets.toml) 도메인 로드 (기본값 금지 원칙 준수)
+try:
+    domains_conf = st.secrets["domains"]
+    HALFCLUB_WEB_URL = str(domains_conf["halfclub_web"]).rstrip("/")
+    HALFCLUB_API_URL = str(domains_conf["halfclub_api"]).rstrip("/")
+    HALFCLUB_CDN_URL = str(domains_conf["halfclub_cdn"]).rstrip("/")
+    BORIBORI_WEB_URL = str(domains_conf["boribori_web"]).rstrip("/")
+    BORIBORI_API_URL = str(domains_conf["boribori_api"]).rstrip("/")
+    BORIBORI_CDN_URL = str(domains_conf["boribori_cdn"]).rstrip("/")
+except Exception as e:
+    raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# URL 파라미터 처리
-query_params = st.query_params
-url_site = query_params.get("siteCd", "1")
-url_type = query_params.get("mlType", "")
-url_prd = query_params.get("prdNo", "")
-url_k = query_params.get("k", "")
-
-# 기본 사이트 설정
-if "siteCd" not in query_params:
-    st.query_params["siteCd"] = "1"
-
-
-
-col1, col2 = st.columns([3, 1])
-with col1:
-    site_cd = st.selectbox("사이트 선택", options=[1, 2], format_func=lambda x: "🛍️ 하프클럽" if x == 1 else "🌾 보리보리", index=int(url_site)-1 if url_site in ["1", "2"] else 0)
-with col2:
-    if st.button("🔄 초기화", type="secondary", use_container_width=True):
-        # 세션 상태 초기화
-        st.session_state.prd_no_list = set()
-        st.session_state.prd_no = ""
-        st.session_state.prd_nm = ""
-        st.session_state.gender = ""
-        st.session_state.age = ""
-        st.session_state.type = ""
-        st.session_state.type_nm = ""
-        st.session_state.show_type = ""
-        st.session_state.show_prd = []
-        if 'last_api_url' in st.session_state:
-            del st.session_state.last_api_url
-        if 'last_api_response' in st.session_state:
-            del st.session_state.last_api_response
-        # 모든 URL 파라미터 초기화
-        st.query_params.clear()
-        st.rerun()
-
-# 사이트 선택 시 URL 업데이트 및 상품 선택 초기화
-if site_cd != int(url_site) if url_site in ["1", "2"] else 1:
-    st.query_params["siteCd"] = str(site_cd)
-    # 선택된 상품 초기화
-    st.session_state.prd_no_list = set()
-    st.session_state.prd_no = ""
-    st.session_state.prd_nm = ""
-    st.session_state.show_prd = []
-    if 'last_api_url' in st.session_state:
-        del st.session_state.last_api_url
-    if 'last_api_response' in st.session_state:
-        del st.session_state.last_api_response
-    # URL에서 prdNo 파라미터 제거
-    if "prdNo" in st.query_params:
-        del st.query_params["prdNo"]
-    st.rerun()
-
-
-# --- BERT & Milvus 설정 ---
-MODEL_NAME = "klue/bert-base"
-MILVUS_URI = st.secrets["MILVUS"]["MILVUS_URI"]
-MILVUS_TOKEN = st.secrets["MILVUS"]["MILVUS_TOKEN"]
-
-@st.cache_resource
-def load_resources(collection_alias):
-    """모델 로드 및 Milvus 연결 (캐싱)"""
-    connections.connect(uri=MILVUS_URI, token=MILVUS_TOKEN)
-    collection = Collection(collection_alias)
-    collection.load()
-    return None, None, collection, None
-
-def get_product_detail_info(prd_no, site_cd):
-    """외부 API에서 상품 이미지 및 상세 정보를 가져옵니다."""
-    base_url = "http://hapix.halfclub.com/searches/prdList/" if site_cd == 1 else "http://apix.boribori.co.kr/searches/prdList/"
-    try:
-        params = {"keyword": prd_no, "siteCd": site_cd, "device": "mc"}
-        response = requests.get(base_url, params=params, timeout=0.5)
-        if response.status_code == 200:
-            data = response.json()
-            hits = data.get("data", {}).get("result", {}).get("hits", {}).get("hits", [])
-            if hits:
-                return hits[0].get("_source", {})
-    except Exception:
-        pass
-    return {}
-
-# API_URL = "https://cf-api.boribori.co.kr/recommend"
-API_URL = "https://cf-hapi.halfclub.com/recommend"
-self_yn = False
-if url_k and url_k.isdigit():
-    k = int(url_k)
-else:
-    k = 50
-select_prd_no = ""
-select_prd_nm = ""
-recomm_typ = ""
-age = ""
-gender = ""
-
-if site_cd == 1:
-    API_URL = "https://cf-hapi.halfclub.com/recommend"
-else:
-    API_URL = "https://cf-api.boribori.co.kr/recommend"
-
-ml_types = [
-    {"함께 본 상품 (viewTogether)": "viewtogether"},
-    {"함께 구매한 상품 (buyTogether)": "buytogether"},
-    {"유사 상품 (similarItem)": "similaritem"},
-    {"유사 이미지 상품 (similarImage)": "similar-image"},
-    {"개인화 추천 (recommendForYou)": "recommendforyou"},
-    {"유사 상품 (BERT)": "bert_similar"},
-    {"유사 상품 (조합)": "multiSimilarItem"},
-    {"평균 meanSimilarItem":"meanSimilarItem"},
-    {"평균 meanSimilarItemView":"meanSimilarItemView"},
-    {"평균 meanSimilarItemBuy":"meanSimilarItemBuy"},
-]
-
-def get_best_products(site_cd):
-    try:
-        if site_cd == 1:
-            url = "https://hapix.halfclub.com/searches/best/?offset=0&limit=200&dealYn=N&interval=24&countryCd=001&langCd=001&siteCd=1&deviceCd=001&device=pc&mandM=halfclub"
-        else:
-            url = "https://apix.boribori.co.kr/searches/best/?dealYn=N&interval=24&siteCd=2&limit=0,200&countryCd=001&langCd=001&deviceCd=001&mandM=b_boribori"
-        
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            
-            products = []
-            seen_categories = set()
-            
-
-            if "data" in data:
-                result_data = data["data"]
-                if "result" in result_data:
-                    hits_data = result_data["result"]
-                    if "hits" in hits_data and "hits" in hits_data["hits"]:
-                        hits = hits_data["hits"]["hits"]
-                    else:
-                        hits = hits_data.get("hits", [])
-                else:
-                    hits = result_data if isinstance(result_data, list) else []
-            else:
-                hits = data if isinstance(data, list) else []
-            
-
-            
-            for i, hit in enumerate(hits):
-                if isinstance(hit, dict) and len(products) < 12:
-                    source = hit.get("_source", hit)
-                    prd_no = source.get("prdNo")
-                    prd_nm = source.get("prdNm", f"상품{i+1}")
-                    prd_img = source.get("appPrdImgUrl", "")
-                    
-
-                    dp_ctgr_nm1 = source.get("dpCtgrNm1", "")
-                    
-
-                    if dp_ctgr_nm1 and "@" in dp_ctgr_nm1:
-                        dp_ctgr_nm1 = dp_ctgr_nm1.split("@")[0].strip()
-                    
-                    if not dp_ctgr_nm1:
-                        continue
-                    
-
-                    display_name = dp_ctgr_nm1
-                    
-
-                    if prd_no and dp_ctgr_nm1 not in seen_categories:
-                        seen_categories.add(dp_ctgr_nm1)
-
-                        if len(display_name) > 6:
-                            formatted_name = display_name[:5] + "…"
-                        else:
-                            formatted_name = display_name.ljust(6, '　')
-                        
-                        products.append({
-                            "prd_nm": formatted_name,
-                            "prd_no": prd_no,
-                            "prd_img": prd_img or f"https://via.placeholder.com/200x250/CCCCCC/000000?text={prd_no}",
-                            "full_name": display_name
-                        })
-            
-
-            if products:
-                return products
-                
-    except Exception as e:
-        st.error(f"베스트 상품 로드 오류: {e}")
-    
-
+# 3. 타겟 키워드 리스트 로드 (keywords.json 연동)
+def load_keywords():
+    kw_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "keywords.json")
+    if os.path.exists(kw_path):
+        try:
+            with open(kw_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
     return [
-        {"prd_nm": "여성의류", "prd_no": 380118214, "prd_img": "https://via.placeholder.com/200x250/FFB6C1/000000?text=여성의류"},
-        {"prd_nm": "남성의류", "prd_no": 402544118, "prd_img": "https://via.placeholder.com/200x250/DDA0DD/000000?text=남성의류"},
-        {"prd_nm": "신발", "prd_no": 379859455, "prd_img": "https://via.placeholder.com/200x250/F0E68C/000000?text=신발"},
-        {"prd_nm": "가방", "prd_no": 393954850, "prd_img": "https://via.placeholder.com/200x250/87CEEB/000000?text=가방"},
-        {"prd_nm": "스포츠", "prd_no": 391016367, "prd_img": "https://via.placeholder.com/200x250/98FB98/000000?text=스포츠"},
-        {"prd_nm": "액세서리", "prd_no": 380115991, "prd_img": "https://via.placeholder.com/200x250/F4A460/000000?text=액세서리"}
+        "가디건", "가방", "골프모자", "골프백", "골프장갑", "골프티", "골프화", "귀걸이", "긴바지", "긴팔티셔츠",
+        "남성가방", "남성골프화", "남성벨트", "넥워머", "넥타이", "니트", "토드백", "데님", "데님팬츠", "드레스",
+        "등산화", "런닝화", "레깅스", "레더자켓", "레인부츠", "로퍼", "맨투맨", "머플러", "모자", "목걸이",
+        "민소매", "민소매티셔츠", "반바지", "반팔", "반팔티셔츠", "베스트", "벨트", "보스턴백", "보스톤백", "볼캡",
+        "부츠", "브로치", "비니", "샌들", "서류가방", "선글라스", "셋업", "셔츠", "손수건", "숄더백",
+        "스니커즈", "스카프", "스커트", "스포츠웨어", "슬랙스", "슬리퍼", "슬링백", "신발", "아우터", "양말",
+        "에코백", "여성가방", "여성골프화", "여성벨트", "오픈토", "요가복", "우산", "우비", "운동화", "원피스",
+        "자켓", "바람막이", "잠옷", "장갑", "점퍼", "정장", "정장자켓", "정장팬츠", "정장화", "조끼",
+        "집업", "집업티셔츠", "코트", "크로스백", "클러치", "토트백", "트렌치", "티셔츠", "패딩", "팔찌",
+        "팬츠", "펌프스", "플랫", "하프팬츠", "후드", "힐", "후리스", "후드티", "스웨터", "블라우스",
+        "발찌", "슈즈", "양산", "지갑", "시계", "홈웨어", "수트", "무스탕"
     ]
 
+keywords_list = load_keywords()
+keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
 
-if f"best_products_{site_cd}" not in st.session_state:
-    st.session_state[f"best_products_{site_cd}"] = get_best_products(site_cd)
+# 4. URL 쿼리 파라미터 디코딩 및 초기 키워드/탭 판별
+qp = st.query_params
+raw_kw = qp.get("keyword", "")
+if raw_kw:
+    raw_kw = urllib.parse.unquote(str(raw_kw)).strip()
 
-view_options = st.session_state[f"best_products_{site_cd}"] or [
-    {"prd_nm": "여성의류", "prd_no": 380118214, "prd_img": "https://via.placeholder.com/200x250/FFB6C1/000000?text=여성의류"},
-    {"prd_nm": "남성의류", "prd_no": 402544118, "prd_img": "https://via.placeholder.com/200x250/DDA0DD/000000?text=남성의류"},
-    {"prd_nm": "신발", "prd_no": 379859455, "prd_img": "https://via.placeholder.com/200x250/F0E68C/000000?text=신발"},
-    {"prd_nm": "가방", "prd_no": 393954850, "prd_img": "https://via.placeholder.com/200x250/87CEEB/000000?text=가방"},
-    {"prd_nm": "스포츠", "prd_no": 391016367, "prd_img": "https://via.placeholder.com/200x250/98FB98/000000?text=스포츠"},
-    {"prd_nm": "액세서리", "prd_no": 380115991, "prd_img": "https://via.placeholder.com/200x250/F4A460/000000?text=액세서리"}
-]
-search_gender_options = {
-    "남성": "male",
-    "여성": "female"
-}
-gender_options = {
-    "남성": "01",
-    "여성": "02"
-}
-age_options = {
-    "40대 미만": "01",
-    "40대 이상": "02"
-}
-recommend_sample = view_options
-gender_params = gender_options
-age_params = age_options
-select_type = "함께 본 상품"
-input_yn = False
-user_yn = False
-
-recommend_type = ""
-recommend_type_nm = ""
-
-service_type = "추천"
-
-if "gender" not in st.session_state:
-    st.session_state.gender = ""
+if raw_kw and raw_kw in keywords_list:
+    initial_kw = raw_kw
 else:
-    gender = st.session_state.gender
-    
-if "age" not in st.session_state:
-    st.session_state.age = ""
-else:
-    age = st.session_state.age
-    
-if "prd_no_list" not in st.session_state:
-    st.session_state.prd_no_list = set()
-    
-if "prd_no" not in st.session_state:
-    st.session_state.prd_no = ""
-            
-    
-if "prd_nm" not in st.session_state:
-    st.session_state.prd_nm = ""
-else:
-    select_prd_nm = st.session_state.prd_nm
+    initial_kw = keywords_list[0] if keywords_list else "가디건"
 
-if "type" not in st.session_state:
-    st.session_state.type = ""
-if "type_nm" not in st.session_state:
-    st.session_state.type_nm = ""
-if "show_type" not in st.session_state:
-    st.session_state.show_type = ""
-if "show_prd" not in st.session_state:
-    st.session_state.show_prd = []
+initial_tab = qp.get("tab", "grid")
+if initial_tab not in ["grid", "table", "raw", "prompt"]:
+    initial_tab = "grid"
 
-#  추천 대상 상품 표시
-def show_target(items, columns_per_row=5, title=None):    
-    if title:
-        if input_yn:
-            title = title + ": 직접 입력"
-        else:
-            if st.session_state.prd_nm:
-                title = title + f": {st.session_state.prd_nm}"
-        st.subheader(title)
-    try:
-        rows = [items[i: i + columns_per_row] for i in range(0, len(items), columns_per_row)]
-        cols = st.columns([1.5, 8.5])
-        for row in rows:
-            rec = row[0]
-            img_url = rec.get("prd_img", "")
-            prd_nm = rec.get("prd_nm", "")
-            with cols[0]:
-                st.image(img_url, width=100)
-            with cols[1]:
-                st.markdown(prd_nm, unsafe_allow_html=True)
-        # 가로선
-        st.markdown("---")
-    except Exception as e:
-        st.error(f"이미지 표시 오류: {e}")
+initial_keyword_json = json.dumps(initial_kw, ensure_ascii=False)
+initial_tab_json = json.dumps(initial_tab, ensure_ascii=False)
 
-# 추천 결과 상품 리스트 표시
-def show_grid(items, columns_per_row=5, title=None, img_width=220):
-    if title:
-        st.subheader(title)
-    try:
-        rows = [items[i: i + columns_per_row] for i in range(0, len(items), columns_per_row)]
-        for row in rows:
-            cols = st.columns(len(row), gap="small")
-            for col, rec in zip(cols, row):
-                img_url = rec.get("prd_img")
-                prd_nm = rec.get("prd_nm")
-                with col:
-                    if img_url:
-                        st.markdown(
-                            f'<div style="text-align: center; width: {img_width}px; height: {int(img_width * 1.2)}px; overflow: hidden; border-radius: 8px; margin: 0 auto;"><img src="{img_url}" style="width: 100%; height: 100%; object-fit: cover;"></div>',
-                            unsafe_allow_html=True
-                        )
-                        st.markdown(prd_nm, unsafe_allow_html=True)
-                    else:
-                        continue
-    except Exception as e:
-        return
-  
-
-# 추천 대상 이미지 버튼 CSS 설정
-st.markdown("""
+# 5. 0.1초 고속 비동기 SPA 자원 HTML/CSS/JS 템플릿
+html_content = f"""
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halfclub Trend AI Curation Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-    .stButton > button {
-        width: 100% !important;
-        height: 40px !important;
-        font-family: 'Courier New', monospace !important;
-        font-size: 13px !important;
-        font-weight: bold !important;
-        text-align: center !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        padding: 0 5px !important;
-        border: 2px solid transparent !important;
-        border-radius: 8px !important;
-    }
-    .stButton > button:hover {
-        border-color: #aaa !important;
-    }
+        * {{
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+        }}
+        html, body {{
+            background-color: #ffffff;
+            color: #0f172a;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }}
+        .app-container {{
+            display: flex;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+        }}
+        /* 좌측 사이드바 */
+        .sidebar {{
+            width: 270px;
+            background-color: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }}
+        .sidebar-header {{
+            padding: 16px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            user-select: none;
+        }}
+        .sidebar-header:hover {{
+            background-color: #f8fafc;
+        }}
+        .sidebar-title {{
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        .search-box {{
+            padding: 12px 18px;
+            border-bottom: 1px solid #f1f5f9;
+        }}
+        .search-input {{
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }}
+        .search-input:focus {{
+            border-color: #2563eb;
+        }}
+        .keyword-list {{
+            list-style: none;
+            overflow-y: auto;
+            flex: 1;
+            padding: 8px 0;
+        }}
+        .keyword-item {{
+            padding: 9px 14px;
+            margin: 2px 10px;
+            font-size: 0.88rem;
+            color: #334155;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }}
+        .keyword-item:hover {{
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }}
+        .keyword-item:focus {{
+            outline: 2px solid #2563eb;
+            outline-offset: -2px;
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }}
+        .keyword-item.active {{
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 800;
+        }}
+        
+        /* 우측 메인 대시보드 */
+        .main-content {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            background-color: #f8fafc;
+        }}
+        .top-navbar {{
+            padding: 14px 28px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }}
+        .navbar-title {{
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            transition: color 0.15s ease;
+        }}
+        .navbar-title:hover, .navbar-title:hover span {{
+            color: #2563eb !important;
+        }}
+        .dashboard-body {{
+            padding: 22px 28px;
+            flex: 1;
+        }}
+        
+        /* 헤더 메타 뱃지 */
+        .meta-badges {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 9px 16px;
+            margin-bottom: 20px;
+            font-size: 0.82rem;
+            color: #64748b;
+            font-weight: 600;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            flex-wrap: wrap;
+        }}
+        
+        /* 트렌드 가이드 박스 */
+        .guide-card-box {{
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 22px 26px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            margin-bottom: 22px;
+            box-sizing: border-box;
+            width: 100%;
+        }}
+        .guide-card-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }}
+        .guide-title {{
+            font-size: 1.08rem;
+            font-weight: 800;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .guide-text {{
+            font-size: 1.02rem;
+            line-height: 1.8;
+            color: #1e293b;
+            letter-spacing: -0.01em;
+            margin-bottom: 16px;
+        }}
+        .guide-text b,
+        .guide-text strong,
+        #guideTextBody b,
+        #guideTextBody strong,
+        .highlight-kw {{
+            color: #1d4ed8;
+            font-weight: 800;
+            background: #eff6ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border-bottom: 2px solid #93c5fd;
+            display: inline;
+        }}
+        
+        /* 탭 서식 */
+        .tab-navigation {{
+            display: flex;
+            gap: 6px;
+            border-bottom: 2px solid #e2e8f0;
+            margin-bottom: 12px;
+        }}
+        .tab-btn {{
+            padding: 10px 18px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #64748b;
+            background: none;
+            border: none;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            border-radius: 6px 6px 0 0;
+            transition: all 0.15s ease;
+        }}
+        .tab-btn:hover {{
+            color: #0f172a;
+            background: transparent;
+        }}
+        .tab-btn.active {{
+            color: #2563eb;
+            border-bottom-color: #2563eb;
+            background: transparent;
+        }}
+        .tab-content {{
+            display: none;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
 
-    .full-btn > button {
-        width: 100% !important;
-        height: auto !important;
-        padding: 0 !important;
-        border: 3px solid transparent;
-        border-radius: 10px;
-        overflow: hidden;
-    }
-    .full-btn > button:hover {
-        border-color: #aaa;
-    }
-    .full-btn {
-        margin-bottom: 10px;
-    }
-    .selected-btn > button {
-        border-color: #ff4b4b !important;
-    }
-    .btn-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    .btn-content img {
-        width: 80px;
-        height: 100px;
-        object-fit: cover;
-    }
-    .btn-text {
-        font-weight: bold;
-        font-size: 14px;
-        padding: 8px;
-        text-align: center;
-        width: 100%;
-        font-family: monospace;
-        letter-spacing: -0.5px;
-    }
+        #tabContentPrompt.tab-content.active {{
+            display: flex !important;
+            flex-direction: column;
+            gap: 20px;
+        }}
+        
+        /* 10열 그리드 카드 배치 (한 줄에 10개) */
+        .grid-container {{
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 10px;
+        }}
+        .product-card {{
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #ffffff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }}
+        .product-card:hover {{
+            border-color: #94a3b8;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+        }}
+        .product-img-wrap {{
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: #f8fafc;
+            overflow: hidden;
+        }}
+        .product-img {{
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+        }}
+        .rank-badge {{
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(4px);
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 4px;
+            letter-spacing: 0.2px;
+        }}
+        .rank-top1 {{
+            background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
+        }}
+        .rank-top2, .rank-top3 {{
+            background: linear-gradient(135deg, #334155, #1e293b) !important;
+            color: #ffffff !important;
+        }}
+        .product-info {{
+            padding: 8px 8px 6px 8px;
+        }}
+        .brand-name {{
+            font-size: 0.72rem;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        .product-name {{
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #0f172a;
+            height: 34px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.35;
+            margin-bottom: 6px;
+        }}
+        .price-wrap {{
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
+        }}
+        .discount-rate {{
+            font-size: 0.88rem;
+            color: #f43f5e;
+            font-weight: 800;
+        }}
+        .sale-price {{
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #0f172a;
+        }}
+        .normal-price {{
+            font-size: 0.7rem;
+            color: #94a3b8;
+            text-decoration: line-through;
+        }}
+        .badge-chip-container {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            margin-top: 4px;
+        }}
+        .badge-chip-item {{
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+        }}
+        .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
+        .badge-red {{ background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }}
+        .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
+        .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
+        .badge-media {{ background: #e0f2fe; color: #0369a1; font-weight: 700; border: 1px solid #bae6fd; }}
+        .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
+        
+        /* 데이터 테이블 */
+        .data-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+        }}
+        .data-table th {{
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 700;
+            padding: 12px 14px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }}
+        .data-table td {{
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            vertical-align: middle;
+        }}
+        .data-table tr:hover {{
+            background-color: #f8fafc;
+        }}
+
+        /* 슬림 스크롤바 */
+        ::-webkit-scrollbar {{
+            width: 6px;
+            height: 6px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: transparent;
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: #cbd5e1;
+            border-radius: 3px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
+        }}
+        
+        pre, code, pre code {{
+            color: #f8fafc !important;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.84rem;
+            line-height: 1.6;
+        }}
+        .json-key {{ color: #38bdf8 !important; font-weight: 700; }}
+        .json-string {{ color: #4ade80 !important; }}
+        .json-number {{ color: #fb923c !important; font-weight: 700; }}
+        .json-boolean {{ color: #c084fc !important; font-weight: 700; }}
+        .json-null {{ color: #f43f5e !important; font-weight: 700; }}
+
+        /* JSON 트리 접기/펼치기 전용 스타일 */
+        .json-node-collapsible {{
+            display: inline;
+        }}
+        .json-toggle {{
+            cursor: pointer;
+            user-select: none;
+            display: inline-block;
+            width: 13px;
+            font-size: 9px;
+            color: #94a3b8;
+            vertical-align: middle;
+            transition: color 0.15s ease;
+        }}
+        .json-toggle:hover {{
+            color: #38bdf8;
+        }}
+        .json-bracket {{
+            color: #cbd5e1;
+            font-weight: bold;
+        }}
+        .json-colon {{
+            color: #94a3b8;
+        }}
+        .json-comma {{
+            color: #64748b;
+        }}
+        .json-children {{
+            padding-left: 18px;
+            border-left: 1px dotted #334155;
+            margin-left: 4px;
+        }}
+        .json-node-row {{
+            line-height: 1.55;
+            word-break: break-all;
+        }}
+        .json-collapsed-text {{
+            background: #1e293b;
+            color: #94a3b8;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #334155;
+            cursor: pointer;
+            user-select: none;
+            margin: 0 3px;
+        }}
+        .json-collapsed-text:hover {{
+            background: #334155;
+            color: #f8fafc;
+        }}
+        .json-ctrl-btn {{
+            background: #334155;
+            color: #f8fafc;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }}
+        .json-ctrl-btn:hover {{
+            background: #475569;
+        }}
     </style>
-""", unsafe_allow_html=True)
+</head>
+<body>
+    <div class="app-container">
+        <!-- 좌측 키워드 사이드바 -->
+        <aside class="sidebar">
+            <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 이동 (새로고침)">
+                <div class="sidebar-title">
+                    <span>타겟 키워드 목록</span>
+                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="keywordCountBadge">0</span>
+                </div>
+            </div>
+            <div class="search-box">
+                <input type="text" id="keywordSearchInput" class="search-input" placeholder="키워드 검색..."/>
+            </div>
+            <ul class="keyword-list" id="keywordList"></ul>
+        </aside>
 
+        <!-- 우측 메인 대시보드 -->
+        <main class="main-content">
+            <header class="top-navbar" style="padding-bottom:14px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <a id="currentKeywordTitleLink" href="{HALFCLUB_WEB_URL}/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
+                        <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            <span id="currentKeywordText">가디건</span>
+                            <span style="font-size:0.95rem; color:#64748b; font-weight:normal;">↗</span>
+                        </h1>
+                    </a>
+                    <span style="background:#eff6ff; border:1px solid #dbeafe; color:#1d4ed8; font-size:12px; font-weight:700; padding:3px 12px; border-radius:9999px;">키워드 트렌드 추천</span>
+                    <button id="btnCopyUrl" onclick="copyCurrentUrl()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer;" title="현재 키워드 URL 링크 복사">URL 복사</button>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px; font-size:0.85rem; font-weight:700; color:#334155;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>사이트:</span>
+                        <select id="siteCdSelect" style="padding:6px 12px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.85rem; font-weight:700; color:#0f172a; outline:none;">
+                            <option value="1" selected>1 (하프클럽)</option>
+                            <option value="2">2 (보리보리)</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>조회 수:</span>
+                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:60px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.85rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
+                    </div>
+                    <button id="btnFetch" style="background:#0b1329; color:#ffffff; border:none; padding:8px 18px; border-radius:6px; font-weight:800; font-size:0.85rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
+                </div>
+            </header>
 
+            <div class="dashboard-body">
+                <!-- 메타 메타데이터 뱃지 바 -->
+                <div class="meta-badges" id="metaBadgesBar" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; padding:7px 16px;">
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">모델</span>
+                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="llmModelText">-</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">토큰</span>
+                        <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="tokenUsageText">In: 0 / Out: 0 / Cached: 0 (Total: 0)</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">생성일시</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="createDtText">-</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">갱신일시</span>
+                        <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="updateDtText">-</span>
+                    </div>
+                    <!-- 필터링 상태 (오른쪽 끝 정렬) -->
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px; margin-left:auto;">
+                        <span style="color:#64748b; font-size:0.75rem; font-weight:700;">필터링</span>
+                        <span id="filterBadgesText" style="display:flex; gap:4px;">
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">카테고리: ON</span>
+                            <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 6px; border-radius:4px; font-size:0.75rem;">성별: ON</span>
+                        </span>
+                    </div>
+                </div>
 
-col_count = 6
-if service_type == "검색":
-    col_count = 4
-    
-# 이미지 버튼 표시
-cols = st.columns(col_count)
-button_clicked = False
-for i, value in enumerate(recommend_sample):
-    prd_nm = value.get("prd_nm", "")
-    prd_img = value.get("prd_img", "")
-    prd_no = value.get("prd_no", "")
-    
-    selected_class = ""
-    if str(prd_no) in st.session_state.prd_no_list:
-        selected_class = "selected-button"
-    
-    with cols[i % col_count]:
-        with st.container():
-            if st.button(
-                label=prd_nm,
-                key=f"btn_{prd_no}",
-                use_container_width=True
-            ):
-                button_clicked = True
-                # 선택 표시
-                selected_class = "selected-btn"
-                
-                if st.session_state.type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-                    if str(prd_no) not in st.session_state.prd_no_list:
-                        st.session_state.prd_no_list.add(str(prd_no))
-                    else:
-                        st.session_state.prd_no_list.remove(str(prd_no))
-                    # 개인화 추천용 다중 상품 URL 업데이트
-                    st.query_params["prdNo"] = ",".join(st.session_state.prd_no_list)
-                else:
-                    select_prd_no = str(prd_no)
-                    st.session_state.prd_no = str(prd_no)
-                    full_name = value.get("full_name", prd_nm)
-                    select_prd_nm = str(full_name)
-                    st.session_state.prd_nm = str(full_name)
-                    st.session_state.prd_no_list = set()
-                    st.session_state.prd_no_list.add(str(prd_no))
-                    # 단일 상품 URL 업데이트
-                    st.query_params["prdNo"] = str(prd_no)
-            if prd_img:
-                if (
-                    st.session_state.prd_no_list
-                    and str(prd_no) in st.session_state.prd_no_list
-                ):
-                    selected_class = "selected-btn"
-                product_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-                st.markdown(
-                    f"""
-                    <div class="full-btn {selected_class}">
-                        <div class="btn-content">
-                            <img src="{prd_img}" />
-                            <a href="{product_url}">{prd_no}</a>
+                <!-- AI 트렌드 큐레이션 가이드 카드 -->
+                <div class="guide-card-box" id="guideCard">
+                    <div class="guide-card-header">
+                        <div class="guide-title">AI 트렌드 큐레이션 가이드</div>
+                        <div style="display:flex; gap:6px;" id="extractedTagsHeader"></div>
+                    </div>
+
+                    <div class="guide-text" id="guideTextBody">데이터를 불러오는 중입니다...</div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:8px;" id="extractedBrandsWrap"></div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
+                    <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedSearchKeywordsWrap"></div>
+                    
+                    <!-- 참고 뉴스 기사 (기본 펼침, 클릭 시 접기 토글) -->
+                    <div style="margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9;" id="articlesWrapper">
+                        <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:4px 0;" onclick="toggleArticlesAccordion()" title="참고 뉴스 목록 접기/펼치기">
+                            <div style="font-size:0.8rem; font-weight:700; color:#475569; display:flex; align-items:center; gap:6px;">
+                                <span>참고 뉴스 기사</span>
+                                <span id="articlesCountBadge" style="font-size:0.72rem; background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px;">0건</span>
+                            </div>
+                            <span id="articlesToggleIcon" style="font-size:0.75rem; color:#2563eb; font-weight:700;">목록 접기 ▲</span>
+                        </div>
+                        <div id="articlesListContainer" style="display:block; margin-top:8px;"></div>
+                    </div>
+                </div>
+
+                <!-- 뷰 탭 네비게이션 -->
+                <nav class="tab-navigation">
+                    <button class="tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품</button>
+                    <button class="tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
+                    <button class="tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
+                    <button class="tab-btn" id="tabBtnPrompt" onclick="switchViewTab('prompt')">LLM 프롬프트</button>
+                </nav>
+
+                <!-- 탭 1: 10열 그리드 배치 -->
+                <section class="tab-content active" id="tabContentGrid">
+                    <!-- AI 상품 추천 사유 요약 (LLM 2단계 산출물: curation_summary) -->
+                    <div id="curationSummaryWrap" style="display:none; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:7px 12px; margin-bottom:10px; align-items:center; gap:8px;">
+                        <span style="font-size:0.75rem; font-weight:700; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; padding:2px 6px; border-radius:4px; flex-shrink:0;">AI 추천 사유</span>
+                        <span id="curationSummaryText" style="font-size:0.84rem; font-weight:600; color:#334155; line-height:1.45;"></span>
+                    </div>
+                    <div class="grid-container" id="productGridContainer"></div>
+                </section>
+
+                <!-- 탭 2: 데이터 테이블 배치 -->
+                <section class="tab-content" id="tabContentTable">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>순번</th>
+                                <th>상품번호</th>
+                                <th>브랜드</th>
+                                <th>상품명</th>
+                                <th>판매가</th>
+                                <th>정가</th>
+                                <th>할인율</th>
+                                <th>매칭 키워드</th>
+                                <th>평점(리뷰)</th>
+                                <th>카테고리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody"></tbody>
+                    </table>
+                </section>
+
+                <!-- 탭 3: Raw JSON 데이터 배치 -->
+                <section class="tab-content" id="tabContentRaw">
+                    <div id="rawJsonContainer"></div>
+                </section>
+
+                <!-- 탭 4: LLM 프롬프트 & 산출 상세 인스펙터 -->
+                <section class="tab-content" id="tabContentPrompt">
+                    <div style="display:flex; flex-direction:column; gap:16px;">
+                        <h3 style="font-size:1.05rem; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                            <span>STAGE 1 : 스타일 트렌드 가이드 작성 프롬프트 & LLM 산출</span>
+                        </h3>
+
+                        <!-- 1단계 시스템 프롬프트 카드 -->
+                        <div id="cardSysStage1" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage1')">전체 접기</button>
+                                    <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptSysStage1" class="json-tree-container"></div>
+                            </div>
+                        </div>
+
+                        <!-- 1단계 입력 User Prompt 카드 -->
+                        <div id="cardUserStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트 (실 데이터)</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage1')">전체 접기</button>
+                                    <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptUserStage1" class="json-tree-container"></div>
+                            </div>
+                        </div>
+
+                        <!-- 1단계 LLM 결과 JSON 카드 -->
+                        <div id="cardResultStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage1')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage1')">전체 접기</button>
+                                    <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptResultStage1" class="json-tree-container"></div>
+                            </div>
                         </div>
                     </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-# 가로선
-st.markdown("---")
 
+                    <div style="display:flex; flex-direction:column; gap:16px; margin-top:10px;">
+                        <h3 style="font-size:1.05rem; font-weight:800; color:#0f172a; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
+                            <span>STAGE 2 : 상품 큐레이션 및 정렬 프롬프트 & LLM 산출</span>
+                        </h3>
 
+                        <!-- 2단계 시스템 프롬프트 카드 -->
+                        <div id="cardSysStage2" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">system_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage2')">전체 접기</button>
+                                    <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptSysStage2" class="json-tree-container"></div>
+                            </div>
+                        </div>
 
-def show_target_list():
-    if service_type != "검색":
-        st.session_state.show_type = st.session_state.type
-        
-        target_prds = []
-        if st.session_state.type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            target_prds = list(st.session_state.prd_no_list)
-        elif st.session_state.prd_no:
-            target_prds = [st.session_state.prd_no]
-            
-        if target_prds:
-            with st.container():
-                ori_prd_list = []
-                st.session_state.show_prd = target_prds
-                for resp_prd_no in target_prds:
-                    search_url = f"http://hapix.halfclub.com/searches/prdList/?keyword={resp_prd_no}&siteCd={site_cd}&device=mc" if site_cd == 1 else f"http://apix.boribori.co.kr/searches/prdList/?keyword={resp_prd_no}&siteCd={site_cd}&device=mc"
-                    try:
-                        ori_img_resp = requests.get(search_url, timeout=2)
-                    except Exception:
-                        continue
+                        <!-- 2단계 입력 User Prompt 카드 -->
+                        <div id="cardUserStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">user_prompt</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트 (실 데이터)</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage2')">전체 접기</button>
+                                    <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:360px; overflow:auto;">
+                                <div id="promptUserStage2" class="json-tree-container"></div>
+                            </div>
+                        </div>
 
-                    if ori_img_resp.status_code == 200:
-                        try:
-                            j = ori_img_resp.json()
-                            resp_data = j["data"]["result"]["hits"]["hits"][0]["_source"]
-                            prdNo = resp_data.get("prdNo", "")
-                            prdNm = resp_data.get("prdNm", "")
-                            dcPrc = resp_data.get("dcPrcMc", 0)
-                            imgUrl = resp_data.get("appPrdImgUrl", "")
-                            brandNm = resp_data.get("brandNm", "")
-                            prdUrl = f"https://www.halfclub.com/product/{prdNo}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prdNo}"
-                            
-                            text = ""
-                            if len(target_prds) > 1:
-                                text = text + "<p style='font-size:10pt;margin:0;padding:0;'>"
+                        <!-- 2단계 LLM 결과 JSON 카드 -->
+                        <div id="cardResultStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">response</span>
+                                    <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage2')">전체 펼치기</button>
+                                    <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage2')">전체 접기</button>
+                                    <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" class="json-ctrl-btn">내용 복사</button>
+                                </div>
+                            </div>
+                            <div style="padding:14px 16px; background:#0f172a; max-height:400px; overflow:auto;">
+                                <div id="promptResultStage2" class="json-tree-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
 
-                            dp_ctgr_nm1 = resp_data.get("dpCtgrNm1", "")
-                            dp_ctgr_nm2 = resp_data.get("dpCtgrNm2", "")
-                            dp_ctgr_nm3 = resp_data.get("dpCtgrNm3", "")
-                            
+    <script>
+        // Streamlit secrets 기반 통합 도메인 설정
+        const DOMAINS = {{
+            HALFCLUB_WEB: "{HALFCLUB_WEB_URL}",
+            HALFCLUB_API: "{HALFCLUB_API_URL}",
+            HALFCLUB_CDN: "{HALFCLUB_CDN_URL}",
+            BORIBORI_WEB: "{BORIBORI_WEB_URL}",
+            BORIBORI_API: "{BORIBORI_API_URL}",
+            BORIBORI_CDN: "{BORIBORI_CDN_URL}"
+        }};
 
-                            category_path = []
-                            if dp_ctgr_nm1: category_path.append(dp_ctgr_nm1)
-                            if dp_ctgr_nm2: category_path.append(dp_ctgr_nm2)
-                            if dp_ctgr_nm3: category_path.append(dp_ctgr_nm3)
-                            category_str = " > ".join(category_path) if category_path else ""
-                            
-                            text = text + f"브랜드 : {brandNm}<br/>"
-                            product_link_url = f"https://www.halfclub.com/product/{prdNo}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prdNo}"
-                            text = text + f"상 품 : <a href='{product_link_url}'>{prdNo}</a><br/>"
-                            text = text + f"가 격 : {dcPrc:,}<br/>"
-                            if len(target_prds) > 1:
-                                text = text + f"상품명 :<br/>{prdNm}<br/>"
-                            else:
-                                text = text + f"상품명 : {prdNm}<br/>"
-                            if category_str:
-                                text = text + f"{category_str}"
-                                
-                            if age or gender:
-                                text = text + f"<br/>"
-                                if age:
-                                    text = text + f" ■ 선택 나이 : {age}<br/>"
-                                if gender:
-                                    text = text + f" ■ 선택 성별 : {gender}<br/>"
-                            if len(target_prds) > 1:
-                                text = text + f"</p><br/>"
-                            
-                            ori_prd_list.append({
-                                "prd_no": prdNo
-                                , "score": 0
-                                , "prd_nm": text
-                                , "prd_url": prdUrl
-                                , "prd_img": imgUrl
-                            })
-                        except Exception as ex:
-                            continue
-                if ori_prd_list:
-                    if len(ori_prd_list) == 1:
-                        show_target(ori_prd_list, columns_per_row=1, title="추천 대상 상품")
-                    else:
-                        show_grid(ori_prd_list, columns_per_row=5, title="추천 대상 상품", img_width=100)
-show_target_list()
+        // 현재 선택된 사이트 기준 웹 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getWebBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
+        }}
 
+        // 현재 선택된 사이트 기준 API 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getApiBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_API : DOMAINS.HALFCLUB_API;
+        }}
 
+        // 현재 선택된 사이트 기준 이미지 CDN 기본 도메인 반환 (기본: 하프클럽, siteCd '2': 보리보리)
+        function getCdnBaseUrl() {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            return siteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
+        }}
 
+        // 사이트 기준 통합 검색 URL 생성 헬퍼 함수
+        function getSearchUrl(keyword, brandCode = null) {{
+            const base = getWebBaseUrl();
+            const cleanKw = encodeURIComponent((keyword || '').trim());
+            if (brandCode) {{
+                return `${{base}}/search/${{cleanKw}}?brandCd=${{encodeURIComponent(brandCode)}}`;
+            }}
+            return `${{base}}/search/${{cleanKw}}`;
+        }}
 
+        // 상품 상세 페이지 이동 URL 생성 헬퍼 함수 (사이트별 분기 지원)
+        function getProductDetailUrl(prdNo) {{
+            if (!prdNo || prdNo === '-') return '#';
+            return `${{getWebBaseUrl()}}/product/${{prdNo}}`;
+        }}
 
+        // 상품 이미지 CDN 통합 URL 생성 헬퍼 함수 (사이트별 CDN 분기)
+        function getImageUrl(imgPath) {{
+            if (!imgPath) return '';
+            if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
+            return `${{getCdnBaseUrl()}}/rimg/330x440/contain/${{imgPath}}`;
+        }}
 
+        const allKeywords = {keywords_json_str};
+        let currentKeyword = {initial_keyword_json};
+        let currentTab = {initial_tab_json};
+        let currentRawData = null;
+        let currentApiUrl = '';
+        let displayedKeywords = allKeywords;
 
-if service_type == "추천":
+        function goToDefaultPage() {{
+            try {{
+                if (window.top && window.top.location) {{
+                    window.top.location.href = window.top.location.origin + window.top.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
 
-    
-    # type_options = [
-    #     list(ml_types[0].keys())[0],
-    #     list(ml_types[2].keys())[0],
-    #     list(ml_types[4].keys())[0],
-    #     list(ml_types[5].keys())[0],
-    #     list(ml_types[6].keys())[0],
-    #     list(ml_types[7].keys())[0]
-    # ]
-    
-    type_options = [list(item.keys())[0] for item in ml_types]
-    
-    
-    # type_options = ["함께 본 상품 (view-together)","함께 구매한 상품 (buy-together)","유사 상품 (similar-item)","유사 이미지 상품 (similar-image)","개인화 추천 (recommend-for-you)"]
-    
-    # if site_cd == 2:
-    #     type_options = ["함께 본 상품 (view-together)","함께 구매한 상품 (buy-together)","유사 상품 (similar-item)","유사 이미지 상품 (similar-image)","개인화 추천 (recommend-for-you)","유사 상품 (BERT)","유사 상품 (조합)"]
-    
-#     ml_types = [
-#     {"함께 본 상품 (view-together)": "viewtogether"},
-#     {"함께 본 상품 (연령/성별)": "viewuser"},
-#     {"함께 구매한 상품 (buy-together)": "buytogether"},
-#     {"함께 구매한 상품 (연령/성별)": "buyuser"},
-#     {"유사 상품 (similar-item)": "similaritem"},
-#     {"유사 이미지 상품 (similar-image)": "similar-image"},
-#     {"개인화 추천 (recommend-for-you)": "recommendforyou"},
-# ]
-    
-    # URL 파라미터로 추천 서비스 유형 설정
-    default_index = 0
-    if url_type:
-        for i, option in enumerate(type_options):
-            for item in ml_types:
-                if list(item.values())[0] == url_type and list(item.keys())[0] == option:
-                    default_index = i
-                    break
-    
-    select_type = st.selectbox("추천 서비스 유형", options=type_options, index=default_index)
-    for item in ml_types:
-        if list(item.keys())[0] == select_type:
-            recommend_type = list(item.values())[0]
-            st.session_state.type = recommend_type
-            recommend_type_nm = list(item.keys())[0]
-            st.session_state.type_nm = recommend_type_nm
-            # 추천 서비스 유형 선택 시 URL 업데이트
-            if recommend_type != url_type:
-                st.query_params["mlType"] = recommend_type
-            break
-    
-    # URL 파라미터로 상품 설정
-    if url_prd and not button_clicked:
-        # prdNo 파라미터 처리
-        if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            # 기존 리스트 초기화 후 URL 파라미터로 설정
-            st.session_state.prd_no_list = set()
-            if "," in url_prd:
-                for prd in url_prd.split(","):
-                    st.session_state.prd_no_list.add(prd.strip())
-            else:
-                st.session_state.prd_no_list.add(url_prd.strip())
-        else:
-            if not st.session_state.prd_no:
-                # 단일 상품 추천의 경우 첫 번째 상품만 사용
-                first_prd = url_prd.split(",")[0].strip() if "," in url_prd else url_prd
-                st.session_state.prd_no = first_prd
-                st.session_state.prd_no_list.add(first_prd)
+            try {{
+                if (window.parent && window.parent.location) {{
+                    window.parent.location.href = window.parent.location.origin + window.parent.location.pathname;
+                    return;
+                }}
+            }} catch (e) {{}}
 
-input_yn = st.checkbox("📝 상품번호 직접 입력", value=False, key="direct_input")
+            const searchInput = document.getElementById('keywordSearchInput');
+            if (searchInput) searchInput.value = '';
+            renderKeywordList(allKeywords);
+            const defaultKw = allKeywords[0] || '가디건';
+            switchViewTab('grid', false);
+            selectKeyword(defaultKw, true, true);
+        }}
 
-submit_button = None
-# 직접 입력 표시
-if input_yn:
-    with st.form(key="view_form"):
-        input_text = "상품번호"
-        input_value = ""
-        
-        # 선택된 상품번호를 텍스트 박스에 표시
-        if recommend_type in ["keyword-search"]:
-            input_text = "검색어"
-            input_value = st.session_state.prd_nm if st.session_state.prd_nm != "직접입력" else ""
-        elif recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            input_text = "상품번호 리스트 (ex. 상품번호1,상품번호2,상품번호3)"
-            input_value = ",".join(st.session_state.prd_no_list) if st.session_state.prd_no_list else ""
-        else:
-            input_value = st.session_state.prd_no if st.session_state.prd_no else ""
-            
-        prd_no = st.text_input(input_text, value=input_value, placeholder="여기에 입력해주세요...")
-        submit_button = st.form_submit_button(label="🔍 조회 시작", use_container_width=True)
-        
-# 성별 선택 섹션
-if recommend_type in ["keyword-search"]:
-    gender = st.selectbox("성별", options=["", "👨 남성", "👩 여성"], index=0)
-    if gender:
-        st.session_state.gender = gender.replace("👨 ", "").replace("👩 ", "")
+        function copyCurrentUrl() {{
+            const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
+                ? (window.parent.location.origin + window.parent.location.pathname)
+                : (window.location.origin + window.location.pathname);
+            const curUrl = hostUrl + '?keyword=' + encodeURIComponent(currentKeyword) + '&tab=' + encodeURIComponent(currentTab);
+            navigator.clipboard.writeText(curUrl).then(() => {{
+                const btn = document.getElementById('btnCopyUrl');
+                if (btn) {{
+                    const orig = btn.textContent;
+                    btn.textContent = '복사완료!';
+                    btn.style.background = '#dcfce7';
+                    btn.style.color = '#15803d';
+                    setTimeout(() => {{
+                        btn.textContent = orig;
+                        btn.style.background = '#f1f5f9';
+                        btn.style.color = '#475569';
+                    }}, 1500);
+                }}
+            }}).catch(() => {{
+                alert('URL: ' + curUrl);
+            }});
+        }}
 
-if st.session_state.type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-    st.session_state.prd_no_list = set()
-    
-# 가로선
-st.markdown("---")
+        function updateUrlQuery(kw, tab) {{
+            try {{
+                const queryStr = '?keyword=' + encodeURIComponent(kw) + '&tab=' + encodeURIComponent(tab);
+                try {{
+                    if (window.parent && window.parent.history && window.parent.history.replaceState) {{
+                        let targetPath = queryStr;
+                        try {{
+                            if (window.parent.location && window.parent.location.pathname) {{
+                                targetPath = window.parent.location.pathname + queryStr;
+                            }}
+                        }} catch (e) {{}}
+                        window.parent.history.replaceState({{ keyword: kw, tab: tab }}, '', targetPath);
+                    }}
+                }} catch (e) {{}}
 
-# 추천 조회
-def submit():
-    global recommend_type, gender, age
-    # 추천 서비스 유형 선택
-    if not select_type:
-        return
-    # 상품 번호 입력 (개인화 추천은 리스트로 확인)
-    if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if not st.session_state.prd_no_list:
-            return
-    else:
-        if not st.session_state.prd_no and not st.session_state.prd_nm:
-            return
-    
-    try:
-        selected_gender = ""
-        selected_age = ""
-        if recommend_type in ["viewtogether", "buytogether"]:
-            if not gender and st.session_state.gender:
-                gender = st.session_state.gender
-            if gender:
-                for item in gender_options:
-                    if item == gender:
-                        selected_gender = gender_options[item]
-                        break
-            if not age and st.session_state.age:
-                age = st.session_state.age
-            if age:
-                for item in age_options:
-                    if item == age:
-                        selected_age = age_options[item]
-                        break
-            if gender and age:
-                if recommend_type in ["viewtogether"]:
-                    recommend_type = "viewuser"
-                elif recommend_type in ["buytogether"]:
-                    recommend_type = "buyuser"
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    age=selected_age,
-                    gender=selected_gender,
-                    siteCd=site_cd,
-                    size=int(k),
-                    # score=True
-                )
-            else:
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    siteCd=site_cd,
-                    size=int(k),
-                    # score=True
-                )
-        elif recommend_type in ["keyword-search"]:
-            if st.session_state.gender:
-                gender = st.session_state.gender
-            else:
-                gender = ""
-            if gender:
-                for item in search_gender_options:
-                    if item == gender:
-                        selected_gender = search_gender_options[item]
-                        break
-            params = dict(
-                keyword=st.session_state.prd_nm,
-                gender=selected_gender,
-                siteCd=site_cd,
-                limit=int(k),
-                # score=True
-            )
-        elif recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            params = dict(
-                prdNo=[int(prd) for prd in st.session_state.prd_no_list],
-                siteCd=site_cd,
-                size=int(k),
-                # score=True
-            )
-        elif recommend_type == "bert_similar":
-            pass
-        else:
-            # similar-image만 size=50, 나머지는 기본값 사용
-            size_param = 100 if recommend_type == "similar-image" else int(k)
-            
-            # similar-image는 단일 상품만, 나머지는 여러 상품 처리
-            if recommend_type == "similar-image":
-                params = dict(
-                    prdNo=int(st.session_state.prd_no),
-                    siteCd=site_cd,
-                    size=size_param
-                )
-            else:
-                # 여러 상품번호가 있으면 모두 처리
-                if st.session_state.prd_no_list and len(st.session_state.prd_no_list) > 1:
-                    prd_list = [int(prd) for prd in st.session_state.prd_no_list]
-                else:
-                    prd_list = [int(st.session_state.prd_no)]
+                try {{
+                    if (window.top && window.top.history && window.top.history.replaceState) {{
+                        let targetPath = queryStr;
+                        try {{
+                            if (window.top.location && window.top.location.pathname) {{
+                                targetPath = window.top.location.pathname + queryStr;
+                            }}
+                        }} catch (e) {{}}
+                        window.top.history.replaceState({{ keyword: kw, tab: tab }}, '', targetPath);
+                    }}
+                }} catch (e) {{}}
+
+                if (window.history && window.history.replaceState) {{
+                    window.history.replaceState({{ keyword: kw, tab: tab }}, '', queryStr);
+                }}
+            }} catch (e) {{}}
+        }}
+
+        function getInitialState() {{
+            let kw = {initial_keyword_json};
+            let tab = {initial_tab_json};
+
+            try {{
+                const searchStr = (window.parent && window.parent.location && window.parent.location.search) ? window.parent.location.search :
+                                  (window.top && window.top.location && window.top.location.search) ? window.top.location.search :
+                                  window.location.search;
+                if (searchStr) {{
+                    const params = new URLSearchParams(searchStr);
+                    const pKw = params.get('keyword');
+                    const pTab = params.get('tab');
+                    if (pKw) {{
+                        const decodedKw = decodeURIComponent(pKw).trim();
+                        if (allKeywords.includes(decodedKw)) kw = decodedKw;
+                    }}
+                    if (pTab && ['grid', 'table', 'raw', 'prompt'].includes(pTab)) {{
+                        tab = pTab;
+                    }}
+                }}
+            }} catch (e) {{}}
+
+            return {{ kw, tab }};
+        }}
+
+        if (document.readyState === 'loading') {{
+            document.addEventListener('DOMContentLoaded', initApp);
+        }} else {{
+            initApp();
+        }}
+
+        function initApp() {{
+            const initState = getInitialState();
+            currentKeyword = initState.kw;
+            currentTab = initState.tab;
+
+            renderKeywordList(allKeywords);
+            setupEventListeners();
+            switchViewTab(currentTab, false);
+            selectKeyword(currentKeyword, false, false);
+            updateUrlQuery(currentKeyword, currentTab);
+        }}
+
+        function setupEventListeners() {{
+            const searchInput = document.getElementById('keywordSearchInput');
+            if (searchInput) {{
+                searchInput.addEventListener('input', (e) => {{
+                    const q = e.target.value.trim().toLowerCase();
+                    const filtered = allKeywords.filter(k => k.toLowerCase().includes(q));
+                    renderKeywordList(filtered);
+                }});
+                searchInput.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        const listContainer = document.getElementById('keywordList');
+                        const firstLi = listContainer?.firstElementChild;
+                        if (firstLi && displayedKeywords.length > 0) {{
+                            firstLi.focus();
+                            selectKeyword(displayedKeywords[0]);
+                        }}
+                    }}
+                }});
+            }}
+
+            const siteSelect = document.getElementById('siteCdSelect');
+            if (siteSelect) {{
+                siteSelect.addEventListener('change', () => {{
+                    updateHeaderKeyword(currentKeyword);
+                    fetchKeywordTrend(currentKeyword);
+                }});
+            }}
+
+            const btnFetch = document.getElementById('btnFetch');
+            if (btnFetch) {{
+                btnFetch.addEventListener('click', () => {{
+                    fetchKeywordTrend(currentKeyword);
+                }});
+            }}
+        }}
+
+        function switchViewTab(tabName, updateUrl = true) {{
+            currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if (tabName === 'grid') {{
+                document.getElementById('tabBtnGrid').classList.add('active');
+                document.getElementById('tabContentGrid').classList.add('active');
+            }} else if (tabName === 'table') {{
+                document.getElementById('tabBtnTable').classList.add('active');
+                document.getElementById('tabContentTable').classList.add('active');
+            }} else if (tabName === 'raw') {{
+                document.getElementById('tabBtnRaw').classList.add('active');
+                document.getElementById('tabContentRaw').classList.add('active');
+            }} else if (tabName === 'prompt') {{
+                document.getElementById('tabBtnPrompt').classList.add('active');
+                document.getElementById('tabContentPrompt').classList.add('active');
+            }}
+
+            if (updateUrl) {{
+                updateUrlQuery(currentKeyword, currentTab);
+            }}
+        }}
+
+        function renderKeywordList(keywords) {{
+            displayedKeywords = keywords;
+            const listContainer = document.getElementById('keywordList');
+            const badge = document.getElementById('keywordCountBadge');
+            if (badge) badge.textContent = keywords.length;
+
+            listContainer.innerHTML = '';
+            keywords.forEach((kw, idx) => {{
+                const origIdx = allKeywords.indexOf(kw) + 1;
+                const li = document.createElement('li');
+                li.className = `keyword-item ${{kw === currentKeyword ? 'active' : ''}}`;
+                li.setAttribute('data-kw', kw);
+                li.setAttribute('tabindex', '0');
+                li.innerHTML = `<span>${{kw}}</span> <span style="font-size:0.75rem; opacity:0.6;">#${{origIdx}}</span>`;
                 
-                params = dict(
-                    prdNo=prd_list,
-                    siteCd=site_cd,
-                    size=size_param,
-                    # score=True
-                    randomYn=False,
-                )
-        
-        if recommend_type == "bert_similar":
-            with st.spinner("BERT 모델로 유사 상품을 검색 중입니다..."):
-                # 1. 리소스 로드
-                alias = "hf_prd" if site_cd == 1 else "br_prd"
-                tokenizer, model, collection, device = load_resources(alias)
+                li.addEventListener('click', () => selectKeyword(kw));
+
+                li.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowDown') {{
+                        e.preventDefault();
+                        if (idx + 1 < displayedKeywords.length) {{
+                            const nextIdx = idx + 1;
+                            const nextLi = listContainer.children[nextIdx];
+                            if (nextLi) {{
+                                nextLi.focus();
+                                selectKeyword(displayedKeywords[nextIdx]);
+                            }}
+                        }}
+                    }} else if (e.key === 'ArrowUp') {{
+                        e.preventDefault();
+                        if (idx > 0) {{
+                            const prevIdx = idx - 1;
+                            const prevLi = listContainer.children[prevIdx];
+                            if (prevLi) {{
+                                prevLi.focus();
+                                selectKeyword(displayedKeywords[prevIdx]);
+                            }}
+                        }} else {{
+                            const searchInput = document.getElementById('keywordSearchInput');
+                            if (searchInput) searchInput.focus();
+                        }}
+                    }} else if (e.key === 'Enter' || e.key === ' ') {{
+                        e.preventDefault();
+                        selectKeyword(kw);
+                    }}
+                }});
+
+                listContainer.appendChild(li);
+            }});
+        }}
+
+        function updateHeaderKeyword(kw) {{
+            const txtEl = document.getElementById('currentKeywordText');
+            if (txtEl) txtEl.textContent = kw;
+
+            const linkEl = document.getElementById('currentKeywordTitleLink');
+            if (linkEl) {{
+                const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+                const siteName = siteCd === '2' ? '보리보리' : '하프클럽';
+                linkEl.href = getSearchUrl(kw);
+                linkEl.title = `${{siteName}}에서 '${{kw}}' 검색 (새 탭 이동)`;
+            }}
+        }}
+
+        function selectKeyword(kw, updateUrl = true, resetTab = true) {{
+            currentKeyword = kw;
+            let activeElem = null;
+            document.querySelectorAll('.keyword-item').forEach(item => {{
+                if (item.getAttribute('data-kw') === kw) {{
+                    item.classList.add('active');
+                    activeElem = item;
+                }} else {{
+                    item.classList.remove('active');
+                }}
+            }});
+
+            if (activeElem) {{
+                activeElem.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
+            }}
+
+            updateHeaderKeyword(kw);
+
+            if (resetTab) {{
+                switchViewTab('grid', false);
+            }}
+
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {{
+                mainContent.scrollTop = 0;
+            }}
+
+            if (updateUrl) {{
+                updateUrlQuery(kw, currentTab);
+            }}
+
+            fetchKeywordTrend(kw);
+        }}
+
+        function toggleArticlesAccordion() {{
+            const container = document.getElementById('articlesListContainer');
+            const icon = document.getElementById('articlesToggleIcon');
+            if (!container) return;
+            const isHidden = container.style.display === 'none' || !container.style.display;
+            container.style.display = isHidden ? 'block' : 'none';
+            if (icon) {{
+                icon.textContent = isHidden ? '목록 접기 ▲' : '목록 펼치기 ▼';
+            }}
+        }}
+
+        async function fetchKeywordTrend(kw) {{
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            const size = document.getElementById('sizeInput')?.value || '50';
+            const apiBase = getApiBaseUrl();
+            currentApiUrl = `${{apiBase}}/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+
+            try {{
+                const res = await fetch(currentApiUrl);
+                if (!res.ok) {{
+                    throw new Error(`HTTP ${{res.status}}: ${{res.statusText}}`);
+                }}
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {{
+                    const text = await res.text();
+                    throw new Error(`API 응답이 JSON 형식이 아닙니다 (Status: ${{res.status}})\\n호출 URL: ${{currentApiUrl}}\\n응답 내용 앞부분: ${{text.slice(0, 150)}}`);
+                }}
+                const data = await res.json();
+                currentRawData = data;
+                renderDashboardData(data, kw);
+            }} catch (err) {{
+                document.getElementById('guideTextBody').innerHTML = `
+                    <div style="color:#ef4444; font-weight:700; font-size:0.85rem; line-height:1.6;">
+                        <div>API 호출 실패: ${{escapeHtml(err.message)}}</div>
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-top:4px; word-break:break-all;">요청 URL: ${{currentApiUrl}}</div>
+                    </div>
+                `;
+
+                const gridContainer = document.getElementById('productGridContainer');
+                if (gridContainer) {{
+                    gridContainer.innerHTML = '<div style="grid-column:1/-1; padding:40px 20px; text-align:center; color:#64748b;">추천 상품 데이터가 없습니다.</div>';
+                }}
+
+                const tbody = document.getElementById('productTableBody');
+                if (tbody) {{
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                }}
+            }}
+        }}
+
+        function renderDashboardData(data, kw) {{
+            const llmInfo = data.llm_info || {{}};
+            const reason = data.noshow_reason || llmInfo.noshow_reason || '';
+
+            const provider = llmInfo.llm_provider || data.llm_provider || '-';
+            const model = llmInfo.llm_model || data.llm_model || '-';
+            const elemModel = document.getElementById('llmModelText');
+            if (elemModel) {{
+                elemModel.textContent = (provider === '-' && model === '-') ? '-' : `${{provider}} / ${{model}}`;
+            }}
+
+            const stage1 = llmInfo.stage1_guide_generation || {{}};
+            const stage2 = llmInfo.stage2_product_selection || {{}};
+
+            const usage1 = stage1.prompt_info?.token_usage || llmInfo.stage1_token_usage || {{}};
+            const usage2 = stage2.prompt_info?.token_usage || llmInfo.stage2_token_usage || {{}};
+
+            const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0) || (llmInfo.total_request_tokens || 0);
+            const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0) || (llmInfo.total_response_tokens || 0);
+            const cachedTokens = (usage1.cached_tokens || 0) + (usage2.cached_tokens || 0);
+            const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0) || (reqTokens + resTokens);
+
+            const elemTokenUsage = document.getElementById('tokenUsageText');
+            if (elemTokenUsage) {{
+                if (totTokens > 0 || reqTokens > 0) {{
+                    elemTokenUsage.textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} / Cached: ${{cachedTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
+                }} else {{
+                    elemTokenUsage.textContent = '-';
+                }}
+            }}
+
+            const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
+            const genFilter = data.enable_gender_filter ?? llmInfo.enable_gender_filter;
+
+            const bCat = catFilter === true ? 'ON' : 'OFF';
+            const bGen = genFilter === true ? 'ON' : 'OFF';
+
+            const elemFilter = document.getElementById('filterBadgesText');
+            if (elemFilter) {{
+                elemFilter.innerHTML = `
+                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">카테고리: ${{bCat}}</span>
+                    <span style="background:#ffffff; border:1px solid #e2e8f0; color:#334155; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.8rem;">성별: ${{bGen}}</span>
+                `;
+            }}
+
+            const createDt = data.create_dt || llmInfo.create_dt || '-';
+            const updateDt = data.update_dt || llmInfo.update_dt || '-';
+            const elemCreateDt = document.getElementById('createDtText');
+            if (elemCreateDt) elemCreateDt.textContent = createDt;
+            const elemUpdateDt = document.getElementById('updateDtText');
+            if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
+
+            // 큐레이션 요약문 (curation_summary: LLM 2단계 산출물 우선 탐색)
+            const curationSummary = stage2.llm_response?.curation_summary ||
+                                   stage2.curation_summary ||
+                                   data.curation_summary ||
+                                   llmInfo.curation_summary ||
+                                   stage1.guide_result?.curation_summary ||
+                                   '';
+            const summaryWrap = document.getElementById('curationSummaryWrap');
+            const summaryText = document.getElementById('curationSummaryText');
+            if (summaryWrap && summaryText) {{
+                if (curationSummary && curationSummary.trim()) {{
+                    summaryText.textContent = curationSummary.trim();
+                    summaryWrap.style.display = 'flex';
+                }} else {{
+                    summaryWrap.style.display = 'none';
+                }}
+            }}
+
+            // API 응답 데이터의 guide_text_html을 그대로 단독 표시
+            let guideText = data.guide_text_html || '';
+
+            const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
+            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
+            const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
+
+            if (reason) {{
+                guideText = `
+                    <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:16px 20px; border-radius:8px; line-height:1.6; margin-bottom:12px;">
+                        <div style="font-weight:700; margin-bottom:4px; color:#be123c;">[미표시 사유]</div>
+                        <div style="font-size:0.92rem; color:#be123c;">${{reason}}</div>
+                    </div>
+                ` + (guideText || '');
+            }}
+
+            document.getElementById('guideTextBody').innerHTML = guideText || '가이드 문구가 없습니다.';
+
+            const catTag = data.extracted_category || stage1.guide_result?.extracted_category || '기본';
+            const genTag = data.extracted_gender || stage1.guide_result?.extracted_gender || '공용';
+            const seasonVal = data.extracted_season || stage1.guide_result?.extracted_season || ['사계절'];
+            const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(', ') : seasonVal;
+
+            document.getElementById('extractedTagsHeader').innerHTML = `
+                <span class="badge-chip-item badge-blue" style="font-weight:700;">카테고리: ${{catTag}}</span>
+                <span class="badge-chip-item badge-gray">성별: ${{genTag}}</span>
+                <span class="badge-chip-item badge-gray">계절: ${{seasonStr}}</span>
+            `;
+
+            const products = data.recommended_products || data.products || data.items || [];
+
+            const brandToCodeMap = {{}};
+            products.forEach(p => {{
+                const bNm = (p.brandNm || p.brdNm || p.brand || '').trim().toLowerCase();
+                const bCd = (p.brandCd || p.brdCd || p.brandCode || '').trim();
+                if (bNm && bCd) {{
+                    brandToCodeMap[bNm] = bCd;
+                }}
+            }});
+            const v2Brands = data.internal_signals?.v2_brands || data.v2_brands || [];
+            v2Brands.forEach(b => {{
+                const bNm = (b.name || b.brandNm || '').trim().toLowerCase();
+                const bCd = (b.code || b.brdCd || b.brandCd || '').trim();
+                if (bNm && bCd) {{
+                    brandToCodeMap[bNm] = bCd;
+                }}
+            }});
+
+            const brandChips = extBrands.map((b, bIdx) => {{
+                const bClean = (typeof b === 'object' ? b.name : b).trim();
+                const bCode = (typeof b === 'object' && b.code) ? b.code : brandToCodeMap[bClean.toLowerCase()];
                 
-                # 2. 상품 번호로 벡터 조회
-                target_prd_no = int(st.session_state.prd_no)
-                res = collection.query(
-                    expr=f"prd_no == {target_prd_no}",
-                    output_fields=["vector"],
-                    limit=1
-                )
+                const chipId = `brandChip_${{bIdx}}`;
+                const searchUrl = bCode ? getSearchUrl(kw, bCode) : getSearchUrl(kw + ' ' + bClean);
+                const titleText = bCode ? `브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `'${{kw}} ${{bClean}}' 검색`;
+
+                return `<a id="${{chipId}}" href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="${{titleText}}">${{bClean}} ↗</a>`;
+            }}).join('');
+
+            const kwChips = extKws.map(k => {{
+                const searchUrl = getSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
+
+            const searchKwChips = extSearchKws.map(k => {{
+                const searchUrl = getSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
+
+            document.getElementById('extractedBrandsWrap').innerHTML = brandChips ? `
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:8px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">대상 브랜드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{brandChips}}</div>
+                </div>
+            ` : '';
+
+            document.getElementById('extractedKeywordsWrap').innerHTML = kwChips ? `
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:6px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">추출 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{kwChips}}</div>
+                </div>
+            ` : '';
+
+            document.getElementById('extractedSearchKeywordsWrap').innerHTML = searchKwChips ? `
+                <div style="display:flex; align-items:flex-start; gap:10px; margin-top:6px;">
+                    <span style="width:76px; min-width:76px; flex-shrink:0; font-weight:700; color:#475569; font-size:0.8rem; padding-top:2px;">검색 키워드:</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1;">${{searchKwChips}}</div>
+                </div>
+            ` : '';
+
+            const articles = data.keyword_articles || llmInfo.keyword_articles || [];
+            const articlesContainer = document.getElementById('articlesListContainer');
+            const countBadge = document.getElementById('articlesCountBadge');
+            const wrap = document.getElementById('articlesWrapper');
+            if (countBadge) {{
+                countBadge.textContent = `${{articles.length}}건`;
+            }}
+            if (articlesContainer) {{
+                if (!articles || articles.length === 0) {{
+                    if (wrap) wrap.style.display = 'none';
+                    articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8; padding:6px 0;">참고 뉴스 기사가 없습니다.</div>';
+                }} else {{
+                    if (wrap) wrap.style.display = 'block';
+                    const artHtml = articles.map(art => {{
+                        const linkUrl = art.link || art.url || '#';
+                        const sourceName = art.source || art.media || '뉴스';
+                        const titleText = art.title || art.text || '제목 없음';
+                        const pubDate = art.publish_dt || art.published_date || art.date || '';
+                        const hasValidLink = linkUrl && linkUrl !== '#';
+
+                        return `
+                            <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; font-size:0.8rem; margin-bottom:6px;">
+                                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                                    <a href="${{linkUrl}}" ${{hasValidLink ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="color:#0f172a; text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${{titleText}}">${{titleText}} <span class="badge-chip-item badge-media">${{sourceName}}</span></a>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0; font-size:0.75rem; color:#64748b;">
+                                    ${{pubDate ? `<span>${{pubDate}}</span>` : ''}}
+                                    ${{hasValidLink ? `<a href="${{linkUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:underline; font-weight:600;">원문보기</a>` : ''}}
+                                </div>
+                            </div>
+                        `;
+                    }}).join('');
+                    articlesContainer.innerHTML = artHtml;
+                }}
+            }}
+
+            renderProductGrid(products, kw);
+            renderProductTable(products, kw);
+            renderRawJsonView(data);
+            renderPromptInspector(stage1, stage2);
+        }}
+
+        function renderProductGrid(products, currentKw) {{
+            const container = document.getElementById('productGridContainer');
+            if (products.length === 0) {{
+                container.innerHTML = '<div style="grid-column:1/-1; padding:20px; text-align:center; color:#64748b;">추천 상품 데이터가 없습니다.</div>';
+                return;
+            }}
+
+            const kw = currentKw || currentKeyword;
+            container.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.product_no || prd.id || '';
+                const prdUrl = prd.prd_url || getProductDetailUrl(prdNo);
+                const hasPrdUrl = prdUrl && prdUrl !== '#';
+
+                const name = prd.prdNm || prd.name || '상품명 없음';
+                const brand = prd.brandNm || prd.brdNm || prd.brand || '브랜드';
+                const salePrc = prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const nrmPrc = prd.normPrc || prd.nrmPrc || 0;
+                const discRt = prd.totRateApp || prd.discRt || 0;
+                const rating = prd.reviewStar || prd.avgPoint || 0.0;
+                const reviews = prd.reviewQty || prd.revCnt || 0;
+                const matchedKws = prd.matched_keywords || [];
+
+                const imgUrl = getImageUrl(prd.appPrdImgUrl || prd.prdImg || '');
+
+                const kwChips = matchedKws.map(k => {{
+                    const searchUrl = getSearchUrl(kw + ' ' + k);
+                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                }}).join('');
+                const badgesHtml = renderBadgesHtml(prd);
+
+                const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
+                const rankText = rank === 1 ? 'TOP 1' : (rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`);
+
+                return `
+                    <div class="product-card">
+                        <div>
+                            <a href="${{prdUrl}}" ${{hasPrdUrl ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="display:block; text-decoration:none; color:inherit;">
+                                <div class="product-img-wrap">
+                                    <img src="${{imgUrl}}" class="product-img" alt="${{name}}"/>
+                                    <span class="${{rankClass}}">${{rankText}}</span>
+                                </div>
+                                <div class="product-info">
+                                    <div class="brand-name">${{brand}}</div>
+                                    <div class="product-name" title="${{name}}">${{name}}</div>
+                                    <div class="price-wrap">
+                                        ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
+                                        <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
+                                        ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
+                                    </div>
+                                    ${{reviews > 0 || rating > 0 ? `<div style="font-size:0.68rem; color:#64748b; font-weight:600;">★ ${{rating}} (${{reviews.toLocaleString()}})</div>` : ''}}
+                                </div>
+                            </a>
+                        </div>
+                        <div style="padding:0 8px 8px 8px;">
+                            <div class="badge-chip-container"><span class="badge-chip-item">키워드:</span>${{kwChips}}</div>
+                            ${{badgesHtml}}
+                        </div>
+                    </div>
+                `;
+            }}).join('');
+        }}
+
+        function renderProductTable(products, currentKw) {{
+            const tbody = document.getElementById('productTableBody');
+            if (products.length === 0) {{
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                return;
+            }}
+
+            const kw = currentKw || currentKeyword;
+            tbody.innerHTML = products.map((prd, idx) => {{
+                const rank = idx + 1;
+                const prdNo = prd.prdNo || prd.product_no || prd.id || '-';
+                const prdUrl = prd.prd_url || getProductDetailUrl(prdNo);
+                const hasPrdUrl = prdUrl && prdUrl !== '#';
+
+                const brand = prd.brandNm || prd.brdNm || prd.brand || '-';
+                const name = prd.prdNm || prd.name || '-';
                 
-                if not res:
-                    st.warning(f"Milvus에서 상품 번호 {target_prd_no}에 대한 데이터를 찾을 수 없습니다.")
-                    return
-                
-                query_vector = res[0]["vector"]
+                const rawSalePrc = prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
+                const rawNrmPrc = prd.normPrc || prd.nrmPrc || 0;
+                const rawDiscRt = prd.totRateApp || prd.discRt || 0;
 
-                # 3. Milvus 검색
-                search_params = {"metric_type": "COSINE", "params": {"nprobe": 10}}
-                results = collection.search(
-                    data=[query_vector], 
-                    anns_field="vector", 
-                    param=search_params, 
-                    limit=int(k),
-                    output_fields=["vector"]
-                )
+                const salePrc = rawSalePrc ? `${{rawSalePrc.toLocaleString()}}원` : '0원';
+                const nrmPrc = rawNrmPrc ? `${{rawNrmPrc.toLocaleString()}}원` : '-';
+                const discRt = rawDiscRt ? `${{rawDiscRt}}%` : '-';
 
-                # 4. 결과 매핑
-                data = []
-                for hits in results:
-                    for hit in hits:
-                        detail = get_product_detail_info(hit.id, site_cd)
-                        item = detail.copy()
-                        item["prd_no"] = hit.id
-                        item["score"] = hit.distance
-                        data.append(item)
-                
-                st.session_state.last_api_url = "Local Milvus Query"
-                st.session_state.last_api_response = data
-        else:
-            api_url = f"{API_URL}/{recommend_type}"
-            response = requests.get(api_url, params=params, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            
-            # 실제 호출된 URL 및 JSON 데이터 저장
-            st.session_state.last_api_url = response.url
-            st.session_state.last_api_response = data
-        
-        if not data:
-            st.error("API 응답이 비어있습니다.")
-            return
-        
-        # 추천 대상 상품 표시
-        if recommend_type in ["keyword-search"]:
-            if gender:
-                st.subheader(f"검색 키워드: {st.session_state.prd_nm} ({gender})")
-            else:
-                st.subheader(f"검색 키워드: {st.session_state.prd_nm}")
-            st.markdown("---")
+                const matchedKws = (prd.matched_keywords || []).map(k => {{
+                    const searchUrl = getSearchUrl(kw + ' ' + k);
+                    return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:600;">${{k}}</a>`;
+                }}).join(', ');
+                const rating = prd.reviewStar || prd.avgPoint || 0.0;
+                const reviews = prd.reviewQty || prd.revCnt || 0;
+                const ratingRev = `${{rating}} (${{reviews}})`;
 
-                
-        # 추천 상품 이미지 및 점수
-        recs = []
-        recs_title = "추천"
-        ml_type = ""
-                
-        ml_data = []
-        if recommend_type in ["keyword-search"]:
-            if isinstance(data, list):
-                ml_data = data
-            elif isinstance(data, dict):
-                ml_data = data.get("results", data.get("data", []))
-            else:
-                ml_data = []
-        else:
-            if isinstance(data, dict):
-                ml_data = data.get("result", data.get("data", []))
-            elif isinstance(data, list):
-                ml_data = data
-            else:
-                ml_data = []
-            ml_type = data.get("ml_type", "") if isinstance(data, dict) else ""
-            if ml_type:
-                if ml_type == "ml":
-                    recs_title = recs_title + f": {recommend_type_nm} ML"
-                else:
-                    recs_title = recs_title + f": {recommend_type_nm}"
-            else:
-                recs_title = recs_title + f": {recommend_type_nm}"
-                            
-        if not ml_data:
-            st.warning("추천 결과가 없습니다.")
-            return
-            
-        for rec in ml_data:
-            if not rec or not isinstance(rec, dict):
-                continue
-                
-            # 필드명 호환성 처리
-            prd_no = rec.get("prd_no") or rec.get("prdNo")
-            if not prd_no:
-                continue
-                
-            score = rec.get("score", 0.0)
-            esscore = rec.get("esscore", 0.0)
-            sgn = rec.get("sgnCd", [])
-            prd_nm = rec.get("prd_nm") or rec.get("prdNm", "")
-            prd_img = rec.get("prd_img") or rec.get("appPrdImgUrl", "")
-            prc = rec.get("price") or rec.get("dcPrcMc", 0)
-            brandNm = rec.get("brandNm", "")
-                
-                        
-            text = ""
-            
-            # 추천 정보 표시
-            if rec.get("rcm_prd_no", ""):
-                text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                text = text + f"추천 대상: {rec.get("rcm_prd_no", "")}<br/>"
-                text = text + f"</p>"
-            if rec.get("age", ""):
-                for item in age_options:
-                    if age_options[item] == rec.get("age", ""):
-                        text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                        text = text + f"■ 나이: {item}<br/>"
-                        text = text + f"</p>"
-                        break
-            if rec.get("gender", ""):
-                for item in gender_options:
-                    if gender_options[item] == rec.get("gender", ""):
-                        text = text + f"<p style='font-size:9pt;margin:0;padding:0;'>"
-                        text = text + f"■ 성별: {item}<br/>"
-                        text = text + f"</p>"
-                        break
-            
-            # 카테고리 정보 추가 (추천 결과용)
-            dp_ctgr_nm1 = rec.get("dpCtgrNm1", "")
-            dp_ctgr_nm2 = rec.get("dpCtgrNm2", "")
-            dp_ctgr_nm3 = rec.get("dpCtgrNm3", "")
-            
-            # 카테고리 경로 생성
-            category_path = []
-            if dp_ctgr_nm1: category_path.append(dp_ctgr_nm1)
-            if dp_ctgr_nm2: category_path.append(dp_ctgr_nm2)
-            if dp_ctgr_nm3: category_path.append(dp_ctgr_nm3)
-            category_str = " > ".join(category_path) if category_path else ""
-            
-            # 상품 정보 표시
-            text = text + f"<p style='font-size:10pt;margin:0;padding:0;'>"
-            if score:
-                text = text + f"추천 스코어 : {score:.4f}<br/>"
-            if esscore:
-                text = text + f"ES 스코어 : {esscore:.4f}<br/>"
-            text = text + f"브랜드 : {brandNm}<br/>"
-            product_link_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-            text = text + f"상 품 : <a href='{product_link_url}'>{prd_no}</a><br/>"
-            text = text + f"가 격 : {prc:,} 원<br/>"
-            text = text + f"상품명 :<br/>{prd_nm}<br/>"
-            if category_str:
-                text = text + f"{category_str}"
-            if sgn and isinstance(sgn, list) and len(sgn) > 0:
-                for i, code in enumerate(sgn):
-                    if code == "01":
-                        sgn[i] = "봄"
-                    elif code == "02":
-                        sgn[i] = "여름"
-                    elif code == "03":
-                        sgn[i] = "가을"
-                    elif code == "04":
-                        sgn[i] = "겨울"
-                    elif code == "05":
-                        sgn[i] = "사계절"
-                sgn_str = ", ".join(sgn)
-                text = text + f"<br/>시즌 : {sgn_str}<br/>"
-            text = text + f"</p><br/>"
-            
-            product_url = f"https://www.halfclub.com/product/{prd_no}" if site_cd == 1 else f"https://m.boribori.co.kr/product/{prd_no}"
-            recs.append({"prd_no": prd_no, "score": score, "prd_nm": text, "prd_url": product_url, "prd_img": prd_img})
+                const cat = prd.dpCtgrNm2 || prd.dpCtgrNm1 || prd.catNm || '-';
 
-        if not recs:
-            st.error("리스트 결과 없음")
-        else:
-            # 4의 배수로 결과 제한
-            total_count = len(recs)
-            display_count = (total_count // 4) * 4
-            if display_count > 0:
-                recs = recs[:display_count]
-            show_grid(recs, columns_per_row=4, title=recs_title, img_width=150)
+                return `
+                    <tr>
+                        <td style="font-weight:700;">#${{rank}}</td>
+                        <td>${{hasPrdUrl ? `<a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:none; font-weight:700;">${{prdNo}} ↗</a>` : prdNo}}</td>
+                        <td style="font-weight:600;">${{brand}}</td>
+                        <td>${{hasPrdUrl ? `<a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#0f172a; text-decoration:none;">${{name}}</a>` : name}}</td>
+                        <td style="font-weight:700; color:#0f172a;">${{salePrc}}</td>
+                        <td style="color:#94a3b8; text-decoration:line-through;">${{nrmPrc}}</td>
+                        <td style="color:#ef4444; font-weight:700;">${{discRt}}</td>
+                        <td>${{matchedKws || '-'}}</td>
+                        <td>${{ratingRev}}</td>
+                        <td>${{cat}}</td>
+                    </tr>
+                `;
+            }}).join('');
+        }}
 
-    except requests.exceptions.Timeout:
-        st.error("API 요청 시간이 초과되었습니다.")
-    except requests.exceptions.ConnectionError:
-        st.error("API 서버에 연결할 수 없습니다.")
-    except requests.exceptions.HTTPError as http_err:
-        st.error(f"HTTP 에러 ({http_err.response.status_code}): {http_err}")
-    except ValueError as json_err:
-        st.error(f"API 응답 파싱 오류: {json_err}")
-    except Exception as err:
-        st.error(f"예상치 못한 오류: {err}")
+        let promptResDataMap = {{}};
 
-# 폼 제출 시 API 호출 및 이미지 표시
-if submit_button:
-    select_prd_no = prd_no
-    st.session_state.prd_no = select_prd_no
-    st.session_state.prd_nm = "직접입력"
-    
-    if recommend_type in ["buytogether","viewtogether","keyword-search"]:
-        if gender:
-            st.session_state.gender = gender
-    if recommend_type in ["buytogether","viewtogether"]:
-        if age:
-            st.session_state.age = age
-    if recommend_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if prd_no:
-            st.session_state.prd_no_list = set()
-            for prd in prd_no.split(","):
-                st.session_state.prd_no_list.add(prd.strip())
-            # URL 파라미터 업데이트
-            st.query_params["prdNo"] = ",".join(st.session_state.prd_no_list)
-            if st.session_state.show_prd != st.session_state.prd_no_list:
-                st.rerun()
-    elif recommend_type != "similar-image":
-        # similar-image를 제외한 다른 추천 유형에서 여러 상품 처리
-        if prd_no and "," in prd_no:
-            st.session_state.prd_no_list = set()
-            for prd in prd_no.split(","):
-                st.session_state.prd_no_list.add(prd.strip())
-            st.session_state.prd_no = prd_no.split(",")[0].strip()  # 첫 번째 상품을 대표로
-        else:
-            st.session_state.prd_no = prd_no
-            st.session_state.prd_no_list = {str(prd_no)}
-        
-        # URL 파라미터 업데이트
-        st.query_params["prdNo"] = str(st.session_state.prd_no)
-    
-    st.rerun()
+        function renderPromptInspector(stage1, stage2) {{
+            promptResDataMap = {{}};
 
-# URL 파라미터 또는 상품 선택 시 자동 실행
-auto_submit = False
+            const p1Sys = stage1.prompt_info?.system_prompt;
+            const cardSys1 = document.getElementById('cardSysStage1');
+            const elemSys1 = document.getElementById('promptSysStage1');
+            if (p1Sys && elemSys1) {{
+                if (cardSys1) cardSys1.style.display = 'block';
+                promptResDataMap['promptSysStage1'] = p1Sys;
+                elemSys1.innerHTML = renderJsonTree(p1Sys, true);
+            }}
 
-# URL 파라미터로 모든 값이 설정된 경우
-if url_prd and url_type and recommend_type:
-    auto_submit = True
-# 또는 상품이 선택되고 추천 유형이 설정된 경우
-elif (select_prd_no or st.session_state.prd_no_list) and recommend_type:
-    auto_submit = True
+            const p1User = stage1.prompt_info?.user_prompt;
+            const cardUser1 = document.getElementById('cardUserStage1');
+            const elemUser1 = document.getElementById('promptUserStage1');
+            if (p1User && elemUser1) {{
+                if (cardUser1) cardUser1.style.display = 'block';
+                promptResDataMap['promptUserStage1'] = p1User;
+                elemUser1.innerHTML = renderJsonTree(p1User, true);
+            }} else if (cardUser1) {{
+                cardUser1.style.display = 'none';
+            }}
 
-if auto_submit:
-    if recommend_type in ["keyword-search"]:
-        if gender:
-            st.session_state.gender = gender
-    
-    # recommendforyou가 아닌 경우에만 prd_no_list 초기화
-    if recommend_type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-        if st.session_state.prd_no_list:
-            st.session_state.prd_no_list = set()
-        
-    if st.session_state.show_type != recommend_type:
-        if st.session_state.show_type in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"] and recommend_type not in ["recommendforyou", "meanSimilarItem", "meanSimilarItemView", "meanSimilarItemBuy"]:
-            st.session_state.prd_no_list = set()
-        st.rerun()
+            const res1 = stage1.guide_result || stage1.prompt_info?.raw_response;
+            const cardRes1 = document.getElementById('cardResultStage1');
+            const elemRes1 = document.getElementById('promptResultStage1');
+            if (res1 && elemRes1) {{
+                if (cardRes1) cardRes1.style.display = 'block';
+                promptResDataMap['promptResultStage1'] = res1;
+                elemRes1.innerHTML = renderJsonTree(res1, true);
+            }} else if (cardRes1) {{
+                cardRes1.style.display = 'none';
+            }}
 
-    submit()
+            const p2Sys = stage2.prompt_info?.system_prompt;
+            const cardSys2 = document.getElementById('cardSysStage2');
+            const elemSys2 = document.getElementById('promptSysStage2');
+            if (p2Sys && elemSys2) {{
+                if (cardSys2) cardSys2.style.display = 'block';
+                promptResDataMap['promptSysStage2'] = p2Sys;
+                elemSys2.innerHTML = renderJsonTree(p2Sys, true);
+            }}
 
-# API 정보 섹션
-if 'last_api_url' in st.session_state:
-        
-    with st.expander("🔗 호출된 API URL", expanded=False):
-        st.markdown(f"[{st.session_state.last_api_url}]({st.session_state.last_api_url})")
-    
-    if 'last_api_response' in st.session_state:
-        with st.expander("📊 API 응답 JSON", expanded=False):
-            st.json(st.session_state.last_api_response)
+            const p2User = stage2.prompt_info?.user_prompt;
+            const cardUser2 = document.getElementById('cardUserStage2');
+            const elemUser2 = document.getElementById('promptUserStage2');
+            if (p2User && elemUser2) {{
+                if (cardUser2) cardUser2.style.display = 'block';
+                promptResDataMap['promptUserStage2'] = p2User;
+                elemUser2.innerHTML = renderJsonTree(p2User, true);
+            }} else if (cardUser2) {{
+                cardUser2.style.display = 'none';
+            }}
+
+            const res2 = stage2.prompt_info?.raw_response || stage2.llm_response;
+            const cardRes2 = document.getElementById('cardResultStage2');
+            const elemRes2 = document.getElementById('promptResultStage2');
+            if (res2 && elemRes2) {{
+                if (cardRes2) cardRes2.style.display = 'block';
+                promptResDataMap['promptResultStage2'] = res2;
+                elemRes2.innerHTML = renderJsonTree(res2, true);
+            }} else if (cardRes2) {{
+                cardRes2.style.display = 'none';
+            }}
+        }}
+
+        // 계층형 JSON 트리 렌더러 (객체/배열 단위 접기/펼치기 및 JSON 문자열 자동 파싱 지원)
+        function renderJsonTree(data, isRoot = true) {{
+            if (data === null || data === undefined) {{
+                return '<span class="json-null">null</span>';
+            }}
+            if (typeof data === 'boolean') {{
+                return `<span class="json-boolean">${{data}}</span>`;
+            }}
+            if (typeof data === 'number') {{
+                return `<span class="json-number">${{data}}</span>`;
+            }}
+            if (typeof data === 'string') {{
+                const trimmed = data.trim();
+                if ((trimmed.startsWith('{{') && trimmed.endsWith('}}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {{
+                    try {{
+                        const parsed = JSON.parse(trimmed);
+                        return renderJsonTree(parsed, false);
+                    }} catch (e) {{}}
+                }}
+                if (data.includes(String.fromCharCode(10))) {{
+                    return `<pre style="margin:0; font-family:'Consolas', 'Courier New', monospace; font-size:0.83rem; line-height:1.55; white-space:pre-wrap; word-break:break-all; color:#cbd5e1;">${{escapeHtml(data)}}</pre>`;
+                }}
+                return `<span class="json-string">"${{escapeHtml(data)}}"</span>`;
+            }}
+
+            if (Array.isArray(data)) {{
+                if (data.length === 0) return '<span class="json-bracket">[]</span>';
+
+                const itemsHtml = data.map((item, idx) => {{
+                    const comma = (idx < data.length - 1) ? '<span class="json-comma">,</span>' : '';
+                    return `<div class="json-node-row">${{renderJsonTree(item, false)}}${{comma}}</div>`;
+                }}).join('');
+
+                return `
+                    <span class="json-node-collapsible">
+                        <span class="json-toggle" onclick="toggleJsonNode(this)" title="접기/펼치기">▼</span>
+                        <span class="json-bracket">[</span>
+                        <span class="json-collapsed-text" style="display:none;" onclick="toggleJsonNode(this.previousElementSibling.previousElementSibling)">... ${{data.length}} items </span>
+                        <div class="json-children">${{itemsHtml}}</div>
+                        <span class="json-bracket">]</span>
+                    </span>
+                `;
+            }}
+
+            if (typeof data === 'object') {{
+                const keys = Object.keys(data);
+                if (keys.length === 0) return '<span class="json-bracket">{{}}</span>';
+
+                const itemsHtml = keys.map((key, idx) => {{
+                    const comma = (idx < keys.length - 1) ? '<span class="json-comma">,</span>' : '';
+                    return `
+                        <div class="json-node-row">
+                            <span class="json-key">"${{escapeHtml(key)}}"</span><span class="json-colon">: </span>${{renderJsonTree(data[key], false)}}${{comma}}
+                        </div>
+                    `;
+                }}).join('');
+
+                return `
+                    <span class="json-node-collapsible">
+                        <span class="json-toggle" onclick="toggleJsonNode(this)" title="접기/펼치기">▼</span>
+                        <span class="json-bracket">{{</span>
+                        <span class="json-collapsed-text" style="display:none;" onclick="toggleJsonNode(this.previousElementSibling.previousElementSibling)">... ${{keys.length}} keys </span>
+                        <div class="json-children">${{itemsHtml}}</div>
+                        <span class="json-bracket">}}</span>
+                    </span>
+                `;
+            }}
+
+            return escapeHtml(String(data));
+        }}
+
+        function toggleJsonNode(el) {{
+            const parent = el.closest('.json-node-collapsible');
+            if (!parent) return;
+            const toggleBtn = parent.querySelector(':scope > .json-toggle');
+            const collapsedText = parent.querySelector(':scope > .json-collapsed-text');
+            const children = parent.querySelector(':scope > .json-children');
+
+            if (!children) return;
+
+            const isCollapsed = children.style.display === 'none';
+            if (isCollapsed) {{
+                children.style.display = 'block';
+                if (toggleBtn) toggleBtn.textContent = '▼';
+                if (collapsedText) collapsedText.style.display = 'none';
+            }} else {{
+                children.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '▶';
+                if (collapsedText) collapsedText.style.display = 'inline';
+            }}
+        }}
+
+        function expandAllJson(containerId) {{
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.querySelectorAll('.json-node-collapsible').forEach(node => {{
+                const toggleBtn = node.querySelector(':scope > .json-toggle');
+                const collapsedText = node.querySelector(':scope > .json-collapsed-text');
+                const children = node.querySelector(':scope > .json-children');
+                if (children) children.style.display = 'block';
+                if (toggleBtn) toggleBtn.textContent = '▼';
+                if (collapsedText) collapsedText.style.display = 'none';
+            }});
+        }}
+
+        function collapseAllJson(containerId) {{
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.querySelectorAll('.json-node-collapsible').forEach(node => {{
+                const toggleBtn = node.querySelector(':scope > .json-toggle');
+                const collapsedText = node.querySelector(':scope > .json-collapsed-text');
+                const children = node.querySelector(':scope > .json-children');
+                if (children) children.style.display = 'none';
+                if (toggleBtn) toggleBtn.textContent = '▶';
+                if (collapsedText) collapsedText.style.display = 'inline';
+            }});
+        }}
+
+        function highlightJsonHtml(obj, restoreNewlines = false) {{
+            let str = '';
+            if (typeof obj === 'string') {{
+                try {{
+                    const parsed = JSON.parse(obj);
+                    str = JSON.stringify(parsed, null, 2);
+                }} catch (e) {{
+                    str = String(obj);
+                }}
+            }} else {{
+                str = JSON.stringify(obj, null, 2);
+            }}
+
+            if (restoreNewlines) {{
+                str = str.replace(/\\\\n/g, String.fromCharCode(10));
+            }}
+
+            const escaped = escapeHtml(str);
+            return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\\s*:)?|\\b(true|false|null)\\b|-?\\d+(?:\\.\\d*)?(?:[eE][+\\-]?\\d+)?)/g, function (match) {{
+                let cls = 'json-number';
+                if (/^"/.test(match)) {{
+                    if (/:$/.test(match)) {{
+                        cls = 'json-key';
+                    }} else {{
+                        cls = 'json-string';
+                    }}
+                }} else if (/true|false/.test(match)) {{
+                    cls = 'json-boolean';
+                }} else if (/null/.test(match)) {{
+                    cls = 'json-null';
+                }}
+                return `<span class="${{cls}}">${{match}}</span>`;
+            }});
+        }}
+
+        function escapeHtml(str) {{
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }}
+
+        function copyPromptTextToClipboard(elemId, btnId) {{
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            let textToCopy = '';
+            if (promptResDataMap[elemId]) {{
+                const val = promptResDataMap[elemId];
+                textToCopy = (typeof val === 'string') ? val : JSON.stringify(val, null, 2);
+            }} else {{
+                const elem = document.getElementById(elemId);
+                if (!elem) return;
+                textToCopy = elem.innerText || elem.textContent;
+            }}
+
+            navigator.clipboard.writeText(textToCopy).then(() => {{
+                const origText = btn.textContent;
+                btn.textContent = '복사 완료!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {{
+                    btn.textContent = origText;
+                    btn.style.background = '#334155';
+                }}, 1500);
+            }}).catch(err => {{
+                alert('복사 실패: ' + err);
+            }});
+        }}
+
+        function copyRawJsonToClipboard(btnId) {{
+            if (!currentRawData) return;
+            const btn = document.getElementById(btnId);
+            const str = JSON.stringify(currentRawData, null, 2);
+            navigator.clipboard.writeText(str).then(() => {{
+                btn.textContent = '복사 완료!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {{
+                    btn.textContent = 'JSON 전체 복사';
+                    btn.style.background = '#334155';
+                }}, 1500);
+            }}).catch(err => {{
+                alert('복사 실패: ' + err);
+            }});
+        }}
+
+        function renderRawJsonView(data) {{
+            const container = document.getElementById('rawJsonContainer');
+            const apiUrl = currentApiUrl;
+            const treeHtml = renderJsonTree(data, true);
+
+            const urlCard = `
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:10px; overflow:hidden;">
+                        <span style="background:#2563eb; color:#ffffff; font-size:11px; font-weight:800; padding:3px 8px; border-radius:4px;">GET</span>
+                        <span style="font-family:monospace; font-size:0.85rem; color:#2563eb; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${{apiUrl}}</span>
+                    </div>
+                </div>
+            `;
+
+            const jsonCard = `
+                <div style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#1e293b; border-bottom:1px solid #334155;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="background:#10b981; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; letter-spacing:0.5px;">200 OK</span>
+                            <span style="font-size:0.83rem; font-weight:700; color:#94a3b8;">키워드 트렌드 API 원본 JSON 데이터 (객체/배열 접기/펼치기 가능)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <button class="json-ctrl-btn" onclick="expandAllJson('rawJsonTreeBody')">전체 펼치기</button>
+                            <button class="json-ctrl-btn" onclick="collapseAllJson('rawJsonTreeBody')">전체 접기</button>
+                            <button id="btnCopyJson" onclick="copyRawJsonToClipboard('btnCopyJson')" class="json-ctrl-btn">JSON 전체 복사</button>
+                        </div>
+                    </div>
+                    <div style="padding:14px 16px; background:#0f172a; max-height:600px; overflow:auto;">
+                        <div id="rawJsonTreeBody" class="json-tree-container">${{treeHtml}}</div>
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = urlCard + jsonCard;
+        }}
+
+        function renderBadgesHtml(item) {{
+            let htmls = [];
+            if (item.badgeImg && typeof item.badgeImg === 'string' && item.badgeImg.trim()) {{
+                htmls.push(`<img src="${{item.badgeImg.trim()}}" style="height:17px; vertical-align:middle;" alt="배지"/>`);
+            }}
+            if (item.eblmImg && typeof item.eblmImg === 'string' && item.eblmImg.trim()) {{
+                htmls.push(`<img src="${{item.eblmImg.trim()}}" style="height:17px; vertical-align:middle;" alt="엠블럼"/>`);
+            }}
+
+            let icnNms = item.icnNms || [];
+            if (icnNms.length === 0 && item.icnNm) {{
+                icnNms = item.icnNm.split('@');
+            }}
+
+            icnNms.forEach(name => {{
+                const clean = String(name).trim();
+                if (!clean) return;
+                let cls = 'badge-gray';
+                if (clean.includes('무료배송')) cls = 'badge-blue';
+                else if (clean.includes('온리') || clean.includes('단독')) cls = 'badge-red';
+                htmls.push(`<span class="badge-chip-item ${{cls}}">${{clean}}</span>`);
+            }});
+
+            if (htmls.length > 0) {{
+                return `<div class="badge-chip-container">${{htmls.join(' ')}}</div>`;
+            }}
+            return '';
+        }}
+    </script>
+</body>
+</html>
+"""
+
+# Streamlit 원페이지 통합 HTML 서빙 (내부 단일 스크롤 전용)
+components.html(html_content, height=1000, scrolling=False)
