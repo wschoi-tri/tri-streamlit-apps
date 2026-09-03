@@ -350,26 +350,26 @@ html_content = f"""
             gap: 20px;
         }}
         
-        /* 5열 그리드 카드 배치 */
+        /* 10열 그리드 카드 배치 (한 줄에 10개) */
         .grid-container {{
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 10px;
         }}
         .product-card {{
             border: 1px solid #e2e8f0;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
             background: #ffffff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }}
         .product-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: 0 12px 24px -8px rgba(15, 23, 42, 0.12), 0 0 0 1px #3b82f6;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px -4px rgba(15, 23, 42, 0.12), 0 0 0 1px #3b82f6;
         }}
         .product-img-wrap {{
             position: relative;
@@ -390,85 +390,89 @@ html_content = f"""
         }}
         .rank-badge {{
             position: absolute;
-            top: 8px;
-            left: 8px;
-            background: rgba(15, 23, 42, 0.8);
+            top: 5px;
+            left: 5px;
+            background: rgba(15, 23, 42, 0.82);
             backdrop-filter: blur(4px);
             color: #ffffff;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
-            padding: 3px 8px;
-            border-radius: 6px;
-            letter-spacing: 0.5px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            letter-spacing: 0.2px;
         }}
         .rank-top1 {{
             background: linear-gradient(135deg, #f59e0b, #d97706) !important;
             color: #ffffff !important;
-            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.4);
         }}
         .rank-top2, .rank-top3 {{
             background: linear-gradient(135deg, #334155, #1e293b) !important;
             color: #ffffff !important;
         }}
         .product-info {{
-            padding: 14px 14px 8px 14px;
+            padding: 8px 8px 6px 8px;
         }}
         .brand-name {{
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             color: #64748b;
             font-weight: 700;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             text-transform: uppercase;
-            letter-spacing: 0.2px;
+            letter-spacing: 0.1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
         .product-name {{
-            font-size: 0.88rem;
+            font-size: 0.78rem;
             font-weight: 600;
             color: #0f172a;
-            height: 40px;
+            height: 34px;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
-            line-height: 1.42;
-            margin-bottom: 10px;
+            line-height: 1.35;
+            margin-bottom: 6px;
         }}
         .price-wrap {{
             display: flex;
             align-items: baseline;
-            gap: 6px;
-            margin-bottom: 6px;
+            gap: 4px;
+            margin-bottom: 4px;
+            flex-wrap: wrap;
         }}
         .discount-rate {{
-            font-size: 1.05rem;
+            font-size: 0.88rem;
             color: #f43f5e;
             font-weight: 800;
         }}
         .sale-price {{
-            font-size: 1.05rem;
+            font-size: 0.88rem;
             font-weight: 800;
             color: #0f172a;
         }}
         .normal-price {{
-            font-size: 0.78rem;
+            font-size: 0.7rem;
             color: #94a3b8;
             text-decoration: line-through;
         }}
         .badge-chip-container {{
             display: flex;
             flex-wrap: wrap;
-            gap: 4px;
-            margin-top: 6px;
+            gap: 3px;
+            margin-top: 4px;
         }}
         .badge-chip-item {{
-            font-size: 11px;
-            padding: 2px 7px;
-            border-radius: 5px;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 4px;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
-            gap: 3px;
+            gap: 2px;
         }}
         .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
         .badge-red {{ background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }}
@@ -1513,11 +1517,11 @@ html_content = f"""
                                         <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
                                         ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
                                     </div>
-                                    ${{reviews > 0 || rating > 0 ? `<div style="font-size:0.75rem; color:#64748b; font-weight:600;">★ ${{rating}} (리뷰 ${{reviews.toLocaleString()}})</div>` : ''}}
+                                    ${{reviews > 0 || rating > 0 ? `<div style="font-size:0.68rem; color:#64748b; font-weight:600;">★ ${{rating}} (${{reviews.toLocaleString()}})</div>` : ''}}
                                 </div>
                             </a>
                         </div>
-                        <div style="padding:0 12px 12px 12px;">
+                        <div style="padding:0 8px 8px 8px;">
                             <div class="badge-chip-container"><span class="badge-chip-item">키워드:</span>${{kwChips}}</div>
                             ${{badgesHtml}}
                         </div>
