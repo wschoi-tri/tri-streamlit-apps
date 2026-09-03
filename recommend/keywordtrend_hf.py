@@ -711,9 +711,9 @@ html_content = f"""
                 <!-- 탭 1: 10열 그리드 배치 -->
                 <section class="tab-content active" id="tabContentGrid">
                     <!-- AI 상품 추천 사유 요약 (LLM 2단계 산출물: curation_summary) -->
-                    <div id="curationSummaryWrap" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:8px; padding:9px 14px; margin-bottom:12px; align-items:center; gap:8px;">
-                        <span style="font-size:0.75rem; font-weight:800; background:#dcfce7; color:#15803d; padding:2px 7px; border-radius:4px; flex-shrink:0;">AI 추천 사유</span>
-                        <span id="curationSummaryText" style="font-size:0.88rem; font-weight:700; color:#14532d; line-height:1.5;"></span>
+                    <div id="curationSummaryWrap" style="display:none; background:#ffffff; border:1px solid #e2e8f0; border-radius:6px; padding:7px 12px; margin-bottom:10px; align-items:center; gap:8px;">
+                        <span style="font-size:0.75rem; font-weight:700; background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; padding:2px 6px; border-radius:4px; flex-shrink:0;">AI 추천 사유</span>
+                        <span id="curationSummaryText" style="font-size:0.84rem; font-weight:600; color:#334155; line-height:1.45;"></span>
                     </div>
                     <div class="grid-container" id="productGridContainer"></div>
                 </section>
