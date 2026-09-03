@@ -1036,9 +1036,9 @@ html_content = f"""
 
         async function fetchKeywordTrend(kw) {{
             const siteCd = document.getElementById('siteCdSelect').value || '1';
-            const size = document.getElementById('sizeInput')?.value || '50';
-            currentApiUrl = `${{DOMAINS.API_BASE}}/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
-            const brandFilterUrl = `${{DOMAINS.API_BASE}}/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
+            const apiBase = getApiBaseUrl();
+            currentApiUrl = `${{apiBase}}/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
+            const brandFilterUrl = `${{apiBase}}/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
 
             try {{
                 const [recRes, brandRes] = await Promise.allSettled([
@@ -1199,7 +1199,8 @@ html_content = f"""
                 const titleText = bCode ? `브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `'${{kw}} ${{bClean}}' 검색`;
 
                 if (!bCode) {{
-                    fetch(`${{DOMAINS.API_BASE}}/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
+                    const apiBase = getApiBaseUrl();
+                    fetch(`${{apiBase}}/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
                         .then(r => r.json())
                         .then(resData => {{
                             const hits = resData?.data?.result?.hits?.hits;
