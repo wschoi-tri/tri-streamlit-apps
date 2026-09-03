@@ -57,11 +57,11 @@ except Exception as e:
 # 3. 실제 서비스 중인 추천 API 모델 6종 정의
 ML_TYPES = [
     {"id": "home", "name": "홈 개인화 (home)", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou) #종료", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
     {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
     {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동시 조회 기반", "endpoint": "/recommend/viewtogether"},
     {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
     {"id": "similar-image", "name": "유사 이미지 (similarImage)", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"}
 ]
 
 # 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
@@ -533,7 +533,7 @@ html_content = f"""
             width: 100%;
         }}
 
-        /* home API 전용: 홈 추천 시드 탭 바 (recomm_home_hf.py 복원) */
+        /* home API 전용: 홈 추천 탭 바 (recomm_home_hf.py 복원) */
         .home-seed-tabs-section {{
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -714,7 +714,7 @@ html_content = f"""
         .product-card.card-origin {{
             border: 2px solid #ef4444 !important;
             background: #fff5f5 !important;
-            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.18) !important;
         }}
         .product-img-wrap {{
             position: relative;
@@ -834,6 +834,7 @@ html_content = f"""
         .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
         .badge-red {{ background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }}
         .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
+        .badge-emerald {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
 
         /* 데이터 테이블 */
         .data-table {{
@@ -972,14 +973,14 @@ html_content = f"""
             </div>
         </section>
 
-        <!-- [신규] home API 전용: 추천 탭 및 시드 상품 목록 바 (recomm_home_hf.py 완벽 복원) -->
+        <!-- [recomm_home_hf.py 복원] home API 전용: 추천 탭 및 시드 상품 목록 바 -->
         <section class="home-seed-tabs-section" id="homeSeedTabsSection" style="display:none;">
             <div class="home-seed-tabs-header">
                 <div class="home-seed-tabs-title">
                     <span>홈 추천 탭 (행동 시드 상품 연계)</span>
                     <span id="activeSeedStatus" style="font-size:0.75rem; font-weight:700; color:#2563eb; background:#eff6ff; padding:2px 8px; border-radius:4px;">전체 맞춤 추천 (FORYOU)</span>
                 </div>
-                <span style="font-size:0.75rem; color:#64748b;">시드 카드를 클릭하면 해당 상품 기준 유사 추천(similaritem)이 즉시 연동됩니다.</span>
+                <span style="font-size:0.75rem; color:#64748b;">시드 카드를 클릭하면 대상 상품 카드와 하단 유사 상품(similaritem)이 즉시 연동됩니다.</span>
             </div>
             <div class="home-seed-cards-container" id="homeSeedCardsContainer"></div>
         </section>
@@ -1421,15 +1422,17 @@ html_content = f"""
         async function executeRecommendFlow() {{
             updateUrlQuery();
 
-            // 1. 대상 상품 정보 로드
-            loadTargetProductInfo(currentPrdNo);
+            // 1. 현재 추천 기준 대상 상품 정보 카드 갱신
+            // (home 모드에서 특정 시드 탭이 선택되어 있다면 해당 시드 상품을, 아니면 currentPrdNo의 첫번째 상품을 표시)
+            const activePrdToLoad = (currentMlType === 'home' && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
+            loadTargetProductInfo(activePrdToLoad);
 
             // 2. 추천 API 호출
             await fetchRecommendationApi();
         }}
 
         async function loadTargetProductInfo(prdNoStr) {{
-            const prdList = getSelectedPrdList();
+            const prdList = prdNoStr.split(',').map(s => s.trim()).filter(Boolean);
             const firstPrd = prdList[0] || '';
 
             const countBadge = document.getElementById('targetCountBadge');
@@ -1663,7 +1666,7 @@ html_content = f"""
                 document.getElementById('homeSeedTabsSection').style.display = 'block';
                 renderHomeSeedTabs(homeExtractedSeeds);
 
-                // 만약 특정 시드 상품이 선택된 상태라면 해당 상품 기준 similaritem 호출 실행
+                // 만약 특정 시드 상품이 이미 선택된 상태라면 해당 상품 기준 similaritem 호출 실행
                 if (currentSelectedSeed) {{
                     fetchSimilarItemForSeed(currentSelectedSeed);
                     return;
@@ -1684,7 +1687,7 @@ html_content = f"""
 
             let html = `
                 <div class="home-foryou-card ${{isForyouActive ? 'active' : ''}}" onclick="selectHomeSeedTab('')" title="전체 맞춤 추천 (FORYOU)">
-                    <span style="font-size:12px; font-weight:800; color:#64748b; margin-bottom:2px;">Index 0</span>
+                    <span style="font-size:12px; font-weight:800; color:${{isForyouActive ? '#ffffff' : '#64748b'}}; margin-bottom:2px;">Index 0</span>
                     <span class="foryou-title">FORYOU</span>
                     <span class="foryou-desc">종합 추천</span>
                 </div>
@@ -1714,7 +1717,7 @@ html_content = f"""
             container.innerHTML = html;
         }}
 
-        // 홈 시드 탭 전환 핸들러
+        // [핵심 연동] 홈 시드 탭 전환 핸들러 (상단 대상 카드 + 하단 추천 결과 동시 갱신)
         function selectHomeSeedTab(seedPrdNo) {{
             currentSelectedSeed = String(seedPrdNo).trim();
             updateUrlQuery();
@@ -1728,17 +1731,23 @@ html_content = f"""
             }}
 
             if (!currentSelectedSeed) {{
-                // FORYOU 전체 결과 렌더링
+                // 1. FORYOU 선택 시: 상단 대상 카드는 원래의 currentPrdNo로 복귀
+                loadTargetProductInfo(currentPrdNo);
+
+                // 2. FORYOU 전체 결과 렌더링
                 renderDashboardResults(homeOriginalResults, false);
                 const snippetEl = document.getElementById('activeApiUrlSnippet');
                 if (snippetEl) snippetEl.textContent = `/recommend/home (FORYOU)`;
             }} else {{
-                // 선택된 시드 상품으로 similaritem 호출
+                // 1. 특정 시드 상품 선택 시: 상단 대상 카드를 해당 시드 상품 정보로 즉시 갱신!
+                loadTargetProductInfo(currentSelectedSeed);
+
+                // 2. 해당 시드 상품으로 similaritem 호출하여 하단 결과 갱신
                 fetchSimilarItemForSeed(currentSelectedSeed);
             }}
         }}
 
-        // [recomm_home_hf.py 복원] 시드 상품 클릭 시 similaritem API 호출 및 [내가 본] 선택 상품 맨 앞 표시
+        // [recomm_home_hf.py 복원] 시드 상품 클릭 시 similaritem API 호출 및 [내가 본] 선택 상품 맨 앞 보장
         async function fetchSimilarItemForSeed(seedPrdNo) {{
             const startTime = performance.now();
             const apiBase = getApiBaseUrl();
@@ -1774,7 +1783,20 @@ html_content = f"""
                     results = data.result || data.data || data.items || [];
                 }}
 
-                // 선택된 시드 상품에 [내가 본] 태그 플래그 부여
+                // [중요] 만약 API 결과에 선택된 시드 상품이 맨 앞에 없으면, 시드 객체에서 찾아서 맨 앞에 보장 삽입
+                const exists = results.some(r => String(r.prdNo || r.prd_no) === String(seedPrdNo));
+                if (!exists) {{
+                    const seedObj = homeExtractedSeeds.find(s => String(s.prdNo || s.prd_no) === String(seedPrdNo));
+                    if (seedObj) {{
+                        results.unshift({{
+                            ...seedObj,
+                            rcm_prd_no: seedPrdNo,
+                            is_origin_forced: true
+                        }});
+                    }}
+                }}
+
+                // 선택된 시드 상품에 [내가 본] 태그 부여하며 렌더링
                 renderDashboardResults(results, true, seedPrdNo);
             }} catch (e) {{
                 if (statusEl) statusEl.textContent = '시드 조회 실패';
@@ -1816,11 +1838,18 @@ html_content = f"""
                 const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
-                // [recomm_home_hf.py 복원] 내가 본 선택 상품인지 확인
-                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
+                // [recomm_home_hf.py 복원] 내가 본 선택 상품인지 판별
+                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
+                                    (prd.is_origin_forced === true) || 
+                                    (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
+
+                // 추천 출처 태그 (베스트 / 휴리스틱)
+                let typeLabel = '';
+                if (prd.type === 'self') typeLabel = '베스트';
+                else if (prd.type === 'DB') typeLabel = '휴리스틱';
 
                 const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
-                const rankText = rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`;
+                const rankText = isOriginPrd ? '선택' : (rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`);
 
                 return `
                     <div class="product-card ${{isOriginPrd ? 'card-origin' : ''}}">
@@ -1844,10 +1873,12 @@ html_content = f"""
                                 ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
                             </div>
                             <div class="badge-chip-container">
-                                ${{isOriginPrd ? '<span class="badge-chip-item badge-red">선택 상품</span>' : ''}}
+                                ${{isOriginPrd ? '<span class="badge-chip-item badge-red">내가 본 상품</span>' : ''}}
+                                ${{typeLabel ? `<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>` : ''}}
                                 ${{score !== null && !isNaN(score) ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
                                 ${{esScore !== null && !isNaN(esScore) ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
                                 ${{seedLabel ? `<span class="badge-chip-item badge-purple" title="시드 출처">${{seedLabel}}</span>` : ''}}
+                                ${{prd.rcm_prd_no && !isOriginPrd ? `<span class="badge-chip-item badge-gray" title="추천 대상">기준:#${{prd.rcm_prd_no}}</span>` : ''}}
                                 ${{c1 ? `<span class="badge-chip-item badge-gray">${{c1}}</span>` : ''}}
                             </div>
                         </div>
@@ -1878,7 +1909,9 @@ html_content = f"""
                 const esScore = prd.esscore !== undefined && prd.esscore !== '' && !isNaN(Number(prd.esscore)) ? Number(prd.esscore).toFixed(4) : '-';
                 const c1 = prd.dpCtgrNm1 || prd.category || '-';
 
-                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
+                const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
+                                    (prd.is_origin_forced === true) || 
+                                    (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
 
                 return `
                     <tr style="${{isOriginPrd ? 'background-color:#fff1f2;' : ''}}">
