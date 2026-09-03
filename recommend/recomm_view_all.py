@@ -57,11 +57,11 @@ except Exception as e:
 # 3. 실제 서비스 중인 추천 API 모델 6종 정의
 ML_TYPES = [
     {"id": "home", "name": "홈 개인화 (home)", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
     {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
     {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동시 조회 기반", "endpoint": "/recommend/viewtogether"},
     {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
     {"id": "similar-image", "name": "유사 이미지 (similarImage)", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"}
 ]
 
 # 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
