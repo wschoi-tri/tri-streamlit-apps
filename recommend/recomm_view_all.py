@@ -57,46 +57,20 @@ try:
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# 3. 기본 시드 상품(베스트 상품) 데이터 정의 (하프클럽 & 보리보리)
-SEED_PRODUCTS = {
-    "1": [
-        {"prd_no": "380118214", "prd_nm": "여성의류", "full_name": "여성의류 베스트", "category": "여성의류", "brand_nm": "모조에스핀", "img_url": ""},
-        {"prd_no": "402544118", "prd_nm": "남성의류", "full_name": "남성의류 베스트", "category": "남성의류", "brand_nm": "헤지스", "img_url": ""},
-        {"prd_no": "379859455", "prd_nm": "신발", "full_name": "신발 베스트", "category": "신발", "brand_nm": "나이키", "img_url": ""},
-        {"prd_no": "393954850", "prd_nm": "가방", "full_name": "가방 베스트", "category": "가방", "brand_nm": "닥스", "img_url": ""},
-        {"prd_no": "391016367", "prd_nm": "스포츠", "full_name": "스포츠 베스트", "category": "스포츠", "brand_nm": "아디다스", "img_url": ""},
-        {"prd_no": "380115991", "prd_nm": "액세서리", "full_name": "액세서리 베스트", "category": "액세서리", "brand_nm": "골든듀", "img_url": ""},
-        {"prd_no": "377519208", "prd_nm": "골프웨어", "full_name": "골프웨어 베스트", "category": "골프", "brand_nm": "캘러웨이", "img_url": ""},
-        {"prd_no": "383412091", "prd_nm": "아우터", "full_name": "아우터 베스트", "category": "여성의류", "brand_nm": "온앤온", "img_url": ""},
-        {"prd_no": "390124890", "prd_nm": "원피스", "full_name": "원피스 베스트", "category": "여성의류", "brand_nm": "샤틴", "img_url": ""},
-        {"prd_no": "385901234", "prd_nm": "슬랙스", "full_name": "슬랙스 베스트", "category": "남성의류", "brand_nm": "지오지아", "img_url": ""},
-        {"prd_no": "388712345", "prd_nm": "스니커즈", "full_name": "스니커즈 베스트", "category": "신발", "brand_nm": "뉴발란스", "img_url": ""},
-        {"prd_no": "391234567", "prd_nm": "이너웨어", "full_name": "이너웨어 베스트", "category": "언더웨어", "brand_nm": "비너스", "img_url": ""}
-    ],
-    "2": [
-        {"prd_no": "380118214", "prd_nm": "베이비의류", "full_name": "베이비의류 베스트", "category": "베이비", "brand_nm": "모이몰른", "img_url": ""},
-        {"prd_no": "402544118", "prd_nm": "키즈의류", "full_name": "키즈의류 베스트", "category": "키즈", "brand_nm": "닥스키즈", "img_url": ""},
-        {"prd_no": "379859455", "prd_nm": "주니어의류", "full_name": "주니어의류 베스트", "category": "주니어", "brand_nm": "뉴에라키즈", "img_url": ""},
-        {"prd_no": "393954850", "prd_nm": "유아신발", "full_name": "유아신발 베스트", "category": "신발", "brand_nm": "아디다스키즈", "img_url": ""},
-        {"prd_no": "391016367", "prd_nm": "아동가방", "full_name": "아동가방 베스트", "category": "가방/잡화", "brand_nm": "휠라키즈", "img_url": ""},
-        {"prd_no": "380115991", "prd_nm": "출산/육아용품", "full_name": "출산/육아용품 베스트", "category": "육아용품", "brand_nm": "블루래빗", "img_url": ""}
-    ]
-}
-
-# 4. 추천 모델 서비스 목록 정의
+# 3. 추천 서비스 유형 정의
 ML_TYPES = [
-    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "상품 간 속성 및 임베딩 기반 유사 추천"},
-    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자가 함께 조회한 상품"},
-    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 장바구니/주문서 함께 구매 상품"},
-    {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사 상품"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 맞춤 추천"},
-    {"id": "multiSimilarItem", "name": "유사 상품 조합 (multiSimilarItem)", "desc": "다중 상품 입력 기반 결합 유사도"},
-    {"id": "meanSimilarItem", "name": "평균 유사 상품 (meanSimilarItem)", "desc": "다중 상품 벡터 평균 기반 유사 추천"},
-    {"id": "meanSimilarItemView", "name": "평균 유사 상품 조회 (meanSimilarItemView)", "desc": "조회 이력 벡터 평균 기반 유사 추천"},
-    {"id": "meanSimilarItemBuy", "name": "평균 유사 상품 구매 (meanSimilarItemBuy)", "desc": "구매 이력 벡터 평균 기반 유사 추천"}
+    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성 및 메타데이터 기반 유사도 추천"},
+    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동일 세션/사용자 동시 조회 기반 추천"},
+    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동일 주문서 동시 구매 기반 추천"},
+    {"id": "similar-image", "name": "유사 이미지 상품 (similarImage)", "desc": "비전 임베딩 기반 시각적 유사도 추천"},
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 상품 히스토리 기반 개인화 추천"},
+    {"id": "multiSimilarItem", "name": "유사 상품 조합 (multiSimilarItem)", "desc": "다중 상품 입력 기반 결합 유사도 추천"},
+    {"id": "meanSimilarItem", "name": "평균 유사 상품 (meanSimilarItem)", "desc": "다중 상품 임베딩 평균 기반 유사 추천"},
+    {"id": "meanSimilarItemView", "name": "평균 유사 상품 조회 (meanSimilarItemView)", "desc": "조회 이력 임베딩 평균 기반 유사 추천"},
+    {"id": "meanSimilarItemBuy", "name": "평균 유사 상품 구매 (meanSimilarItemBuy)", "desc": "구매 이력 임베딩 평균 기반 유사 추천"}
 ]
 
-# 5. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
+# 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
 qp = st.query_params
 raw_site = qp.get("siteCd", "1")
 if raw_site not in ["1", "2"]:
@@ -111,8 +85,7 @@ raw_prd = qp.get("prdNo", "")
 if raw_prd:
     raw_prd = urllib.parse.unquote(str(raw_prd)).strip()
 else:
-    default_seeds = SEED_PRODUCTS.get(raw_site, [])
-    raw_prd = default_seeds[0]["prd_no"] if default_seeds else "380118214"
+    raw_prd = "380118214"
 
 raw_k = qp.get("k", "50")
 if not raw_k.isdigit() or int(raw_k) <= 0:
@@ -124,7 +97,6 @@ raw_tab = qp.get("tab", "grid")
 if raw_tab not in ["grid", "table", "raw"]:
     raw_tab = "grid"
 
-seed_products_json = json.dumps(SEED_PRODUCTS, ensure_ascii=False)
 ml_types_json = json.dumps(ML_TYPES, ensure_ascii=False)
 initial_site_json = json.dumps(raw_site, ensure_ascii=False)
 initial_type_json = json.dumps(raw_type, ensure_ascii=False)
@@ -134,7 +106,7 @@ initial_age_json = json.dumps(raw_age, ensure_ascii=False)
 initial_gender_json = json.dumps(raw_gender, ensure_ascii=False)
 initial_tab_json = json.dumps(raw_tab, ensure_ascii=False)
 
-# 6. SPA 통합 HTML/CSS/JS 템플릿
+# 5. SPA 통합 HTML/CSS/JS 템플릿
 html_content = f"""
 <!DOCTYPE html>
 <html lang="ko">
@@ -167,7 +139,7 @@ html_content = f"""
             width: 100%;
             overflow: hidden;
         }}
-        /* 좌측 사이드바 */
+        /* 좌측 사이드바: 추천 서비스 유형 목록 */
         .sidebar {{
             width: 270px;
             background-color: #ffffff;
@@ -210,40 +182,47 @@ html_content = f"""
         .search-input:focus {{
             border-color: #2563eb;
         }}
-        .seed-list {{
+        .type-list {{
             list-style: none;
             overflow-y: auto;
             flex: 1;
             padding: 8px 0;
         }}
-        .seed-item {{
-            padding: 8px 14px;
-            margin: 2px 10px;
+        .type-item {{
+            padding: 10px 14px;
+            margin: 3px 10px;
             font-size: 0.86rem;
             color: #334155;
             cursor: pointer;
             display: flex;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 2px;
             border-radius: 8px;
             transition: all 0.15s ease;
-            gap: 8px;
         }}
-        .seed-item:hover {{
+        .type-item:hover {{
             background-color: #f1f5f9;
             color: #0f172a;
         }}
-        .seed-item:focus {{
+        .type-item:focus {{
             outline: 2px solid #2563eb;
             outline-offset: -2px;
             background-color: #eff6ff;
             color: #1d4ed8;
         }}
-        .seed-item.active {{
+        .type-item.active {{
             background-color: #eff6ff;
             color: #2563eb;
             font-weight: 800;
             border-left: 3px solid #2563eb;
+        }}
+        .type-desc {{
+            font-size: 0.73rem;
+            color: #64748b;
+            font-weight: 500;
+        }}
+        .type-item.active .type-desc {{
+            color: #3b82f6;
         }}
         
         /* 우측 메인 대시보드 */
@@ -269,7 +248,7 @@ html_content = f"""
             flex-wrap: wrap;
         }}
         .navbar-title {{
-            font-size: 1.25rem;
+            font-size: 1.22rem;
             font-weight: 800;
             color: #0f172a;
             transition: color 0.15s ease;
@@ -281,8 +260,109 @@ html_content = f"""
             color: #2563eb !important;
         }}
         .dashboard-body {{
-            padding: 20px 28px;
+            padding: 18px 28px;
             flex: 1;
+        }}
+
+        /* 우측 상단 추천 시드 상품 섹션 박스 */
+        .seed-section-box {{
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }}
+        .seed-section-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f1f5f9;
+        }}
+        .seed-site-wrap {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .seed-site-btn-group {{
+            display: flex;
+            background: #f1f5f9;
+            padding: 3px;
+            border-radius: 8px;
+            gap: 2px;
+        }}
+        .site-toggle-btn {{
+            border: none;
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 0.83rem;
+            font-weight: 700;
+            color: #64748b;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        .site-toggle-btn.active {{
+            background: #ffffff;
+            color: #0f172a;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }}
+        .seed-grid-container {{
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 8px;
+            overflow-x: auto;
+        }}
+        .seed-card {{
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #ffffff;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 4px;
+            transition: all 0.15s ease;
+            position: relative;
+        }}
+        .seed-card:hover {{
+            border-color: #94a3b8;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }}
+        .seed-card.active {{
+            border-color: #2563eb;
+            background: #eff6ff;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+        }}
+        .seed-card-img {{
+            width: 100%;
+            aspect-ratio: 1 / 1.15;
+            object-fit: cover;
+            border-radius: 4px;
+            background-color: #f8fafc;
+        }}
+        .seed-card-cat {{
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }}
+        .seed-card-prdno {{
+            font-size: 0.65rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
         }}
         
         /* 헤더 메타 뱃지 */
@@ -307,7 +387,7 @@ html_content = f"""
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 18px 24px;
+            padding: 16px 22px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             margin-bottom: 18px;
             box-sizing: border-box;
@@ -317,7 +397,7 @@ html_content = f"""
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             padding-bottom: 8px;
             border-bottom: 1px solid #f1f5f9;
         }}
@@ -354,7 +434,7 @@ html_content = f"""
         .target-info-wrap {{
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 4px;
             flex: 1;
             min-width: 0;
         }}
@@ -524,7 +604,6 @@ html_content = f"""
         .badge-amber {{ background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }}
         .badge-gray {{ background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }}
         .badge-brand {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
-        .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
         
         /* 데이터 테이블 */
         .data-table {{
@@ -652,18 +731,18 @@ html_content = f"""
 </head>
 <body>
     <div class="app-container">
-        <!-- 좌측 사이드바: 추천 시드 상품 목록 -->
+        <!-- 좌측 사이드바: 추천 서비스 유형 목록 -->
         <aside class="sidebar">
             <div class="sidebar-header" onclick="goToDefaultPage()" title="기본 페이지로 리셋">
                 <div class="sidebar-title">
-                    <span>추천 시드 상품</span>
-                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="seedCountBadge">0</span>
+                    <span>추천 서비스 유형</span>
+                    <span style="font-size:0.75rem; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:10px;" id="typeCountBadge">0</span>
                 </div>
             </div>
             <div class="search-box">
-                <input type="text" id="seedSearchInput" class="search-input" placeholder="상품명/카테고리 검색..."/>
+                <input type="text" id="typeSearchInput" class="search-input" placeholder="추천 유형 검색..."/>
             </div>
-            <ul class="seed-list" id="seedList"></ul>
+            <ul class="type-list" id="typeList"></ul>
         </aside>
 
         <!-- 우측 메인 대시보드 -->
@@ -681,25 +760,10 @@ html_content = f"""
                 </div>
 
                 <div style="display:flex; align-items:center; gap:10px; font-size:0.84rem; font-weight:700; color:#334155; flex-wrap:wrap;">
-                    <!-- 사이트 선택 -->
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <span>사이트:</span>
-                        <select id="siteCdSelect" style="padding:5px 9px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; outline:none;">
-                            <option value="1">1 (하프클럽)</option>
-                            <option value="2">2 (보리보리)</option>
-                        </select>
-                    </div>
-
-                    <!-- 추천 모델 선택 -->
-                    <div style="display:flex; align-items:center; gap:5px;">
-                        <span>추천 유형:</span>
-                        <select id="mlTypeSelect" style="padding:5px 9px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:700; color:#0f172a; outline:none; max-width:200px;"></select>
-                    </div>
-
                     <!-- 상품 번호 직접 입력 -->
                     <div style="display:flex; align-items:center; gap:5px;">
-                        <span>상품번호:</span>
-                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표구분 다중" style="width:140px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
+                        <span>직접입력:</span>
+                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표 다중" style="width:140px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.84rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
                     </div>
 
                     <!-- 연령/성별 필터 -->
@@ -728,6 +792,24 @@ html_content = f"""
             </header>
 
             <div class="dashboard-body">
+                <!-- 우측 상단: 사이트 선택 및 추천 시드 상품(베스트) 섹션 -->
+                <div class="seed-section-box">
+                    <div class="seed-section-header">
+                        <div class="seed-site-wrap">
+                            <span style="font-size:0.92rem; font-weight:800; color:#0f172a;">사이트 및 추천 시드 상품</span>
+                            <div class="seed-site-btn-group">
+                                <button id="btnSiteHalf" class="site-toggle-btn active" onclick="changeSite('1')">하프클럽</button>
+                                <button id="btnSiteBori" class="site-toggle-btn" onclick="changeSite('2')">보리보리</button>
+                            </div>
+                        </div>
+                        <div style="font-size:0.78rem; color:#64748b; font-weight:600;" id="seedStatusText">
+                            실시간 베스트 상품을 불러오는 중...
+                        </div>
+                    </div>
+                    <!-- 12개 카테고리별 베스트 상품 카드 그리드 -->
+                    <div class="seed-grid-container" id="seedGridContainer"></div>
+                </div>
+
                 <!-- 메타 메타데이터 뱃지 바 -->
                 <div class="meta-badges" id="metaBadgesBar">
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
@@ -863,7 +945,6 @@ html_content = f"""
             BORIBORI_CDN: "{BORIBORI_CDN_URL}"
         }};
 
-        const SEED_DATA = {seed_products_json};
         const ML_TYPES_LIST = {ml_types_json};
 
         let currentSiteCd = {initial_site_json};
@@ -876,7 +957,8 @@ html_content = f"""
 
         let currentRawData = null;
         let currentApiUrl = '';
-        let displayedSeeds = [];
+        let currentSeedProducts = [];
+        let displayedTypes = ML_TYPES_LIST;
 
         function getWebBaseUrl() {{
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
@@ -968,16 +1050,11 @@ html_content = f"""
         }}
 
         function initApp() {{
-            // 사이트 셀렉트 설정
-            const siteSelect = document.getElementById('siteCdSelect');
-            if (siteSelect) siteSelect.value = currentSiteCd;
+            // 사이트 토글 버튼 상태 동기화
+            updateSiteToggleButtons();
 
-            // 추천 모델 셀렉트박스 채우기
-            const mlSelect = document.getElementById('mlTypeSelect');
-            if (mlSelect) {{
-                mlSelect.innerHTML = ML_TYPES_LIST.map(m => `<option value="${{m.id}}">${{m.name}}</option>`).join('');
-                mlSelect.value = currentMlType;
-            }}
+            // 추천 유형 사이드바 렌더링
+            renderTypeList();
 
             // 필터 설정
             const directInput = document.getElementById('directPrdInput');
@@ -992,58 +1069,49 @@ html_content = f"""
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput) sizeInput.value = currentK;
 
-            // 시드 상품 목록 렌더링
-            renderSeedList();
-
             // 탭 초기화
             switchViewTab(currentTab, false);
 
             // 이벤트 리스너 등록
             setupEventListeners();
 
-            // 초기 데이터 조회
-            executeRecommendFlow();
+            // 실시간 베스트 상품 로드 후 추천 실행
+            loadBestProducts(currentSiteCd);
+        }}
+
+        function updateSiteToggleButtons() {{
+            const btnHalf = document.getElementById('btnSiteHalf');
+            const btnBori = document.getElementById('btnSiteBori');
+            if (btnHalf && btnBori) {{
+                if (currentSiteCd === '2') {{
+                    btnHalf.classList.remove('active');
+                    btnBori.classList.add('active');
+                }} else {{
+                    btnHalf.classList.add('active');
+                    btnBori.classList.remove('active');
+                }}
+            }}
+        }}
+
+        function changeSite(newSiteCd) {{
+            if (currentSiteCd === newSiteCd) return;
+            currentSiteCd = newSiteCd;
+            updateSiteToggleButtons();
+            loadBestProducts(currentSiteCd);
         }}
 
         function setupEventListeners() {{
-            // 검색 필터링
-            const searchInput = document.getElementById('seedSearchInput');
+            // 추천 유형 검색
+            const searchInput = document.getElementById('typeSearchInput');
             if (searchInput) {{
                 searchInput.addEventListener('input', (e) => {{
                     const q = e.target.value.trim().toLowerCase();
-                    const allSeeds = SEED_DATA[currentSiteCd] || [];
-                    const filtered = allSeeds.filter(s => 
-                        (s.prd_nm && s.prd_nm.toLowerCase().includes(q)) ||
-                        (s.full_name && s.full_name.toLowerCase().includes(q)) ||
-                        (s.category && s.category.toLowerCase().includes(q)) ||
-                        (s.prd_no && s.prd_no.includes(q))
+                    const filtered = ML_TYPES_LIST.filter(m => 
+                        m.name.toLowerCase().includes(q) || 
+                        m.id.toLowerCase().includes(q) || 
+                        m.desc.toLowerCase().includes(q)
                     );
-                    renderSeedList(filtered);
-                }});
-            }}
-
-            // 사이트 전환 이벤트
-            const siteSelect = document.getElementById('siteCdSelect');
-            if (siteSelect) {{
-                siteSelect.addEventListener('change', (e) => {{
-                    currentSiteCd = e.target.value;
-                    const seeds = SEED_DATA[currentSiteCd] || [];
-                    if (seeds.length > 0) {{
-                        currentPrdNo = seeds[0].prd_no;
-                        const directInput = document.getElementById('directPrdInput');
-                        if (directInput) directInput.value = currentPrdNo;
-                    }}
-                    renderSeedList();
-                    executeRecommendFlow();
-                }});
-            }}
-
-            // 추천 모델 전환 이벤트
-            const mlSelect = document.getElementById('mlTypeSelect');
-            if (mlSelect) {{
-                mlSelect.addEventListener('change', (e) => {{
-                    currentMlType = e.target.value;
-                    executeRecommendFlow();
+                    renderTypeList(filtered);
                 }});
             }}
 
@@ -1058,45 +1126,39 @@ html_content = f"""
             }}
         }}
 
-        function renderSeedList(seedsToRender = null) {{
-            const list = seedsToRender || SEED_DATA[currentSiteCd] || [];
-            displayedSeeds = list;
-            const container = document.getElementById('seedList');
-            const badge = document.getElementById('seedCountBadge');
+        function renderTypeList(typesToRender = null) {{
+            const list = typesToRender || ML_TYPES_LIST;
+            displayedTypes = list;
+            const container = document.getElementById('typeList');
+            const badge = document.getElementById('typeCountBadge');
             if (badge) badge.textContent = list.length;
             if (!container) return;
 
             container.innerHTML = '';
             list.forEach((item, idx) => {{
                 const li = document.createElement('li');
-                const isSelected = item.prd_no === currentPrdNo;
-                li.className = `seed-item ${{isSelected ? 'active' : ''}}`;
-                li.setAttribute('data-prd-no', item.prd_no);
+                const isSelected = item.id === currentMlType;
+                li.className = `type-item ${{isSelected ? 'active' : ''}}`;
+                li.setAttribute('data-type-id', item.id);
                 li.setAttribute('tabindex', '0');
 
-                const name = item.prd_nm || item.category || '상품';
-                const no = item.prd_no;
-
                 li.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                        <span style="font-weight:700;">${{name}}</span>
-                        <span style="font-size:0.75rem; color:#64748b;">#${{no}}</span>
-                    </div>
-                    <span style="font-size:0.72rem; color:#94a3b8;">${{item.category || ''}}</span>
+                    <span style="font-weight:700;">${{item.name}}</span>
+                    <span class="type-desc">${{item.desc}}</span>
                 `;
 
                 li.addEventListener('click', () => {{
-                    selectSeedProduct(item.prd_no);
+                    selectMlType(item.id);
                 }});
 
                 li.addEventListener('keydown', (e) => {{
                     if (e.key === 'ArrowDown') {{
                         e.preventDefault();
-                        if (idx + 1 < displayedSeeds.length) {{
+                        if (idx + 1 < displayedTypes.length) {{
                             const nextLi = container.children[idx + 1];
                             if (nextLi) {{
                                 nextLi.focus();
-                                selectSeedProduct(displayedSeeds[idx + 1].prd_no);
+                                selectMlType(displayedTypes[idx + 1].id);
                             }}
                         }}
                     }} else if (e.key === 'ArrowUp') {{
@@ -1105,14 +1167,14 @@ html_content = f"""
                             const prevLi = container.children[idx - 1];
                             if (prevLi) {{
                                 prevLi.focus();
-                                selectSeedProduct(displayedSeeds[idx - 1].prd_no);
+                                selectMlType(displayedTypes[idx - 1].id);
                             }}
                         }} else {{
-                            document.getElementById('seedSearchInput')?.focus();
+                            document.getElementById('typeSearchInput')?.focus();
                         }}
                     }} else if (e.key === 'Enter' || e.key === ' ') {{
                         e.preventDefault();
-                        selectSeedProduct(item.prd_no);
+                        selectMlType(item.id);
                     }}
                 }});
 
@@ -1120,13 +1182,10 @@ html_content = f"""
             }});
         }}
 
-        function selectSeedProduct(prdNo) {{
-            currentPrdNo = String(prdNo).trim();
-            const directInput = document.getElementById('directPrdInput');
-            if (directInput) directInput.value = currentPrdNo;
-
-            document.querySelectorAll('.seed-item').forEach(el => {{
-                if (el.getAttribute('data-prd-no') === currentPrdNo) {{
+        function selectMlType(typeId) {{
+            currentMlType = typeId;
+            document.querySelectorAll('.type-item').forEach(el => {{
+                if (el.getAttribute('data-type-id') === currentMlType) {{
                     el.classList.add('active');
                     el.scrollIntoView({{ block: 'nearest', behavior: 'smooth' }});
                 }} else {{
@@ -1137,16 +1196,130 @@ html_content = f"""
             executeRecommendFlow();
         }}
 
+        // 사이트별 실시간 베스트 상품 API 호출 함수 (기존 get_best_products 로직 완벽 복원)
+        async function loadBestProducts(siteCd) {{
+            const seedStatus = document.getElementById('seedStatusText');
+            if (seedStatus) seedStatus.textContent = '실시간 베스트 상품 조회 중...';
+
+            const bestUrl = siteCd === '1' 
+                ? 'https://hapix.halfclub.com/searches/best/?offset=0&limit=200&dealYn=N&interval=24&countryCd=001&langCd=001&siteCd=1&deviceCd=001&device=pc&mandM=halfclub'
+                : 'https://apix.boribori.co.kr/searches/best/?dealYn=N&interval=24&siteCd=2&limit=0,200&countryCd=001&langCd=001&deviceCd=001&mandM=b_boribori';
+
+            try {{
+                const res = await fetch(bestUrl);
+                if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
+                const data = await res.json();
+
+                let hits = [];
+                if (data?.data?.result?.hits?.hits) {{
+                    hits = data.data.result.hits.hits;
+                }} else if (data?.data?.result?.hits) {{
+                    hits = data.data.result.hits;
+                }} else if (Array.isArray(data?.data)) {{
+                    hits = data.data;
+                }} else if (Array.isArray(data)) {{
+                    hits = data;
+                }}
+
+                const products = [];
+                const seenCategories = new Set();
+
+                for (let i = 0; i < hits.length; i++) {{
+                    if (products.length >= 12) break;
+                    const hit = hits[i];
+                    const source = hit._source || hit;
+                    const prdNo = String(source.prdNo || source.prd_no || '');
+                    let dpCtgrNm1 = source.dpCtgrNm1 || '';
+                    if (dpCtgrNm1.includes('@')) {{
+                        dpCtgrNm1 = dpCtgrNm1.split('@')[0].trim();
+                    }}
+                    if (!dpCtgrNm1) continue;
+
+                    if (prdNo && !seenCategories.has(dpCtgrNm1)) {{
+                        seenCategories.add(dpCtgrNm1);
+                        const prdNm = source.prdNm || `상품${{i+1}}`;
+                        const prdImg = source.appPrdImgUrl || source.prdImg || '';
+                        products.push({{
+                            prd_nm: dpCtgrNm1,
+                            full_name: dpCtgrNm1,
+                            prd_no: prdNo,
+                            prd_img: prdImg,
+                            actual_prd_nm: prdNm
+                        }});
+                    }}
+                }}
+
+                if (products.length > 0) {{
+                    currentSeedProducts = products;
+                    if (seedStatus) seedStatus.textContent = `카테고리별 베스트 ${{products.length}}개 로드 완료`;
+                }} else {{
+                    throw new Error('상품 데이터 없음');
+                }}
+            }} catch (e) {{
+                if (seedStatus) seedStatus.textContent = '베스트 기본 상품 모드';
+                // 폴백 기본 시드
+                currentSeedProducts = siteCd === '1' ? [
+                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": ""}},
+                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": ""}},
+                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": ""}},
+                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": ""}},
+                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": ""}},
+                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": ""}}
+                ] : [
+                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": ""}},
+                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": ""}},
+                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": ""}},
+                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": ""}},
+                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": ""}},
+                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": ""}}
+                ];
+            }}
+
+            // 현재 선택된 상품이 시드에 없으면 첫 번째 시드로 자동 갱신
+            if (currentSeedProducts.length > 0) {{
+                const exists = currentSeedProducts.some(p => p.prd_no === currentPrdNo);
+                if (!exists) {{
+                    currentPrdNo = currentSeedProducts[0].prd_no;
+                    const directInput = document.getElementById('directPrdInput');
+                    if (directInput) directInput.value = currentPrdNo;
+                }}
+            }}
+
+            renderSeedGrid();
+            executeRecommendFlow();
+        }}
+
+        function renderSeedGrid() {{
+            const container = document.getElementById('seedGridContainer');
+            if (!container) return;
+
+            container.innerHTML = currentSeedProducts.map(p => {{
+                const isSelected = p.prd_no === currentPrdNo;
+                const fullImg = getImageUrl(p.prd_img);
+                return `
+                    <div class="seed-card ${{isSelected ? 'active' : ''}}" onclick="selectSeedProduct('${{p.prd_no}}')" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})">
+                        <img src="${{fullImg || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="seed-card-img" alt="${{p.prd_nm}}" loading="lazy"/>
+                        <span class="seed-card-cat">${{p.prd_nm}}</span>
+                        <span class="seed-card-prdno">#${{p.prd_no}}</span>
+                    </div>
+                `;
+            }}).join('');
+        }}
+
+        function selectSeedProduct(prdNo) {{
+            currentPrdNo = String(prdNo).trim();
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = currentPrdNo;
+
+            renderSeedGrid();
+            executeRecommendFlow();
+        }}
+
         function triggerFetch() {{
             const directInput = document.getElementById('directPrdInput');
             if (directInput && directInput.value.trim()) {{
                 currentPrdNo = directInput.value.trim();
             }}
-            const siteSelect = document.getElementById('siteCdSelect');
-            if (siteSelect) currentSiteCd = siteSelect.value;
-
-            const mlSelect = document.getElementById('mlTypeSelect');
-            if (mlSelect) currentMlType = mlSelect.value;
 
             const ageSelect = document.getElementById('ageSelect');
             if (ageSelect) currentAge = ageSelect.value;
@@ -1157,6 +1330,7 @@ html_content = f"""
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput && sizeInput.value) currentK = sizeInput.value;
 
+            renderSeedGrid();
             executeRecommendFlow();
         }}
 
@@ -1728,5 +1902,5 @@ html_content = f"""
 </html>
 """
 
-# 7. Streamlit 컴포넌트 렌더링 (사방 여백 완전 제거 및 풀스크린 뷰포트)
+# 6. Streamlit 컴포넌트 렌더링 (풀스크린 뷰포트)
 components.html(html_content, height=1000, scrolling=False)
