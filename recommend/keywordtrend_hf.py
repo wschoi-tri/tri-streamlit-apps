@@ -1515,13 +1515,6 @@ html_content = f"""
                         <div style="padding:0 12px 12px 12px;">
                             <div class="badge-chip-container"><span class="badge-chip-item">키워드:</span>${{kwChips}}</div>
                             ${{badgesHtml}}
-                            ${{hasPrdUrl ? `
-                                <div style="margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9; text-align:center;">
-                                    <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="font-size:0.76rem; font-weight:700; color:#2563eb; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
-                                        상품 상세 이동 ↗
-                                    </a>
-                                </div>
-                            ` : ''}}
                         </div>
                     </div>
                 `;
