@@ -679,21 +679,28 @@ html_content = f"""
                         <div class="guide-title">AI 트렌드 큐레이션 가이드</div>
                         <div style="display:flex; gap:6px;" id="extractedTagsHeader"></div>
                     </div>
+
+                    <!-- AI 큐레이션 요약 (curation_summary) -->
+                    <div id="curationSummaryWrap" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-left:3px solid #2563eb; border-radius:6px; padding:8px 12px; margin-bottom:12px; align-items:center; gap:8px;">
+                        <span style="font-size:0.75rem; font-weight:800; background:#eff6ff; color:#2563eb; padding:2px 7px; border-radius:4px; flex-shrink:0;">요약</span>
+                        <span id="curationSummaryText" style="font-size:0.88rem; font-weight:700; color:#0f172a; line-height:1.5;"></span>
+                    </div>
+
                     <div class="guide-text" id="guideTextBody">데이터를 불러오는 중입니다...</div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:8px;" id="extractedBrandsWrap"></div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedKeywordsWrap"></div>
                     <div style="font-size:0.8rem; font-weight:600; color:#64748b; margin-top:4px;" id="extractedSearchKeywordsWrap"></div>
                     
-                    <!-- 참고 뉴스 기사 (아코디언 토글) -->
+                    <!-- 참고 뉴스 기사 (기본 펼침, 클릭 시 접기 토글) -->
                     <div style="margin-top:12px; padding-top:10px; border-top:1px solid #f1f5f9;" id="articlesWrapper">
                         <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; padding:4px 0;" onclick="toggleArticlesAccordion()" title="참고 뉴스 목록 접기/펼치기">
                             <div style="font-size:0.8rem; font-weight:700; color:#475569; display:flex; align-items:center; gap:6px;">
                                 <span>참고 뉴스 기사</span>
                                 <span id="articlesCountBadge" style="font-size:0.72rem; background:#f1f5f9; color:#64748b; padding:1px 6px; border-radius:4px;">0건</span>
                             </div>
-                            <span id="articlesToggleIcon" style="font-size:0.75rem; color:#2563eb; font-weight:700;">목록 펼치기 ▼</span>
+                            <span id="articlesToggleIcon" style="font-size:0.75rem; color:#2563eb; font-weight:700;">목록 접기 ▲</span>
                         </div>
-                        <div id="articlesListContainer" style="display:none; margin-top:8px;"></div>
+                        <div id="articlesListContainer" style="display:block; margin-top:8px;"></div>
                     </div>
                 </div>
 
