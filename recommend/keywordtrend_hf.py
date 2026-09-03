@@ -1876,5 +1876,5 @@ html_content = f"""
 </html>
 """
 
-# Streamlit 원페이지 통합 HTML 서빙 (전체 100vh 뷰포트)
-components.html(html_content, height=960, scrolling=True)
+# Streamlit 원페이지 통합 HTML 서빙 (내부 단일 스크롤 전용)
+components.html(html_content, height=1000, scrolling=False)
