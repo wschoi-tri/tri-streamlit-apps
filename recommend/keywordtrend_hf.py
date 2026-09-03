@@ -1313,8 +1313,13 @@ html_content = f"""
             const elemUpdateDt = document.getElementById('updateDtText');
             if (elemUpdateDt) elemUpdateDt.textContent = updateDt;
 
-            // 큐레이션 요약문 (curation_summary) 바인딩
-            const curationSummary = data.curation_summary || llmInfo.curation_summary || stage1.guide_result?.curation_summary || '';
+            // 큐레이션 요약문 (curation_summary: LLM 2단계 산출물 우선 탐색)
+            const curationSummary = stage2.llm_response?.curation_summary ||
+                                   stage2.curation_summary ||
+                                   data.curation_summary ||
+                                   llmInfo.curation_summary ||
+                                   stage1.guide_result?.curation_summary ||
+                                   '';
             const summaryWrap = document.getElementById('curationSummaryWrap');
             const summaryText = document.getElementById('curationSummaryText');
             if (summaryWrap && summaryText) {{
