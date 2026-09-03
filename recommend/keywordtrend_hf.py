@@ -1296,7 +1296,7 @@ html_content = f"""
             const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(', ') : seasonVal;
 
             document.getElementById('extractedTagsHeader').innerHTML = `
-                <span class="badge-chip-item badge-gray">카테고리: ${{catTag}}</span>
+                <span class="badge-chip-item badge-blue" style="font-weight:700;">카테고리: ${{catTag}}</span>
                 <span class="badge-chip-item badge-gray">성별: ${{genTag}}</span>
                 <span class="badge-chip-item badge-gray">계절: ${{seasonStr}}</span>
             `;
@@ -1428,29 +1428,39 @@ html_content = f"""
                 }}).join('');
                 const badgesHtml = renderBadgesHtml(prd);
 
+                const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
+                const rankText = rank === 1 ? 'TOP 1' : (rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`);
+
                 return `
                     <div class="product-card">
                         <div>
                             <a href="${{prdUrl}}" ${{hasPrdUrl ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="display:block; text-decoration:none; color:inherit;">
                                 <div class="product-img-wrap">
                                     <img src="${{imgUrl}}" class="product-img" alt="${{name}}"/>
-                                    <span class="rank-badge">#${{rank}}</span>
+                                    <span class="${{rankClass}}">${{rankText}}</span>
                                 </div>
                                 <div class="product-info">
                                     <div class="brand-name">${{brand}}</div>
                                     <div class="product-name" title="${{name}}">${{name}}</div>
                                     <div class="price-wrap">
+                                        ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
                                         <span class="sale-price">${{salePrc.toLocaleString()}}원</span>
                                         ${{nrmPrc > salePrc ? `<span class="normal-price">${{nrmPrc.toLocaleString()}}원</span>` : ''}}
-                                        ${{discRt > 0 ? `<span class="discount-rate">${{discRt}}%</span>` : ''}}
                                     </div>
-                                    <div style="font-size:0.72rem; color:#64748b;">평점 ${{rating}} (${{reviews}}개 리뷰)</div>
+                                    ${{reviews > 0 || rating > 0 ? `<div style="font-size:0.75rem; color:#64748b; font-weight:600;">★ ${{rating}} (리뷰 ${{reviews.toLocaleString()}})</div>` : ''}}
                                 </div>
                             </a>
                         </div>
                         <div style="padding:0 12px 12px 12px;">
-                            <div class="badge-chip-container"><span class="badge-chip-item">매칭 키워드:</span>${{kwChips}}</div>
+                            <div class="badge-chip-container"><span class="badge-chip-item">키워드:</span>${{kwChips}}</div>
                             ${{badgesHtml}}
+                            ${{hasPrdUrl ? `
+                                <div style="margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9; text-align:center;">
+                                    <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="font-size:0.76rem; font-weight:700; color:#2563eb; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                                        상품 상세 이동 ↗
+                                    </a>
+                                </div>
+                            ` : ''}}
                         </div>
                     </div>
                 `;
