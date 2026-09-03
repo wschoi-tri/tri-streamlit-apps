@@ -88,8 +88,6 @@ raw_k = qp.get("k", "50")
 if not raw_k.isdigit() or int(raw_k) <= 0:
     raw_k = "50"
 
-raw_age = qp.get("age", "")
-raw_gender = qp.get("gender", "")
 raw_basket = qp.get("basketPrdNo", "")
 raw_wish = qp.get("wishPrdNo", "")
 raw_mem = qp.get("memNo", "")
@@ -104,8 +102,6 @@ initial_site_json = json.dumps(raw_site, ensure_ascii=False)
 initial_type_json = json.dumps(raw_type, ensure_ascii=False)
 initial_prd_json = json.dumps(raw_prd, ensure_ascii=False)
 initial_k_json = json.dumps(raw_k, ensure_ascii=False)
-initial_age_json = json.dumps(raw_age, ensure_ascii=False)
-initial_gender_json = json.dumps(raw_gender, ensure_ascii=False)
 initial_basket_json = json.dumps(raw_basket, ensure_ascii=False)
 initial_wish_json = json.dumps(raw_wish, ensure_ascii=False)
 initial_mem_json = json.dumps(raw_mem, ensure_ascii=False)
@@ -353,6 +349,7 @@ html_content = f"""
             padding: 4px;
             transition: all 0.15s ease;
             position: relative;
+            user-select: none;
         }}
         .seed-card:hover {{
             border-color: #94a3b8;
@@ -362,7 +359,22 @@ html_content = f"""
         .seed-card.active {{
             border-color: #2563eb;
             background: #eff6ff;
-            box-shadow: 0 0 0 2px rgba(37,99,235,0.2);
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.3);
+        }}
+        .seed-card-badge {{
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 1px 4px;
+            border-radius: 3px;
+            display: none;
+        }}
+        .seed-card.active .seed-card-badge {{
+            display: block;
         }}
         .seed-card-img {{
             width: 100%;
@@ -787,47 +799,33 @@ html_content = f"""
                     <button id="btnCopyUrl" onclick="copyCurrentUrl()" style="background:#f1f5f9; border:1px solid #cbd5e1; color:#475569; font-size:11px; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer;" title="현재 상태 URL 링크 복사">URL 복사</button>
                 </div>
 
-                <!-- 우측 컨트롤러 파라미터 바 -->
+                <!-- 우측 컨트롤러 파라미터 바 (연령/성별 완전 제거) -->
                 <div style="display:flex; align-items:center; gap:8px; font-size:0.83rem; font-weight:700; color:#334155; flex-wrap:wrap;">
                     <!-- 기본 상품번호 직접 입력 -->
                     <div style="display:flex; align-items:center; gap:4px;">
                         <span>상품번호:</span>
-                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표 다중" style="width:130px; padding:4px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
+                        <input type="text" id="directPrdInput" placeholder="단일 or 쉼표 다중" style="width:140px; padding:5px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:600; color:#0f172a; outline:none;" title="상품번호 직접 입력 (예: 380118214,402544118)"/>
                     </div>
 
                     <!-- home API 전용 파라미터 컨테이너 -->
                     <div id="homeParamsWrap" style="display:flex; align-items:center; gap:6px;">
-                        <input type="text" id="basketPrdInput" placeholder="장바구니 prdNo" style="width:105px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="장바구니 상품번호 (basketPrdNo, 쉼표구분)"/>
-                        <input type="text" id="wishPrdInput" placeholder="좋아요 prdNo" style="width:95px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="좋아요 상품번호 (wishPrdNo, 쉼표구분)"/>
-                        <input type="text" id="memNoInput" placeholder="회원 memNo" style="width:85px; padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="회원번호 (memNo)"/>
-                        <label style="display:flex; align-items:center; gap:3px; font-size:0.78rem; cursor:pointer;" title="휴리스틱 조회 여부">
+                        <input type="text" id="basketPrdInput" placeholder="장바구니 prdNo" style="width:110px; padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="장바구니 상품번호 (basketPrdNo, 쉼표구분)"/>
+                        <input type="text" id="wishPrdInput" placeholder="좋아요 prdNo" style="width:100px; padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="좋아요 상품번호 (wishPrdNo, 쉼표구분)"/>
+                        <input type="text" id="memNoInput" placeholder="회원 memNo" style="width:90px; padding:5px 7px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.8rem; font-weight:600; color:#0f172a; outline:none;" title="회원번호 (memNo)"/>
+                        <label style="display:flex; align-items:center; gap:4px; font-size:0.8rem; cursor:pointer;" title="휴리스틱 조회 여부">
                             <input type="checkbox" id="selfYnCheck" style="cursor:pointer;"/>
                             <span>휴리스틱</span>
                         </label>
                     </div>
 
-                    <!-- 연령/성별 필터 (viewtogether, buytogether 전용) -->
-                    <div id="conditionParamsWrap" style="display:none; align-items:center; gap:4px;">
-                        <select id="ageSelect" style="padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.81rem; font-weight:600; color:#0f172a; outline:none;">
-                            <option value="">연령: 전체</option>
-                            <option value="01">40대 미만</option>
-                            <option value="02">40대 이상</option>
-                        </select>
-                        <select id="genderSelect" style="padding:4px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.81rem; font-weight:600; color:#0f172a; outline:none;">
-                            <option value="">성별: 전체</option>
-                            <option value="01">남성</option>
-                            <option value="02">여성</option>
-                        </select>
-                    </div>
-
                     <!-- 조회 수 k -->
-                    <div style="display:flex; align-items:center; gap:3px;">
+                    <div style="display:flex; align-items:center; gap:4px;">
                         <span>k:</span>
-                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:50px; padding:4px 5px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
+                        <input type="number" id="sizeInput" value="50" min="1" max="200" style="width:52px; padding:5px 6px; border-radius:6px; border:1px solid #cbd5e1; background:#ffffff; font-size:0.83rem; font-weight:700; color:#0f172a; text-align:center; outline:none;"/>
                     </div>
 
                     <!-- 조회 버튼 -->
-                    <button id="btnFetch" onclick="triggerFetch()" style="background:#0b1329; color:#ffffff; border:none; padding:6px 15px; border-radius:6px; font-weight:800; font-size:0.84rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
+                    <button id="btnFetch" onclick="triggerFetch()" style="background:#0b1329; color:#ffffff; border:none; padding:6px 16px; border-radius:6px; font-weight:800; font-size:0.85rem; cursor:pointer; transition:background 0.15s ease;">API 연동 조회</button>
                 </div>
             </header>
 
@@ -841,6 +839,9 @@ html_content = f"""
                                 <button id="btnSiteHalf" class="site-toggle-btn active" onclick="changeSite('1')">하프클럽</button>
                                 <button id="btnSiteBori" class="site-toggle-btn" onclick="changeSite('2')">보리보리</button>
                             </div>
+                            <span style="font-size:0.75rem; color:#64748b; background:#f1f5f9; padding:2px 8px; border-radius:4px; margin-left:4px;">
+                                단일 클릭: 즉시 교체 / <b>Ctrl(Mac은 Cmd)+클릭</b>: 다중 중복 선택
+                            </span>
                         </div>
                         <div style="font-size:0.78rem; color:#64748b; font-weight:600;" id="seedStatusText">
                             실시간 베스트 상품을 불러오는 중...
@@ -865,11 +866,15 @@ html_content = f"""
                         <span style="color:#db2777; font-weight:800; font-size:0.82rem;" id="metaPrdNoText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
+                        <span style="color:#64748b; font-size:0.75rem;">선택 수량</span>
+                        <span style="color:#2563eb; font-weight:800; font-size:0.82rem;" id="metaSelectedCountText">1개</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
                         <span style="color:#64748b; font-size:0.75rem;">조회 수</span>
                         <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaKText">50개</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px;">
-                        <span style="color:#64748b; font-size:0.75rem;">추가 조건</span>
+                        <span style="color:#64748b; font-size:0.75rem;">행동 옵션</span>
                         <span style="color:#334155; font-weight:700; font-size:0.82rem;" id="metaConditionText">-</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; padding:3px 10px; border-radius:6px; margin-left:auto;">
@@ -881,7 +886,10 @@ html_content = f"""
                 <!-- 추천 대상 상품 상세 정보 카드 -->
                 <div class="target-card-box" id="targetCard">
                     <div class="target-card-header">
-                        <div class="target-title">추천 대상 상품 정보</div>
+                        <div class="target-title">
+                            <span>추천 대상 상품 정보</span>
+                            <span id="targetCountIndicator" style="font-size:0.78rem; font-weight:700; color:#2563eb; background:#eff6ff; padding:2px 8px; border-radius:6px;">1개 선택됨</span>
+                        </div>
                         <div style="display:flex; gap:6px;" id="targetTagsHeader"></div>
                     </div>
                     <div class="target-content-body" id="targetContentBody">
@@ -899,9 +907,9 @@ html_content = f"""
                             <div style="font-size:0.8rem; color:#64748b; font-weight:600; margin-top:4px;" id="targetCategoryPath"></div>
                         </div>
                     </div>
-                    <!-- home API 반환 Seed 행동 상품 목록 또는 다중 상품 칩 -->
+                    <!-- 다중 선택 상품 칩 또는 home 행동 시드 상품 칩 목록 -->
                     <div id="seedItemsWrap" style="display:none; margin-top:10px; padding-top:8px; border-top:1px solid #f1f5f9;">
-                        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;" id="seedItemsTitle">행동 시드 상품 (최근본/장바구니/좋아요):</div>
+                        <div style="font-size:0.78rem; font-weight:700; color:#475569; margin-bottom:6px;" id="seedItemsTitle">선택된 대상 상품 목록:</div>
                         <div id="seedItemsContainer" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
                     </div>
                 </div>
@@ -991,8 +999,6 @@ html_content = f"""
         let currentMlType = {initial_type_json};
         let currentPrdNo = {initial_prd_json};
         let currentK = {initial_k_json};
-        let currentAge = {initial_age_json};
-        let currentGender = {initial_gender_json};
         let currentBasket = {initial_basket_json};
         let currentWish = {initial_wish_json};
         let currentMem = {initial_mem_json};
@@ -1047,7 +1053,7 @@ html_content = f"""
             const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
                 ? (window.parent.location.origin + window.parent.location.pathname)
                 : (window.location.origin + window.location.pathname);
-            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
+            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
             navigator.clipboard.writeText(curUrl).then(() => {{
                 const btn = document.getElementById('btnCopyUrl');
                 if (btn) {{
@@ -1068,7 +1074,7 @@ html_content = f"""
 
         function updateUrlQuery() {{
             try {{
-                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&age=${{encodeURIComponent(currentAge)}}&gender=${{encodeURIComponent(currentGender)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
+                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&tab=${{encodeURIComponent(currentTab)}}`;
                 try {{
                     if (window.parent && window.parent.history && window.parent.history.replaceState) {{
                         let targetPath = queryStr;
@@ -1093,18 +1099,16 @@ html_content = f"""
             }} catch (e) {{}}
         }}
 
+        function getSelectedPrdList() {{
+            return currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+        }}
+
         function initApp() {{
             updateSiteToggleButtons();
             renderTypeList();
 
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
-
-            const ageSelect = document.getElementById('ageSelect');
-            if (ageSelect) ageSelect.value = currentAge;
-
-            const genderSelect = document.getElementById('genderSelect');
-            if (genderSelect) genderSelect.value = currentGender;
 
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput) sizeInput.value = currentK;
@@ -1150,17 +1154,8 @@ html_content = f"""
 
         function updateControlsVisibility() {{
             const homeWrap = document.getElementById('homeParamsWrap');
-            const condWrap = document.getElementById('conditionParamsWrap');
-
-            if (currentMlType === 'home') {{
-                if (homeWrap) homeWrap.style.display = 'flex';
-                if (condWrap) condWrap.style.display = 'none';
-            }} else if (currentMlType === 'viewtogether' || currentMlType === 'buytogether') {{
-                if (homeWrap) homeWrap.style.display = 'none';
-                if (condWrap) condWrap.style.display = 'flex';
-            }} else {{
-                if (homeWrap) homeWrap.style.display = 'none';
-                if (condWrap) condWrap.style.display = 'none';
+            if (homeWrap) {{
+                homeWrap.style.display = currentMlType === 'home' ? 'flex' : 'none';
             }}
         }}
 
@@ -1334,13 +1329,11 @@ html_content = f"""
                 ];
             }}
 
-            if (currentSeedProducts.length > 0) {{
-                const exists = currentSeedProducts.some(p => p.prd_no === currentPrdNo);
-                if (!exists) {{
-                    currentPrdNo = currentSeedProducts[0].prd_no;
-                    const directInput = document.getElementById('directPrdInput');
-                    if (directInput) directInput.value = currentPrdNo;
-                }}
+            // 현재 선택된 상품이 없거나 비어있으면 첫 번째 시드로 자동 초기화
+            if (!currentPrdNo.trim() && currentSeedProducts.length > 0) {{
+                currentPrdNo = currentSeedProducts[0].prd_no;
+                const directInput = document.getElementById('directPrdInput');
+                if (directInput) directInput.value = currentPrdNo;
             }}
 
             renderSeedGrid();
@@ -1351,11 +1344,14 @@ html_content = f"""
             const container = document.getElementById('seedGridContainer');
             if (!container) return;
 
+            const selectedList = getSelectedPrdList();
+
             container.innerHTML = currentSeedProducts.map(p => {{
-                const isSelected = p.prd_no === currentPrdNo;
+                const isSelected = selectedList.includes(p.prd_no);
                 const fullImg = getImageUrl(p.prd_img);
                 return `
-                    <div class="seed-card ${{isSelected ? 'active' : ''}}" onclick="selectSeedProduct('${{p.prd_no}}')" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})">
+                    <div class="seed-card ${{isSelected ? 'active' : ''}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})&#10;단일클릭: 교체 / Ctrl(Cmd)+클릭: 다중선택">
+                        <span class="seed-card-badge">V</span>
                         <img src="${{fullImg || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="seed-card-img" alt="${{p.prd_nm}}" loading="lazy"/>
                         <span class="seed-card-cat">${{p.prd_nm}}</span>
                         <span class="seed-card-prdno">#${{p.prd_no}}</span>
@@ -1364,8 +1360,30 @@ html_content = f"""
             }}).join('');
         }}
 
-        function selectSeedProduct(prdNo) {{
-            currentPrdNo = String(prdNo).trim();
+        // Ctrl(Cmd) + 클릭 지원 다중 선택 토글 핸들러
+        function handleSeedCardClick(prdNo, event) {{
+            prdNo = String(prdNo).trim();
+            let selectedList = getSelectedPrdList();
+
+            // Ctrl 키 (Windows/Linux) 또는 Meta 키 (Mac Command)가 눌렸는지 확인
+            const isMultiKey = event && (event.ctrlKey || event.metaKey || event.shiftKey);
+
+            if (isMultiKey) {{
+                // 다중 선택 모드: 토글 방식
+                if (selectedList.includes(prdNo)) {{
+                    // 이미 선택되어 있으면 제거 (단, 0개가 되는 경우 그대로 유지)
+                    if (selectedList.length > 1) {{
+                        selectedList = selectedList.filter(p => p !== prdNo);
+                    }}
+                }} else {{
+                    selectedList.push(prdNo);
+                }}
+                currentPrdNo = selectedList.join(',');
+            }} else {{
+                // 일반 단일 클릭: 해당 상품으로 교체
+                currentPrdNo = prdNo;
+            }}
+
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
 
@@ -1378,12 +1396,6 @@ html_content = f"""
             if (directInput && directInput.value.trim()) {{
                 currentPrdNo = directInput.value.trim();
             }}
-
-            const ageSelect = document.getElementById('ageSelect');
-            if (ageSelect) currentAge = ageSelect.value;
-
-            const genderSelect = document.getElementById('genderSelect');
-            if (genderSelect) currentGender = genderSelect.value;
 
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput && sizeInput.value) currentK = sizeInput.value;
@@ -1453,16 +1465,30 @@ html_content = f"""
             const metaMl = document.getElementById('metaMlTypeText');
             if (metaMl) metaMl.textContent = mlName;
 
-            // 상단 보조 상품 뱃지 및 링크
-            const firstPrd = currentPrdNo.split(',')[0].trim();
+            // 선택된 상품 목록 및 뱃지
+            const selectedList = getSelectedPrdList();
+            const firstPrd = selectedList[0] || '-';
+
             const prdBadgeText = document.getElementById('currentPrdBadgeText');
-            if (prdBadgeText) prdBadgeText.textContent = `대상: #${{firstPrd}}`;
+            if (prdBadgeText) {{
+                if (selectedList.length > 1) {{
+                    prdBadgeText.textContent = `대상: #${{firstPrd}} 외 ${{selectedList.length - 1}}건`;
+                }} else {{
+                    prdBadgeText.textContent = `대상: #${{firstPrd}}`;
+                }}
+            }}
 
             const navLink = document.getElementById('currentPrdTitleLink');
             if (navLink) navLink.href = getProductDetailUrl(firstPrd);
 
             const metaPrd = document.getElementById('metaPrdNoText');
             if (metaPrd) metaPrd.textContent = currentPrdNo;
+
+            const metaCount = document.getElementById('metaSelectedCountText');
+            if (metaCount) metaCount.textContent = `${{selectedList.length}}개`;
+
+            const targetCountInd = document.getElementById('targetCountIndicator');
+            if (targetCountInd) targetCountInd.textContent = `${{selectedList.length}}개 선택됨`;
 
             const metaK = document.getElementById('metaKText');
             if (metaK) metaK.textContent = `${{currentK}}개`;
@@ -1476,10 +1502,6 @@ html_content = f"""
                     if (currentMem) parts.push(`회원: ${{currentMem}}`);
                     if (currentSelfYn) parts.push(`휴리스틱: ON`);
                     metaCond.textContent = parts.length > 0 ? parts.join(' / ') : '행동조건 없음';
-                }} else if (currentMlType === 'viewtogether' || currentMlType === 'buytogether') {{
-                    const ageTxt = currentAge === '01' ? '40대 미만' : (currentAge === '02' ? '40대 이상' : '전체');
-                    const genTxt = currentGender === '01' ? '남성' : (currentGender === '02' ? '여성' : '전체');
-                    metaCond.textContent = `연령: ${{ageTxt}} / 성별: ${{genTxt}}`;
                 }} else {{
                     metaCond.textContent = '-';
                 }}
@@ -1487,7 +1509,7 @@ html_content = f"""
         }}
 
         async function loadTargetProductInfo(prdNoStr) {{
-            const prdList = prdNoStr.split(',').map(s => s.trim()).filter(Boolean);
+            const prdList = getSelectedPrdList();
             const firstPrd = prdList[0] || '';
 
             if (!firstPrd) return;
@@ -1557,7 +1579,7 @@ html_content = f"""
             const tagsHeader = document.getElementById('targetTagsHeader');
             if (tagsHeader) {{
                 tagsHeader.innerHTML = `
-                    <span class="badge-chip-item badge-brand">브랜드: ${{brand}}</span>
+                    <span class="badge-chip-item badge-brand">대표 브랜드: ${{brand}}</span>
                     ${{c1 ? `<span class="badge-chip-item badge-blue">${{c1}}</span>` : ''}}
                 `;
             }}
@@ -1604,7 +1626,7 @@ html_content = f"""
             params.append('siteCd', currentSiteCd);
             params.append('size', currentK);
 
-            const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+            const prdList = getSelectedPrdList();
 
             if (currentMlType === 'home') {{
                 params.append('deviceCd', '001');
@@ -1621,17 +1643,13 @@ html_content = f"""
                     currentMem.split(',').map(s => s.trim()).filter(Boolean).forEach(m => params.append('memNo', m));
                 }}
             }} else if (currentMlType === 'recommendforyou') {{
+                // 다중 상품 지원
                 prdList.forEach(p => params.append('prdNo', p));
             }} else {{
-                params.append('prdNo', prdList[0] || '380118214');
+                // 단일 기준 추천인 경우에도 다중 선택 시 반복 전달 또는 첫 번째 전달
+                prdList.forEach(p => params.append('prdNo', p));
             }}
 
-            if (currentAge && (currentMlType === 'viewtogether' || currentMlType === 'buytogether')) {{
-                params.append('age', currentAge);
-            }}
-            if (currentGender && (currentMlType === 'viewtogether' || currentMlType === 'buytogether')) {{
-                params.append('gender', currentGender);
-            }}
             if (currentMlType === 'similaritem') {{
                 params.append('randomYn', 'false');
             }}
@@ -1692,7 +1710,6 @@ html_content = f"""
                     products = [products];
                 }}
 
-                // home API의 seed 추출
                 if (data.seed) {{
                     if (Array.isArray(data.seed)) {{
                         seedItems = data.seed;
@@ -1702,9 +1719,7 @@ html_content = f"""
                 }}
             }}
 
-            // 행동 시드 상품 칩 렌더링
             renderSeedItems(seedItems);
-
             renderProductGrid(products);
             renderProductTable(products);
             renderRawJsonView(data);
@@ -1716,34 +1731,46 @@ html_content = f"""
             const titleEl = document.getElementById('seedItemsTitle');
             if (!wrap || !container) return;
 
-            const prdList = currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+            const selectedList = getSelectedPrdList();
 
             if (currentMlType === 'home' && seedItems && seedItems.length > 0) {{
                 wrap.style.display = 'block';
-                if (titleEl) titleEl.textContent = `행동 시드 상품 (${{seedItems.length}}건 - 클릭 시 대상 변경):`;
+                if (titleEl) titleEl.textContent = `행동 시드 상품 (${{seedItems.length}}건 - 클릭 시 대상 교체, Ctrl+클릭 다중 추가):`;
                 container.innerHTML = seedItems.map(item => {{
-                    const pNo = item.prdNo || item.prd_no;
+                    const pNo = String(item.prdNo || item.prd_no);
                     const seedType = item.seed || 'seed';
                     const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                     const typeLabel = seedLabelMap[seedType] || seedType;
                     const brand = item.brandNm || '';
                     return `
-                        <span class="badge-chip-item badge-purple" style="cursor:pointer; padding:3px 8px;" onclick="selectSeedProduct('${{pNo}}')">
+                        <span class="badge-chip-item badge-purple" style="cursor:pointer; padding:3px 8px;" onclick="handleSeedCardClick('${{pNo}}', event)">
                             [${{typeLabel}}] ${{brand ? brand + ' ' : ''}}#${{pNo}} ↗
                         </span>
                     `;
                 }}).join('');
-            }} else if (prdList.length > 1) {{
+            }} else if (selectedList.length > 1) {{
                 wrap.style.display = 'block';
-                if (titleEl) titleEl.textContent = '다중 대상 상품 목록:';
-                container.innerHTML = prdList.map(p => `
-                    <span class="badge-chip-item badge-blue" style="cursor:pointer; padding:3px 8px;" onclick="selectSeedProduct('${{p}}')">
-                        #${{p}} ↗
+                if (titleEl) titleEl.textContent = `다중 선택된 대상 상품 목록 (${{selectedList.length}}개 - 클릭 시 삭제):`;
+                container.innerHTML = selectedList.map(p => `
+                    <span class="badge-chip-item badge-blue" style="cursor:pointer; padding:3px 8px;" onclick="removeSelectedPrd('${{p}}')">
+                        #${{p}} ✕
                     </span>
                 `).join('');
             }} else {{
                 wrap.style.display = 'none';
                 container.innerHTML = '';
+            }}
+        }}
+
+        function removeSelectedPrd(prdNo) {{
+            let selectedList = getSelectedPrdList();
+            if (selectedList.length > 1) {{
+                selectedList = selectedList.filter(p => p !== prdNo);
+                currentPrdNo = selectedList.join(',');
+                const directInput = document.getElementById('directPrdInput');
+                if (directInput) directInput.value = currentPrdNo;
+                renderSeedGrid();
+                executeRecommendFlow();
             }}
         }}
 
