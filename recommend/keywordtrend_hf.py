@@ -1035,37 +1035,30 @@ html_content = f"""
         }}
 
         async function fetchKeywordTrend(kw) {{
-            const siteCd = document.getElementById('siteCdSelect').value || '1';
+            const siteCd = document.getElementById('siteCdSelect')?.value || '1';
+            const size = document.getElementById('sizeInput')?.value || '50';
             const apiBase = getApiBaseUrl();
             currentApiUrl = `${{apiBase}}/recommend/keyword-trend?llmInfo=true&siteCd=${{siteCd}}&size=${{size}}&keyword=${{encodeURIComponent(kw)}}`;
-            const brandFilterUrl = `${{apiBase}}/searches/v2/product/brand-filter/?keyword=${{encodeURIComponent(kw)}}&isPopular=true&size=100&device=pc`;
 
             try {{
-                const [recRes, brandRes] = await Promise.allSettled([
-                    fetch(currentApiUrl),
-                    fetch(brandFilterUrl)
-                ]);
-
-                if (recRes.status !== 'fulfilled' || !recRes.value.ok) {{
-                    throw new Error(`API HTTP Error: ${{recRes.status === 'fulfilled' ? recRes.value.status : recRes.reason}}`);
+                const res = await fetch(currentApiUrl);
+                if (!res.ok) {{
+                    throw new Error(`HTTP ${{res.status}}: ${{res.statusText}}`);
                 }}
-                const data = await recRes.value.json();
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {{
+                    const text = await res.text();
+                    throw new Error(`API 응답이 JSON 형식이 아닙니다 (Status: ${{res.status}})\\n호출 URL: ${{currentApiUrl}}\\n응답 내용 앞부분: ${{text.slice(0, 150)}}`);
+                }}
+                const data = await res.json();
                 currentRawData = data;
-
-                let brandFilterList = [];
-                if (brandRes.status === 'fulfilled' && brandRes.value.ok) {{
-                    try {{
-                        const bData = await brandRes.value.json();
-                        brandFilterList = bData?.data?.aggregations?.brand || [];
-                    }} catch (e) {{
-                        console.warn('Brand filter parse failed:', e);
-                    }}
-                }}
-
-                renderDashboardData(data, kw, brandFilterList);
+                renderDashboardData(data, kw);
             }} catch (err) {{
                 document.getElementById('guideTextBody').innerHTML = `
-                    <div style="color:#ef4444; font-weight:700; font-size:0.85rem;">API 호출 실패: ${{err.message}}</div>
+                    <div style="color:#ef4444; font-weight:700; font-size:0.85rem; line-height:1.6;">
+                        <div>API 호출 실패: ${{escapeHtml(err.message)}}</div>
+                        <div style="font-size:0.78rem; color:#94a3b8; margin-top:4px; word-break:break-all;">요청 URL: ${{currentApiUrl}}</div>
+                    </div>
                 `;
 
                 const gridContainer = document.getElementById('productGridContainer');
@@ -1080,7 +1073,7 @@ html_content = f"""
             }}
         }}
 
-        function renderDashboardData(data, kw, brandFilterList = []) {{
+        function renderDashboardData(data, kw) {{
             const llmInfo = data.llm_info || {{}};
             const reason = data.noshow_reason || llmInfo.noshow_reason || '';
 
@@ -1164,14 +1157,6 @@ html_content = f"""
             const products = data.recommended_products || data.products || data.items || [];
 
             const brandToCodeMap = {{}};
-            brandFilterList.forEach(b => {{
-                const bNm = (b.name || b.brandNm || b.key || '').trim();
-                const bCd = (b.code || b.brandCd || b.brdCd || '').trim();
-                if (bNm && bCd) {{
-                    brandToCodeMap[bNm.toLowerCase()] = bCd;
-                    brandToCodeMap[bNm] = bCd;
-                }}
-            }});
             products.forEach(p => {{
                 const bNm = (p.brandNm || p.brdNm || p.brand || '').trim();
                 const bCd = (p.brandCd || p.brdCd || p.brandCode || '').trim();
@@ -1192,31 +1177,11 @@ html_content = f"""
 
             const brandChips = extBrands.map((b, bIdx) => {{
                 const bClean = (typeof b === 'object' ? b.name : b).trim();
-                let bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
+                const bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
                 
                 const chipId = `brandChip_${{bIdx}}`;
                 const searchUrl = bCode ? getSearchUrl(kw, bCode) : getSearchUrl(kw + ' ' + bClean);
                 const titleText = bCode ? `브랜드 필터 '${{bClean}}' (${{bCode}}) 적용 검색` : `'${{kw}} ${{bClean}}' 검색`;
-
-                if (!bCode) {{
-                    const apiBase = getApiBaseUrl();
-                    fetch(`${{apiBase}}/searches/prdList/?keyword=${{encodeURIComponent(bClean)}}&device=pc&limit=0,1&sortSeq=12&isOnlyList=true`)
-                        .then(r => r.json())
-                        .then(resData => {{
-                            const hits = resData?.data?.result?.hits?.hits;
-                            if (hits && hits.length > 0) {{
-                                const foundCd = hits[0]?._source?.brandCd;
-                                if (foundCd) {{
-                                    const chipEl = document.getElementById(chipId);
-                                    if (chipEl) {{
-                                        chipEl.href = getSearchUrl(kw, foundCd);
-                                        chipEl.title = `브랜드 필터 '${{bClean}}' (${{foundCd}}) 적용 검색`;
-                                    }}
-                                }}
-                            }}
-                        }})
-                        .catch(() => {{}});
-                }}
 
                 return `<a id="${{chipId}}" href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="${{titleText}}">${{bClean}} ↗</a>`;
             }}).join('');
