@@ -374,7 +374,7 @@ html_content = f"""
         .product-img-wrap {{
             position: relative;
             width: 100%;
-            aspect-ratio: 1 / 1.15;
+            aspect-ratio: 1 / 1;
             background-color: #f8fafc;
             overflow: hidden;
         }}
@@ -382,7 +382,7 @@ html_content = f"""
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: top center;
+            object-position: center;
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }}
         .product-card:hover .product-img {{
