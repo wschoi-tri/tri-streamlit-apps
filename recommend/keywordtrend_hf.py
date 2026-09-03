@@ -53,19 +53,7 @@ def load_keywords():
                 return json.load(f)
         except Exception:
             pass
-    return [
-        "가디건", "가방", "골프모자", "골프백", "골프장갑", "골프티", "골프화", "귀걸이", "긴바지", "긴팔티셔츠",
-        "남성가방", "남성골프화", "남성벨트", "넥워머", "넥타이", "니트", "토드백", "데님", "데님팬츠", "드레스",
-        "등산화", "런닝화", "레깅스", "레더자켓", "레인부츠", "로퍼", "맨투맨", "머플러", "모자", "목걸이",
-        "민소매", "민소매티셔츠", "반바지", "반팔", "반팔티셔츠", "베스트", "벨트", "보스턴백", "보스톤백", "볼캡",
-        "부츠", "브로치", "비니", "샌들", "서류가방", "선글라스", "셋업", "셔츠", "손수건", "숄더백",
-        "스니커즈", "스카프", "스커트", "스포츠웨어", "슬랙스", "슬리퍼", "슬링백", "신발", "아우터", "양말",
-        "에코백", "여성가방", "여성골프화", "여성벨트", "오픈토", "요가복", "우산", "우비", "운동화", "원피스",
-        "자켓", "바람막이", "잠옷", "장갑", "점퍼", "정장", "정장자켓", "정장팬츠", "정장화", "조끼",
-        "집업", "집업티셔츠", "코트", "크로스백", "클러치", "토트백", "트렌치", "티셔츠", "패딩", "팔찌",
-        "팬츠", "펌프스", "플랫", "하프팬츠", "후드", "힐", "후리스", "후드티", "스웨터", "블라우스",
-        "발찌", "슈즈", "양산", "지갑", "시계", "홈웨어", "수트", "무스탕"
-    ]
+    return ["가디건", "원피스", "니트", "자켓", "코트", "셔츠", "블라우스", "스커트", "팬츠", "패딩"]
 
 keywords_list = load_keywords()
 keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
@@ -230,7 +218,11 @@ html_content = f"""
         .meta-badges {{
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 9px 16px;
             margin-bottom: 18px;
             font-size: 0.83rem;
             color: #64748b;
@@ -473,7 +465,7 @@ html_content = f"""
 
         <!-- 우측 메인 대시보드 -->
         <main class="main-content">
-            <header class="top-navbar" style="display:flex; align-items:center; justify-content:space-between; padding-bottom:14px;">
+            <header class="top-navbar" style="padding-bottom:14px;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <a id="currentKeywordTitleLink" href="{HALFCLUB_WEB_URL}/search/%EA%B0%80%EB%94%94%EA%B1%B4" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;" title="하프클럽에서 검색 (새 탭 이동)">
                         <h1 class="navbar-title" id="currentKeywordTitle" style="font-size:1.4rem; font-weight:800; color:#0f172a; margin:0; cursor:pointer; display:flex; align-items:center; gap:6px;">
@@ -502,7 +494,7 @@ html_content = f"""
 
             <div class="dashboard-body">
                 <!-- 메타 메타데이터 뱃지 바 -->
-                <div class="meta-badges" id="metaBadgesBar" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:9px 16px; margin-bottom:18px; display:flex; align-items:center; gap:20px; font-size:0.83rem; font-weight:600; color:#64748b;">
+                <div class="meta-badges" id="metaBadgesBar">
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span>LLM 모델:</span>
                         <span style="background:#eff6ff; border:1px solid #bfdbfe; color:#2563eb; font-weight:700; padding:2px 8px; border-radius:4px; font-size:0.82rem;" id="llmModelText">-</span>
@@ -897,6 +889,7 @@ html_content = f"""
             if (siteSelect) {{
                 siteSelect.addEventListener('change', () => {{
                     updateHeaderKeyword(currentKeyword);
+                    fetchKeywordTrend(currentKeyword);
                 }});
             }}
 
@@ -986,8 +979,6 @@ html_content = f"""
         function updateHeaderKeyword(kw) {{
             const txtEl = document.getElementById('currentKeywordText');
             if (txtEl) txtEl.textContent = kw;
-            const titleEl = document.getElementById('currentKeywordTitle');
-            if (titleEl && !txtEl) titleEl.textContent = kw;
 
             const linkEl = document.getElementById('currentKeywordTitleLink');
             if (linkEl) {{
@@ -1002,9 +993,7 @@ html_content = f"""
             currentKeyword = kw;
             let activeElem = null;
             document.querySelectorAll('.keyword-item').forEach(item => {{
-                const txtElem = item.querySelector('span');
-                const txt = txtElem ? txtElem.textContent : '';
-                if (txt === kw) {{
+                if (item.getAttribute('data-kw') === kw) {{
                     item.classList.add('active');
                     activeElem = item;
                 }} else {{
@@ -1129,7 +1118,7 @@ html_content = f"""
             let guideText = data.guide_text_html || '';
 
             const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
-            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.stage1_guide_generation?.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
+            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
             const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
 
             if (reason) {{
@@ -1158,26 +1147,24 @@ html_content = f"""
 
             const brandToCodeMap = {{}};
             products.forEach(p => {{
-                const bNm = (p.brandNm || p.brdNm || p.brand || '').trim();
+                const bNm = (p.brandNm || p.brdNm || p.brand || '').trim().toLowerCase();
                 const bCd = (p.brandCd || p.brdCd || p.brandCode || '').trim();
                 if (bNm && bCd) {{
-                    brandToCodeMap[bNm.toLowerCase()] = bCd;
                     brandToCodeMap[bNm] = bCd;
                 }}
             }});
             const v2Brands = data.internal_signals?.v2_brands || data.v2_brands || [];
             v2Brands.forEach(b => {{
-                const bNm = (b.name || b.brandNm || '').trim();
+                const bNm = (b.name || b.brandNm || '').trim().toLowerCase();
                 const bCd = (b.code || b.brdCd || b.brandCd || '').trim();
                 if (bNm && bCd) {{
-                    brandToCodeMap[bNm.toLowerCase()] = bCd;
                     brandToCodeMap[bNm] = bCd;
                 }}
             }});
 
             const brandChips = extBrands.map((b, bIdx) => {{
                 const bClean = (typeof b === 'object' ? b.name : b).trim();
-                const bCode = (typeof b === 'object' && b.code) ? b.code : (brandToCodeMap[bClean.toLowerCase()] || brandToCodeMap[bClean]);
+                const bCode = (typeof b === 'object' && b.code) ? b.code : brandToCodeMap[bClean.toLowerCase()];
                 
                 const chipId = `brandChip_${{bIdx}}`;
                 const searchUrl = bCode ? getSearchUrl(kw, bCode) : getSearchUrl(kw + ' ' + bClean);
