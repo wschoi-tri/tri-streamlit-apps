@@ -1289,9 +1289,46 @@ html_content = f"""
         function changeSite(newSiteCd) {{
             if (currentSiteCd === newSiteCd) return;
             currentSiteCd = newSiteCd;
+
+            // [사용자 요청] 사이트 이동 시 상품 및 전체 파라미터 완전 초기화
+            currentPrdNo = "";
             currentSelectedSeed = "";
+            currentBasket = "";
+            currentWish = "";
+            currentMem = "";
+            currentSelfYn = false;
+            currentRawData = null;
+            homeExtractedSeeds = [];
+            homeOriginalResults = [];
+            currentSeedProducts = [];
+
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = "";
+            const basketInput = document.getElementById('basketPrdInput');
+            if (basketInput) basketInput.value = "";
+            const wishInput = document.getElementById('wishPrdInput');
+            if (wishInput) wishInput.value = "";
+            const memInput = document.getElementById('memNoInput');
+            if (memInput) memInput.value = "";
+            const selfCheck = document.getElementById('selfYnCheck');
+            if (selfCheck) selfCheck.checked = false;
+
             updateSiteButtons();
             renderModelTabs();
+            updateHomeFieldsVisibility();
+            renderTargetProductCardEmpty();
+
+            const homeTabs = document.getElementById('homeSeedTabsSection');
+            if (homeTabs) homeTabs.style.display = 'none';
+            const homeTabsWrap = document.getElementById('homeSeedTabsWrap');
+            if (homeTabsWrap) homeTabsWrap.innerHTML = '';
+
+            const snippetEl = document.getElementById('activeApiUrlSnippet');
+            if (snippetEl) snippetEl.textContent = '-';
+            const fullApiEl = document.getElementById('calledApiUrlFull');
+            if (fullApiEl) fullApiEl.textContent = '-';
+
+            updateUrlQuery();
             loadBestProducts(currentSiteCd);
         }}
 
@@ -1366,12 +1403,6 @@ html_content = f"""
                 if (products.length > 0) {{
                     currentSeedProducts = products;
                     if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
-                    
-                    if (!currentPrdNo.trim()) {{
-                        currentPrdNo = currentSeedProducts[0].prd_no;
-                        const directInput = document.getElementById('directPrdInput');
-                        if (directInput) directInput.value = currentPrdNo;
-                    }}
                 }} else {{
                     throw new Error('데이터 없음');
                 }}
