@@ -2886,18 +2886,20 @@ html_content = f"""
 
             const brandChips = extBrands.map((b, bIdx) => {{
                 const bClean = (typeof b === 'object' ? b.name : b).trim();
-                const searchUrl = getKeywordSearchUrl(kw + ' ' + bClean);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{bClean}}' 검색">${{bClean}} ↗</a>`;
+                const searchUrl = getKeywordSearchUrl(bClean);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="'${{bClean}}' 검색">${{bClean}} ↗</a>`;
             }}).join('');
 
             const kwChips = extKws.map(k => {{
-                const searchUrl = getKeywordSearchUrl(kw + ' ' + k);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                const kClean = String(k).trim();
+                const searchUrl = getKeywordSearchUrl(kClean);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kClean}}' 검색">${{kClean}} ↗</a>`;
             }}).join('');
 
             const searchKwChips = extSearchKws.map(k => {{
-                const searchUrl = getKeywordSearchUrl(kw + ' ' + k);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+                const kClean = String(k).trim();
+                const searchUrl = getKeywordSearchUrl(kClean);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kClean}}' 검색">${{kClean}} ↗</a>`;
             }}).join('');
 
             const bWrap = document.getElementById('extractedBrandsWrap');
