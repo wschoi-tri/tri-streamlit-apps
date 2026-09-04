@@ -1448,6 +1448,7 @@ html_content = f"""
                     <span style="font-size:0.82rem; font-weight:700; color:#334155; flex-shrink:0;">트렌드 키워드:</span>
                     <input type="text" id="directKwInput" class="primary-kw-input" placeholder="키워드 입력"/>
                     <button class="btn-query" onclick="triggerKeywordFetch()">조회</button>
+                    <a id="kwDirectSearchLink" href="#" target="_blank" rel="noopener noreferrer" class="best-link-btn" style="display:inline-flex;" title="선택된 키워드로 쇼핑몰 검색 결과 새창 열기">검색 바로가기 ↗</a>
                     <input type="text" id="kwFilterInput" class="kw-filter-input" placeholder="키워드 목록 필터..." oninput="filterKeywordsList(this.value)"/>
                     <span style="font-size:0.72rem; color:#64748b; font-weight:600; margin-left:2px;" title="키보드 방향키로 이전/다음 키워드를 즉시 탐색할 수 있습니다.">(← → 키로 탐색)</span>
                 </div>
@@ -1531,6 +1532,7 @@ html_content = f"""
                 <div class="active-api-badge-box" title="현재 호출된 추천 API 엔드포인트">
                     <span class="active-api-label">호출 API</span>
                     <span class="active-api-info-text" id="activeApiUrlSnippet">-</span>
+                    <a id="kwSearchPageLink" href="#" target="_blank" rel="noopener noreferrer" class="kw-search-link-btn" style="display:none;" title="선택된 키워드로 쇼핑몰 검색 결과 새창 열기">검색 ↗</a>
                 </div>
                 <div class="v-divider-tab"></div>
                 <div class="tab-btn-cluster">
@@ -1795,6 +1797,33 @@ html_content = f"""
             }}
         }}
 
+        function getKeywordSearchUrl(kw) {{
+            const targetKw = encodeURIComponent(kw || currentKeyword || '');
+            return currentSiteCd === '2' 
+                ? `https://m.boribori.co.kr/search?keyword=${{targetKw}}` 
+                : `https://www.halfclub.com/search?keyword=${{targetKw}}`;
+        }}
+
+        function updateKeywordSearchLinks() {{
+            const url = getKeywordSearchUrl(currentKeyword);
+            const isKwModel = currentMlType === 'keyword-trend';
+            const kwText = currentKeyword || '키워드';
+
+            const link1 = document.getElementById('kwSearchPageLink');
+            if (link1) {{
+                link1.href = url;
+                link1.textContent = `'${{kwText}}' 검색 ↗`;
+                link1.title = `${{currentSiteCd === '2' ? '보리보리' : '하프클럽'}}에서 '${{kwText}}' 검색 결과 새창 열기`;
+                link1.style.display = isKwModel ? 'inline-flex' : 'none';
+            }}
+            const link2 = document.getElementById('kwDirectSearchLink');
+            if (link2) {{
+                link2.href = url;
+                link2.textContent = `'${{kwText}}' 검색 바로가기 ↗`;
+                link2.title = `${{currentSiteCd === '2' ? '보리보리' : '하프클럽'}}에서 '${{kwText}}' 검색 결과 새창 열기`;
+            }}
+        }}
+
         function getImageUrl(imgPath) {{
             if (!imgPath) return '';
             if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
@@ -1876,6 +1905,7 @@ html_content = f"""
             renderModelTabs();
             updateSiteButtons();
             updateBestPageLink();
+            updateKeywordSearchLinks();
 
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
@@ -1927,6 +1957,7 @@ html_content = f"""
                     switchViewTab('grid');
                 }}
             }}
+            updateKeywordSearchLinks();
         }}
 
         function renderModelTabs() {{
@@ -2656,6 +2687,7 @@ html_content = f"""
                 statusEl.style.background = '#eff6ff';
                 statusEl.style.borderColor = '#dbeafe';
             }}
+            updateKeywordSearchLinks();
 
             const endpoint = currentMlType;
             if (currentMlType === 'keyword-trend') {{
