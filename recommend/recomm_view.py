@@ -2085,6 +2085,7 @@ html_content = f"""
                 seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
                 seedStatus.style.color = '#64748b';
             }}
+            updateBestPageLink();
 
             const bestUrl = siteCd === '1' 
                 ? 'https://hapix.halfclub.com/searches/best/?offset=0&limit=200&dealYn=N&interval=24&countryCd=001&langCd=001&siteCd=1&deviceCd=001&device=pc&mandM=halfclub'
@@ -2121,14 +2122,18 @@ html_content = f"""
                             prd_no: prdNo,
                             prd_img: source.appPrdImgUrl || source.prdImg || '',
                             actual_prd_nm: source.prdNm || `상품${{i+1}}`,
-                            sel_acnt_no: source.selAcntNo || source.sel_acnt_no || ''
+                            sel_acnt_no: source.selAcntNo || source.sel_acnt_no || '',
+                            best_rank: i + 1
                         }});
                     }}
                 }}
 
                 if (products.length > 0) {{
                     currentSeedProducts = products;
-                    if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
+                    if (seedStatus) {{
+                        seedStatus.textContent = '실시간 베스트 12개';
+                        seedStatus.style.color = '#475569';
+                    }}
 
                     if (isSiteChange || (!currentPrdNo && currentMlType !== 'keyword-trend')) {{
                         currentPrdNo = String(products[0].prd_no);
@@ -2231,11 +2236,14 @@ html_content = f"""
                 return;
             }}
 
-            container.innerHTML = currentSeedProducts.map(p => {{
+            container.innerHTML = currentSeedProducts.map((p, idx) => {{
                 const isSelected = selectedList.includes(p.prd_no);
                 const fullImg = getImageUrl(p.prd_img);
+                const rankNum = p.best_rank !== undefined ? p.best_rank : (idx + 1);
+                const isTopRank = rankNum <= 3;
                 return `
-                    <div class="seed-mini-card ${{isSelected ? 'active' : ''}}" data-prdno="${{p.prd_no}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})">
+                    <div class="seed-mini-card ${{isSelected ? 'active' : ''}}" data-prdno="${{p.prd_no}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (${{rankNum}}위, #${{p.prd_no}})">
+                        <span class="seed-mini-rank ${{isTopRank ? 'top-rank' : ''}}">${{rankNum}}위</span>
                         <span class="seed-mini-badge">V</span>
                         <img src="${{fullImg || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="seed-mini-img" alt="${{p.prd_nm}}" loading="lazy"/>
                         <span class="seed-mini-cat">${{p.prd_nm}}</span>
