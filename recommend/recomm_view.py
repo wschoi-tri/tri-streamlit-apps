@@ -910,6 +910,7 @@ html_content = f"""
             grid-template-columns: repeat(10, 1fr);
             gap: 10px;
             min-height: 400px;
+            align-content: start;
         }}
         .product-card {{
             border: 1px solid #e2e8f0;
