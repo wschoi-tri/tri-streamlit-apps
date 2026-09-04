@@ -1932,13 +1932,12 @@ html_content = f"""
             if (fullApiEl) fullApiEl.textContent = '-';
 
             updateUrlQuery();
-            loadBestProducts(currentSiteCd);
 
             if (currentMlType === 'keyword-trend') {{
                 executeRecommendFlow();
             }} else {{
-                renderTargetProductCardEmpty();
-                renderEmptyResultsNotice('사이트가 변경되었습니다. 원하는 기준 상품을 선택하거나 상품번호를 입력하세요.');
+                // 새 사이트의 실시간 베스트 상품을 로드하여 1위 상품으로 자동 설정 및 추천 실행
+                loadBestProducts(currentSiteCd);
             }}
         }}
 
@@ -2052,6 +2051,14 @@ html_content = f"""
                 if (products.length > 0) {{
                     currentSeedProducts = products;
                     if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
+
+                    // 사이트 변경 시 또는 기준 상품이 없을 때 새 사이트의 1위 베스트 상품으로 자동 설정
+                    if (!currentPrdNo && currentMlType !== 'keyword-trend') {{
+                        currentPrdNo = String(products[0].prd_no);
+                        const directInput = document.getElementById('directPrdInput');
+                        if (directInput) directInput.value = currentPrdNo;
+                        updateTargetMiniSummary(currentPrdNo);
+                    }}
                 }} else {{
                     throw new Error('데이터 없음');
                 }}
@@ -2413,11 +2420,33 @@ html_content = f"""
                     const src = hits[0]._source || hits[0];
                     renderTargetProductCard(src, firstPrd);
                 }} else {{
-                    renderTargetProductCardError(firstPrd);
+                    const seedItem = currentSeedProducts.find(p => String(p.prd_no) === String(firstPrd));
+                    if (seedItem) {{
+                        renderTargetProductCard({{
+                            prdNm: seedItem.actual_prd_nm || seedItem.full_name || seedItem.prd_nm,
+                            brandNm: seedItem.prd_nm || '베스트',
+                            appPrdImgUrl: seedItem.prd_img,
+                            selAcntNo: seedItem.sel_acnt_no,
+                            prdNo: seedItem.prd_no
+                        }}, firstPrd);
+                    }} else {{
+                        renderTargetProductCardError(firstPrd);
+                    }}
                 }}
             }} catch (e) {{
                 if (curReqId === targetProductRequestId) {{
-                    renderTargetProductCardError(firstPrd);
+                    const seedItem = currentSeedProducts.find(p => String(p.prd_no) === String(firstPrd));
+                    if (seedItem) {{
+                        renderTargetProductCard({{
+                            prdNm: seedItem.actual_prd_nm || seedItem.full_name || seedItem.prd_nm,
+                            brandNm: seedItem.prd_nm || '베스트',
+                            appPrdImgUrl: seedItem.prd_img,
+                            selAcntNo: seedItem.sel_acnt_no,
+                            prdNo: seedItem.prd_no
+                        }}, firstPrd);
+                    }} else {{
+                        renderTargetProductCardError(firstPrd);
+                    }}
                 }}
             }}
         }}
