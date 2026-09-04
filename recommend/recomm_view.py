@@ -983,6 +983,51 @@ html_content = f"""
             z-index: 2;
             box-shadow: 0 2px 4px rgba(239,68,68,0.3);
         }}
+        .exclusive-badges-wrap {{
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: flex-end;
+            pointer-events: none;
+        }}
+        .exclusive-badge {{
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 3px;
+            line-height: 1.2;
+            letter-spacing: -0.2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+        }}
+        .exclusive-badge.badge-onlyhalf {{
+            background: #e11d48;
+            color: #ffffff;
+            border: 1px solid #be123c;
+        }}
+        .exclusive-badge.badge-boriedition {{
+            background: #7c3aed;
+            color: #ffffff;
+            border: 1px solid #6d28d9;
+        }}
+        .badge-chip-item.badge-onlyhalf-chip {{
+            background: #ffe4e6 !important;
+            color: #e11d48 !important;
+            border: 1px solid #fecdd3 !important;
+            font-weight: 800 !important;
+        }}
+        .badge-chip-item.badge-boriedition-chip {{
+            background: #ede9fe !important;
+            color: #7c3aed !important;
+            border: 1px solid #ddd6fe !important;
+            font-weight: 800 !important;
+        }}
         .product-info {{
             padding: 8px;
         }}
