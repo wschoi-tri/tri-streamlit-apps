@@ -1938,6 +1938,12 @@ html_content = f"""
                     if (e.key === 'Enter') triggerFetch();
                 }});
             }}
+            const directKwInput = document.getElementById('directKwInput');
+            if (directKwInput) {{
+                directKwInput.addEventListener('keydown', (e) => {{
+                    if (e.key === 'Enter') triggerKeywordFetch();
+                }});
+            }}
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput) {{
                 sizeInput.addEventListener('change', () => {{
