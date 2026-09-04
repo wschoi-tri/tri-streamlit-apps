@@ -48,9 +48,11 @@ try:
     HALFCLUB_WEB_URL = str(domains_conf["halfclub_web"]).rstrip("/")
     HALFCLUB_API_URL = str(domains_conf["halfclub_api"]).rstrip("/")
     HALFCLUB_CDN_URL = str(domains_conf["halfclub_cdn"]).rstrip("/")
+    HALFCLUB_PRD_URL = str(domains_conf["halfclub_prd"]).rstrip("/")
     BORIBORI_WEB_URL = str(domains_conf["boribori_web"]).rstrip("/")
     BORIBORI_API_URL = str(domains_conf["boribori_api"]).rstrip("/")
     BORIBORI_CDN_URL = str(domains_conf["boribori_cdn"]).rstrip("/")
+    BORIBORI_PRD_URL = str(domains_conf["boribori_prd"]).rstrip("/")
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
@@ -1081,9 +1083,11 @@ html_content = f"""
             HALFCLUB_WEB: "{HALFCLUB_WEB_URL}",
             HALFCLUB_API: "{HALFCLUB_API_URL}",
             HALFCLUB_CDN: "{HALFCLUB_CDN_URL}",
+            HALFCLUB_PRD: "{HALFCLUB_PRD_URL}",
             BORIBORI_WEB: "{BORIBORI_WEB_URL}",
             BORIBORI_API: "{BORIBORI_API_URL}",
-            BORIBORI_CDN: "{BORIBORI_CDN_URL}"
+            BORIBORI_CDN: "{BORIBORI_CDN_URL}",
+            BORIBORI_PRD: "{BORIBORI_PRD_URL}"
         }};
 
         const ML_TYPES_LIST = {ml_types_json};
@@ -1117,16 +1121,15 @@ html_content = f"""
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
         }}
 
-        // [사용자 요청] appPrdDtlUrl 필드 값을 최우선 사용하여 상품 링크 생성
-        function getProductDetailUrl(prdNo, appPrdDtlUrl = '') {{
-            if (appPrdDtlUrl && typeof appPrdDtlUrl === 'string' && appPrdDtlUrl.trim()) {{
-                const trimmed = appPrdDtlUrl.trim();
-                if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-                if (trimmed.startsWith('/')) return `${{getWebBaseUrl()}}${{trimmed}}`;
-                return `${{getWebBaseUrl()}}/${{trimmed}}`;
-            }}
+        // [사용자 요청] halfclub_prd 및 boribori_prd 전용 도메인 반환
+        function getPrdBaseUrl() {{
+            return currentSiteCd === '2' ? DOMAINS.BORIBORI_PRD : DOMAINS.HALFCLUB_PRD;
+        }}
+
+        // [사용자 요청] 상품 링크는 이전 포맷(도메인/product/prdNo)으로 유지하며 halfclub_prd/boribori_prd 도메인 사용
+        function getProductDetailUrl(prdNo) {{
             if (!prdNo || prdNo === '-') return '#';
-            return `${{getWebBaseUrl()}}/product/${{prdNo}}`;
+            return `${{getPrdBaseUrl()}}/product/${{prdNo}}`;
         }}
 
         function getImageUrl(imgPath) {{
@@ -1319,7 +1322,6 @@ html_content = f"""
                             full_name: dpCtgrNm1,
                             prd_no: prdNo,
                             prd_img: source.appPrdImgUrl || source.prdImg || '',
-                            app_prd_dtl_url: source.appPrdDtlUrl || '',
                             actual_prd_nm: source.prdNm || `상품${{i+1}}`
                         }});
                     }}
@@ -1334,19 +1336,19 @@ html_content = f"""
             }} catch (e) {{
                 if (seedStatus) seedStatus.textContent = '기본 베스트 상품 모드 (클릭: 교체 / Ctrl+클릭: 다중선택)';
                 currentSeedProducts = siteCd === '1' ? [
-                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": "", "app_prd_dtl_url": ""}}
+                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": ""}},
+                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": ""}},
+                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": ""}},
+                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": ""}},
+                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": ""}},
+                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": ""}}
                 ] : [
-                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": "", "app_prd_dtl_url": ""}},
-                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": "", "app_prd_dtl_url": ""}}
+                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": ""}},
+                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": ""}},
+                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": ""}},
+                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": ""}},
+                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": ""}},
+                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": ""}}
                 ];
             }}
 
@@ -1635,8 +1637,7 @@ html_content = f"""
             const normPrice = src.normPrc || 0;
             const imgPath = src.appPrdImgUrl || src.prdImg || '';
             const fullImg = getImageUrl(imgPath);
-            const appDtlUrl = src.appPrdDtlUrl || src.app_prd_dtl_url || '';
-            const targetUrl = getProductDetailUrl(firstPrd || src.prdNo, appDtlUrl);
+            const targetUrl = getProductDetailUrl(firstPrd || src.prdNo);
 
             const c1 = src.dpCtgrNm1 || '';
             const c2 = src.dpCtgrNm2 || '';
@@ -1994,8 +1995,8 @@ html_content = f"""
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '');
-                // [사용자 요청] appPrdDtlUrl 필드 값을 우선 사용하여 링크 생성
-                const prdUrl = getProductDetailUrl(prdNo, prd.appPrdDtlUrl || prd.app_prd_dtl_url);
+                // [사용자 요청] 이전 방식 유지하며 getProductDetailUrl(prdNo) (halfclub_prd/boribori_prd 도메인) 사용
+                const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '상품명 미확인';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '브랜드';
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
@@ -2072,8 +2073,8 @@ html_content = f"""
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '-');
-                // [사용자 요청] appPrdDtlUrl 필드 값을 우선 사용하여 링크 생성
-                const prdUrl = getProductDetailUrl(prdNo, prd.appPrdDtlUrl || prd.app_prd_dtl_url);
+                // [사용자 요청] 이전 방식 유지하며 getProductDetailUrl(prdNo) (halfclub_prd/boribori_prd 도메인) 사용
+                const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '-';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
