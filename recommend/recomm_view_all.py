@@ -1183,6 +1183,17 @@ html_content = f"""
         let currentSeedProducts = [];
         let homeExtractedSeeds = [];
         let homeOriginalResults = [];
+        let recommendFlowTimer = null;
+        let recommendRequestId = 0;
+        let targetProductRequestId = 0;
+
+        function debouncedExecuteRecommendFlow(delay = 150) {{
+            if (recommendFlowTimer) clearTimeout(recommendFlowTimer);
+            recommendFlowTimer = setTimeout(() => {{
+                recommendFlowTimer = null;
+                executeRecommendFlow();
+            }}, delay);
+        }}
 
         function getWebBaseUrl() {{
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
@@ -1476,17 +1487,74 @@ html_content = f"""
             executeRecommendFlow();
         }}
 
+        function updateTargetMiniSummary(prdNoStr) {{
+            const prdList = (prdNoStr || '').split(',').map(s => s.trim()).filter(Boolean);
+            const firstPrd = prdList[0] || '';
+
+            const countBadge = document.getElementById('targetCountBadge');
+            if (countBadge) countBadge.textContent = `${{prdList.length}}개`;
+
+            const mallLink = document.getElementById('targetMallLink');
+            if (mallLink) {{
+                if (firstPrd) {{
+                    mallLink.href = getProductDetailUrl(firstPrd);
+                    mallLink.style.display = 'inline';
+                }} else {{
+                    mallLink.href = '#';
+                    mallLink.style.display = 'none';
+                }}
+            }}
+
+            const multiContainer = document.getElementById('multiChipsContainer');
+            if (multiContainer) {{
+                if (prdList.length > 1) {{
+                    multiContainer.style.display = 'flex';
+                    let chipsHtml = prdList.map(p => `
+                        <span class="prd-chip" onclick="removeSelectedPrd('${{p}}')" title="클릭 시 선택 제외">
+                            #${{p}} ✕
+                        </span>
+                    `).join('');
+                    chipsHtml += `<span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="모든 선택 상품 해제">전체 해제 ✕</span>`;
+                    multiContainer.innerHTML = chipsHtml;
+                }} else if (prdList.length === 1) {{
+                    multiContainer.style.display = 'flex';
+                    multiContainer.innerHTML = `
+                        <span class="prd-chip" onclick="removeSelectedPrd('${{firstPrd}}')" title="클릭 시 선택 해제">
+                            #${{firstPrd}} ✕
+                        </span>
+                        <span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="선택 해제">해제 ✕</span>
+                    `;
+                }} else {{
+                    multiContainer.style.display = 'none';
+                    multiContainer.innerHTML = '';
+                }}
+            }}
+        }}
+
         function renderSeedGrid() {{
             const container = document.getElementById('seedGridContainer');
             if (!container || currentSeedProducts.length === 0) return;
 
             const selectedList = getSelectedPrdList();
+            const existingCards = container.querySelectorAll('.seed-mini-card');
+
+            // [초고속 다중 선택 대응] 이미 생성된 카드 DOM이 있으면 파괴하지 않고 active 클래스만 고속 토글
+            if (existingCards.length === currentSeedProducts.length) {{
+                existingCards.forEach((card, idx) => {{
+                    const p = currentSeedProducts[idx];
+                    if (p) {{
+                        const isSelected = selectedList.includes(p.prd_no);
+                        card.classList.toggle('active', isSelected);
+                    }}
+                }});
+                return;
+            }}
 
             container.innerHTML = currentSeedProducts.map(p => {{
                 const isSelected = selectedList.includes(p.prd_no);
                 const fullImg = getImageUrl(p.prd_img);
                 return `
-                    <div class="seed-mini-card ${{isSelected ? 'active' : ''}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})">
+                    <div class="seed-mini-card ${{isSelected ? 'active' : ''}}" data-prdno="${{p.prd_no}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (#${{p.prd_no}})">
                         <span class="seed-mini-badge">V</span>
                         <img src="${{fullImg || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="seed-mini-img" alt="${{p.prd_nm}}" loading="lazy"/>
                         <span class="seed-mini-cat">${{p.prd_nm}}</span>
@@ -1497,6 +1565,11 @@ html_content = f"""
         }}
 
         function handleSeedCardClick(prdNo, event) {{
+            if (event) {{
+                event.preventDefault();
+                event.stopPropagation();
+            }}
+
             prdNo = String(prdNo).trim();
             let selectedList = getSelectedPrdList();
             const isMultiKey = event && (event.ctrlKey || event.metaKey || event.shiftKey);
@@ -1517,7 +1590,13 @@ html_content = f"""
 
             currentSelectedSeed = "";
             renderSeedGrid();
-            executeRecommendFlow();
+            updateTargetMiniSummary(currentPrdNo);
+
+            if (isMultiKey) {{
+                debouncedExecuteRecommendFlow(150);
+            }} else {{
+                executeRecommendFlow();
+            }}
         }}
 
         function removeSelectedPrd(prdNo) {{
@@ -1529,8 +1608,10 @@ html_content = f"""
             if (directInput) directInput.value = currentPrdNo;
 
             renderSeedGrid();
+            updateTargetMiniSummary(currentPrdNo);
+
             if (currentPrdNo) {{
-                executeRecommendFlow();
+                debouncedExecuteRecommendFlow(100);
             }} else {{
                 clearSelectedPrd();
             }}
@@ -1717,42 +1798,11 @@ html_content = f"""
         }}
 
         async function loadTargetProductInfo(prdNoStr) {{
-            const prdList = prdNoStr.split(',').map(s => s.trim()).filter(Boolean);
+            const curReqId = ++targetProductRequestId;
+            const prdList = (prdNoStr || '').split(',').map(s => s.trim()).filter(Boolean);
             const firstPrd = prdList[0] || '';
 
-            const countBadge = document.getElementById('targetCountBadge');
-            if (countBadge) countBadge.textContent = `${{prdList.length}}개`;
-
-            const mallLink = document.getElementById('targetMallLink');
-            if (mallLink) {{
-                mallLink.href = getProductDetailUrl(firstPrd);
-                mallLink.style.display = 'inline';
-            }}
-
-            const multiContainer = document.getElementById('multiChipsContainer');
-            if (multiContainer) {{
-                if (prdList.length > 1) {{
-                    multiContainer.style.display = 'flex';
-                    let chipsHtml = prdList.map(p => `
-                        <span class="prd-chip" onclick="removeSelectedPrd('${{p}}')" title="클릭 시 선택 제외">
-                            #${{p}} ✕
-                        </span>
-                    `).join('');
-                    chipsHtml += `<span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="모든 선택 상품 해제">전체 해제 ✕</span>`;
-                    multiContainer.innerHTML = chipsHtml;
-                }} else if (prdList.length === 1) {{
-                    multiContainer.style.display = 'flex';
-                    multiContainer.innerHTML = `
-                        <span class="prd-chip" onclick="removeSelectedPrd('${{firstPrd}}')" title="클릭 시 선택 해제">
-                            #${{firstPrd}} ✕
-                        </span>
-                        <span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="선택 해제">해제 ✕</span>
-                    `;
-                }} else {{
-                    multiContainer.style.display = 'none';
-                    multiContainer.innerHTML = '';
-                }}
-            }}
+            updateTargetMiniSummary(prdNoStr);
 
             if (!firstPrd) return;
 
@@ -1761,8 +1811,11 @@ html_content = f"""
 
             try {{
                 const res = await fetch(searchUrl);
+                if (curReqId !== targetProductRequestId) return;
                 if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
                 const data = await res.json();
+                if (curReqId !== targetProductRequestId) return;
+
                 const hits = data?.data?.result?.hits?.hits || [];
                 if (hits.length > 0) {{
                     const src = hits[0]._source || hits[0];
@@ -1771,7 +1824,9 @@ html_content = f"""
                     renderTargetProductCardError(firstPrd);
                 }}
             }} catch (e) {{
-                renderTargetProductCardError(firstPrd);
+                if (curReqId === targetProductRequestId) {{
+                    renderTargetProductCardError(firstPrd);
+                }}
             }}
         }}
 
