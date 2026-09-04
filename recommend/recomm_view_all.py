@@ -1097,7 +1097,7 @@ html_content = f"""
                 </div>
                 <div class="v-divider-tab"></div>
                 <div class="tab-btn-cluster">
-                    <button class="result-tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품 (10열 그리드)</button>
+                    <button class="result-tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품 그리드</button>
                     <button class="result-tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
                     <button class="result-tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
                 </div>
@@ -1899,6 +1899,7 @@ html_content = f"""
         }}
 
         async function fetchRecommendationApi() {{
+            const curReqId = ++recommendRequestId;
             const startTime = performance.now();
             const apiBase = getApiBaseUrl();
             const statusEl = document.getElementById('statusBadge');
@@ -1955,6 +1956,7 @@ html_content = f"""
                 if (!res.ok) throw new Error(`HTTP ${{res.status}}: ${{res.statusText}}`);
 
                 const data = await res.json();
+                if (curReqId !== recommendRequestId) return;
                 currentRawData = data;
 
                 if (statusEl) {{
@@ -1966,6 +1968,7 @@ html_content = f"""
 
                 handleApiSuccessResponse(data);
             }} catch (err) {{
+                if (curReqId !== recommendRequestId) return;
                 const duration = Math.round(performance.now() - startTime);
                 if (statusEl) {{
                     statusEl.textContent = `서버 연결이 안됩니다 (${{duration}}ms)`;
@@ -2096,6 +2099,7 @@ html_content = f"""
         }}
 
         async function fetchSimilarItemForSeed(seedPrdNo) {{
+            const curReqId = ++recommendRequestId;
             const startTime = performance.now();
             const apiBase = getApiBaseUrl();
             const statusEl = document.getElementById('statusBadge');
@@ -2119,6 +2123,7 @@ html_content = f"""
 
                 if (!res.ok) throw new Error(`HTTP ${{res.status}}`);
                 const data = await res.json();
+                if (curReqId !== recommendRequestId) return;
                 currentRawData = data;
 
                 if (statusEl) {{
@@ -2146,6 +2151,7 @@ html_content = f"""
 
                 renderDashboardResults(results, true, seedPrdNo);
             }} catch (e) {{
+                if (curReqId !== recommendRequestId) return;
                 if (statusEl) statusEl.textContent = '서버 연결이 안됩니다';
                 alert(`서버 연결이 안됩니다 (${{e.message}})`);
             }}
