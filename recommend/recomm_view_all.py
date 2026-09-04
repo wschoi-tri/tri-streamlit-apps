@@ -1993,9 +1993,8 @@ html_content = f"""
                     renderTargetProductCardEmpty();
                 }}
 
-                renderDashboardResults(homeOriginalResults, false);
-                const snippetEl = document.getElementById('activeApiUrlSnippet');
-                if (snippetEl) snippetEl.textContent = `/recommend/${{currentMlType}} (FORYOU)`;
+                // [사용자 요청] 홈개인화에서 Index0 FORYOU 선택 시 API 재조회 수행
+                fetchRecommendationApi();
             }} else {{
                 loadTargetProductInfo(currentSelectedSeed);
                 fetchSimilarItemForSeed(currentSelectedSeed);
