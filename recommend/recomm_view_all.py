@@ -58,14 +58,14 @@ except Exception as e:
 
 # 3. 실제 서비스 중인 추천 API 모델 목록 (LF 모델 2종 신규 포함 총 8종)
 ML_TYPES = [
-    {"id": "home", "name": "홈 개인화 (home)", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
-    {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
-    {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동시 조회 기반", "endpoint": "/recommend/viewtogether"},
-    {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
-    {"id": "similar-image", "name": "유사 이미지 (similarImage)", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
-    {"id": "lf", "name": "LF 개인화 (lf)", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf", "siteOnly": "1"},
-    {"id": "lfsimilaritem", "name": "LF 유사 상품 (lfSimilarItem)", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"}
+    {"id": "home", "name": "홈 개인화", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
+    {"id": "similaritem", "name": "유사 상품", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
+    {"id": "viewtogether", "name": "함께 본 상품", "desc": "동시 조회 기반", "endpoint": "/recommend/viewtogether"},
+    {"id": "buytogether", "name": "함께 구매한 상품", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
+    {"id": "similar-image", "name": "유사 이미지", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
+    {"id": "recommendforyou", "name": "개인화 추천", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
+    {"id": "lf", "name": "LF 개인화", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf", "siteOnly": "1"},
+    {"id": "lfsimilaritem", "name": "LF 유사 상품", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"}
 ]
 
 # 4. URL 쿼리 파라미터 디코딩 및 상태 설정 (하드코딩 초기값 완전 제거)
@@ -149,25 +149,28 @@ html_content = f"""
             margin: 0 auto;
         }}
 
-        /* 1단: 최상단 글로벌 통합 네비게이션 헤더 */
+        /* 1단: 최상단 글로벌 통합 네비게이션 헤더 (1줄 고정 레이아웃) */
         .top-global-header {{
             background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
-            padding: 10px 16px;
+            padding: 8px 14px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 14px;
+            gap: 10px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             margin-bottom: 12px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            white-space: nowrap;
         }}
         .header-left-cluster {{
             display: flex;
             align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
+            gap: 8px;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
         }}
         .site-switch-group {{
             display: flex;
@@ -175,17 +178,19 @@ html_content = f"""
             padding: 3px;
             border-radius: 8px;
             gap: 2px;
+            flex-shrink: 0;
         }}
         .site-btn {{
             border: none;
-            padding: 6px 14px;
+            padding: 5px 12px;
             border-radius: 6px;
-            font-size: 0.85rem;
+            font-size: 0.83rem;
             font-weight: 800;
             color: #64748b;
             background: transparent;
             cursor: pointer;
             transition: all 0.15s ease;
+            white-space: nowrap;
         }}
         .site-btn.active {{
             background: #ffffff;
@@ -194,22 +199,25 @@ html_content = f"""
         }}
         .v-divider {{
             width: 1px;
-            height: 24px;
+            height: 22px;
             background-color: #cbd5e1;
+            flex-shrink: 0;
+            margin: 0 2px;
         }}
         .model-tabs-group {{
             display: flex;
             background: #f1f5f9;
             padding: 3px;
             border-radius: 8px;
-            gap: 3px;
-            flex-wrap: wrap;
+            gap: 2px;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
         }}
         .model-tab-btn {{
             border: none;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 6px;
-            font-size: 0.83rem;
+            font-size: 0.81rem;
             font-weight: 700;
             color: #475569;
             background: transparent;
@@ -217,7 +225,8 @@ html_content = f"""
             transition: all 0.15s ease;
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }}
         .model-tab-btn:hover {{
             color: #0f172a;
@@ -233,23 +242,28 @@ html_content = f"""
         .header-right-cluster {{
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+            margin-left: auto;
         }}
         .k-input-box {{
             display: flex;
             align-items: center;
             gap: 4px;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             font-weight: 700;
             color: #475569;
+            white-space: nowrap;
+            flex-shrink: 0;
         }}
         .k-input {{
-            width: 48px;
-            padding: 4px 6px;
+            width: 44px;
+            padding: 3px 5px;
             border: 1px solid #cbd5e1;
             border-radius: 6px;
             text-align: center;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             font-weight: 800;
             outline: none;
         }}
@@ -257,26 +271,29 @@ html_content = f"""
             background: #f1f5f9;
             border: 1px solid #cbd5e1;
             color: #475569;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 700;
-            padding: 5px 10px;
+            padding: 4px 9px;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.15s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
         }}
         .btn-copy-url:hover {{
             background: #e2e8f0;
             color: #0f172a;
         }}
         .status-badge {{
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             font-weight: 800;
-            padding: 4px 10px;
+            padding: 4px 8px;
             border-radius: 6px;
             background: #ecfdf5;
             color: #059669;
             border: 1px solid #a7f3d0;
             white-space: nowrap;
+            flex-shrink: 0;
         }}
 
         /* 2단: 추천 기준 상품 설정 및 대상 정보 일체형 카드 */
@@ -1258,7 +1275,7 @@ html_content = f"""
             }}
 
             group.innerHTML = availableModels.map(m => `
-                <button class="model-tab-btn ${{m.id === currentMlType ? 'active' : ''}}" onclick="selectMlType('${{m.id}}')">
+                <button class="model-tab-btn ${{m.id === currentMlType ? 'active' : ''}}" onclick="selectMlType('${{m.id}}')" title="${{m.name}} (${{m.id}}: ${{m.endpoint}})">
                     ${{m.name}}
                 </button>
             `).join('');
