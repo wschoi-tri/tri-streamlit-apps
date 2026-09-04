@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 
 # 1. 페이지 기본 설정 (전체 화면 모드)
 st.set_page_config(
-    page_title="Halfclub Trend AI Curation Dashboard",
+    page_title="검색 키워드 트렌드 추천 서비스 확인",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
