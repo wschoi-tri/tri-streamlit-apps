@@ -1893,7 +1893,6 @@ html_content = f"""
             if (currentSiteCd === newSiteCd) return;
             currentSiteCd = newSiteCd;
 
-            // [사용자 요청] 사이트 이동 시 상품 및 전체 파라미터 완전 초기화
             currentPrdNo = "";
             currentSelectedSeed = "";
             currentBasket = "";
@@ -1916,6 +1915,28 @@ html_content = f"""
             const selfCheck = document.getElementById('selfYnCheck');
             if (selfCheck) selfCheck.checked = false;
 
+            const container = document.getElementById('seedGridContainer');
+            if (container) {{
+                const siteName = currentSiteCd === '2' ? '보리보리' : '하프클럽';
+                container.innerHTML = `<div style="grid-column:1/-1; padding:24px 12px; text-align:center; color:#64748b; font-size:0.83rem; font-weight:600;">${{siteName}} 실시간 베스트 상품을 불러오는 중입니다...</div>`;
+            }}
+            const seedStatus = document.getElementById('seedStatusText');
+            if (seedStatus) {{
+                seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
+                seedStatus.style.color = '#64748b';
+            }}
+
+            const brandEl = document.getElementById('targetBrandText');
+            if (brandEl) brandEl.textContent = '조회 중...';
+            const nameEl = document.getElementById('targetPrdNmText');
+            if (nameEl) nameEl.textContent = '새 사이트 베스트 상품으로 전환 중...';
+            const priceEl = document.getElementById('targetDcPrice');
+            if (priceEl) priceEl.textContent = '-';
+            const prdNoEl = document.getElementById('targetPrdNoText');
+            if (prdNoEl) prdNoEl.textContent = '-';
+            const imgWrap = document.getElementById('targetThumbWrap');
+            if (imgWrap) imgWrap.innerHTML = '<span style="font-size:0.75rem; color:#94a3b8;">Loading...</span>';
+
             updateSiteButtons();
             renderModelTabs();
             updateHomeFieldsVisibility();
@@ -1936,8 +1957,7 @@ html_content = f"""
             if (currentMlType === 'keyword-trend') {{
                 executeRecommendFlow();
             }} else {{
-                // 새 사이트의 실시간 베스트 상품을 로드하여 1위 상품으로 자동 설정 및 추천 실행
-                loadBestProducts(currentSiteCd);
+                loadBestProducts(currentSiteCd, true);
             }}
         }}
 
@@ -1970,12 +1990,10 @@ html_content = f"""
                 }});
             }}
 
-            // 키보드 좌우 방향키 (ArrowLeft, ArrowRight)로 다음/이전 키워드 즉시 탐색
             window.addEventListener('keydown', (e) => {{
                 if (currentMlType !== 'keyword-trend') return;
 
                 const activeTag = document.activeElement ? document.activeElement.tagName.toUpperCase() : '';
-                // 텍스트 입력 필드 포커스 시 일반 커서 이동 보호
                 if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {{
                     if (document.activeElement?.id === 'kwFilterInput' && e.key === 'ArrowDown') {{
                         const chipsContainer = document.getElementById('kwChipsContainer');
@@ -2004,9 +2022,12 @@ html_content = f"""
             }}
         }}
 
-        async function loadBestProducts(siteCd) {{
+        async function loadBestProducts(siteCd, isSiteChange = false) {{
             const seedStatus = document.getElementById('seedStatusText');
-            if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
+            if (seedStatus) {{
+                seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
+                seedStatus.style.color = '#64748b';
+            }}
 
             const bestUrl = siteCd === '1' 
                 ? 'https://hapix.halfclub.com/searches/best/?offset=0&limit=200&dealYn=N&interval=24&countryCd=001&langCd=001&siteCd=1&deviceCd=001&device=pc&mandM=halfclub'
@@ -2052,12 +2073,11 @@ html_content = f"""
                     currentSeedProducts = products;
                     if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
 
-                    // 사이트 변경 시 또는 기준 상품이 없을 때 새 사이트의 1위 베스트 상품으로 자동 설정
-                    if (!currentPrdNo && currentMlType !== 'keyword-trend') {{
+                    if (isSiteChange || (!currentPrdNo && currentMlType !== 'keyword-trend')) {{
                         currentPrdNo = String(products[0].prd_no);
                         const directInput = document.getElementById('directPrdInput');
                         if (directInput) directInput.value = currentPrdNo;
-                        updateTargetMiniSummary(currentPrdNo);
+                        loadTargetProductInfo(currentPrdNo);
                     }}
                 }} else {{
                     throw new Error('데이터 없음');
@@ -2074,7 +2094,7 @@ html_content = f"""
                 }}
             }}
 
-            renderSeedGrid();
+            renderSeedGrid(true);
             executeRecommendFlow();
         }}
 
@@ -2083,7 +2103,17 @@ html_content = f"""
             const firstPrd = prdList[0] || '';
 
             const countBadge = document.getElementById('targetCountBadge');
-            if (countBadge) countBadge.textContent = `${{prdList.length}}개`;
+            if (countBadge) {{
+                if (prdList.length > 1) {{
+                    countBadge.textContent = `외 ${{prdList.length - 1}}개`;
+                    countBadge.style.display = 'inline-block';
+                }} else {{
+                    countBadge.style.display = 'none';
+                }}
+            }}
+
+            const prdNoEl = document.getElementById('targetPrdNoText');
+            if (prdNoEl) prdNoEl.textContent = firstPrd || '-';
 
             const mallLink = document.getElementById('targetMallLink');
             if (mallLink) {{
@@ -2122,15 +2152,18 @@ html_content = f"""
             }}
         }}
 
-        function renderSeedGrid() {{
+        function renderSeedGrid(forceRebuild = false) {{
             const container = document.getElementById('seedGridContainer');
             if (!container || currentSeedProducts.length === 0) return;
 
             const selectedList = getSelectedPrdList();
             const existingCards = container.querySelectorAll('.seed-mini-card');
 
-            // [초고속 다중 선택 대응] 이미 생성된 카드 DOM이 있으면 파괴하지 않고 active 클래스만 고속 토글
-            if (existingCards.length === currentSeedProducts.length) {{
+            // 기존 카드 개수와 상품 번호가 정확히 일치할 때만 active 클래스 토글 (그 외는 무조건 전체 DOM 재구축)
+            const canReuseDom = !forceRebuild && existingCards.length === currentSeedProducts.length &&
+                Array.from(existingCards).every((card, idx) => card.getAttribute('data-prdno') === String(currentSeedProducts[idx]?.prd_no));
+
+            if (canReuseDom) {{
                 existingCards.forEach((card, idx) => {{
                     const p = currentSeedProducts[idx];
                     if (p) {{
@@ -2154,6 +2187,7 @@ html_content = f"""
                 `;
             }}).join('');
         }}
+
 
         function handleSeedCardClick(prdNo, event) {{
             if (event) {{
