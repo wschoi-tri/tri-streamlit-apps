@@ -1882,6 +1882,47 @@ html_content = f"""
             return `${{getCdnBaseUrl()}}/rimg/330x440/contain/${{imgPath}}`;
         }}
 
+        function getExclusiveBadges(prd) {{
+            if (!prd) return {{ isOnlyHalf: false, isBoriEdition: false, imgBadgesHtml: '', chipBadgesHtml: '' }};
+
+            let nms = [];
+            if (Array.isArray(prd.icnNms)) {{
+                nms.push(...prd.icnNms);
+            }} else if (typeof prd.icnNms === 'string') {{
+                nms.push(...prd.icnNms.split(/[@,]/));
+            }}
+
+            if (typeof prd.icnNm === 'string') {{
+                nms.push(...prd.icnNm.split(/[@,]/));
+            }} else if (Array.isArray(prd.icnNm)) {{
+                nms.push(...prd.icnNm);
+            }}
+
+            const isOnlyHalf = nms.some(s => {{
+                const c = String(s || '').trim();
+                return c.includes('온리하프') || c.includes('ONLY HALF') || c.includes('온리');
+            }});
+
+            const isBoriEdition = nms.some(s => {{
+                const c = String(s || '').trim();
+                return c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션');
+            }});
+
+            let imgBadgesHtml = '';
+            let chipBadgesHtml = '';
+
+            if (isOnlyHalf) {{
+                imgBadgesHtml += '<span class="exclusive-badge badge-onlyhalf" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
+                chipBadgesHtml += '<span class="badge-chip-item badge-onlyhalf-chip" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
+            }}
+            if (isBoriEdition) {{
+                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리에디션)">보리에디션</span>';
+                chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리에디션)">보리에디션</span>';
+            }}
+
+            return {{ isOnlyHalf, isBoriEdition, imgBadgesHtml, chipBadgesHtml }};
+        }}
+
         function getSelectedPrdList() {{
             if (!currentPrdNo) return [];
             return currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
