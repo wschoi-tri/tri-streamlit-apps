@@ -1900,7 +1900,7 @@ html_content = f"""
             updateSiteButtons();
             renderModelTabs();
             updateHomeFieldsVisibility();
-            renderTargetProductCardEmpty();
+            updatePanelVisibility();
 
             const homeTabs = document.getElementById('homeSeedTabsSection');
             if (homeTabs) homeTabs.style.display = 'none';
@@ -1914,6 +1914,13 @@ html_content = f"""
 
             updateUrlQuery();
             loadBestProducts(currentSiteCd);
+
+            if (currentMlType === 'keyword-trend') {{
+                executeRecommendFlow();
+            }} else {{
+                renderTargetProductCardEmpty();
+                renderEmptyResultsNotice('사이트가 변경되었습니다. 원하는 기준 상품을 선택하거나 상품번호를 입력하세요.');
+            }}
         }}
 
         function updateHomeFieldsVisibility() {{
@@ -2529,6 +2536,336 @@ html_content = f"""
 
                 renderRawJsonView({{ error: "서버 연결이 안됩니다", detail: err.message, requested_url: currentApiUrl }});
             }}
+        }}
+
+        function handleKeywordTrendSuccessResponse(data, kw) {{
+            const llmInfo = data.llm_info || {{}};
+            const reason = data.noshow_reason || llmInfo.noshow_reason || '';
+
+            const provider = llmInfo.llm_provider || data.llm_provider || '-';
+            const model = llmInfo.llm_model || data.llm_model || '-';
+            const elemModel = document.getElementById('llmModelText');
+            if (elemModel) elemModel.textContent = (provider === '-' && model === '-') ? '-' : `${{provider}} / ${{model}}`;
+
+            const stage1 = llmInfo.stage1_guide_generation || {{}};
+            const stage2 = llmInfo.stage2_product_selection || {{}};
+
+            const usage1 = stage1.prompt_info?.token_usage || llmInfo.stage1_token_usage || {{}};
+            const usage2 = stage2.prompt_info?.token_usage || llmInfo.stage2_token_usage || {{}};
+
+            const reqTokens = (usage1.request_tokens || 0) + (usage2.request_tokens || 0) || (llmInfo.total_request_tokens || 0);
+            const resTokens = (usage1.response_tokens || 0) + (usage2.response_tokens || 0) || (llmInfo.total_response_tokens || 0);
+            const cachedTokens = (usage1.cached_tokens || 0) + (usage2.cached_tokens || 0);
+            const totTokens = (usage1.total_tokens || 0) + (usage2.total_tokens || 0) || (reqTokens + resTokens);
+
+            const elemTokenUsage = document.getElementById('tokenUsageText');
+            if (elemTokenUsage) {{
+                if (totTokens > 0 || reqTokens > 0) {{
+                    elemTokenUsage.textContent = `In: ${{reqTokens.toLocaleString()}} / Out: ${{resTokens.toLocaleString()}} / Cached: ${{cachedTokens.toLocaleString()}} (Total: ${{totTokens.toLocaleString()}})`;
+                }} else {{
+                    elemTokenUsage.textContent = '-';
+                }}
+            }}
+
+            const catFilter = data.enable_category_filter ?? llmInfo.enable_category_filter;
+            const genFilter = data.enable_gender_filter ?? llmInfo.enable_gender_filter;
+            const bCat = catFilter === true ? 'ON' : 'OFF';
+            const bGen = genFilter === true ? 'ON' : 'OFF';
+            const elemFilter = document.getElementById('filterBadgesText');
+            if (elemFilter) {{
+                elemFilter.innerHTML = `
+                    <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 5px; border-radius:3px; font-size:0.7rem;">카테고리: ${{bCat}}</span>
+                    <span style="background:#ffffff; border:1px solid #cbd5e1; color:#334155; font-weight:700; padding:1px 5px; border-radius:3px; font-size:0.7rem;">성별: ${{bGen}}</span>
+                `;
+            }}
+
+            const createDt = data.create_dt || llmInfo.create_dt || '-';
+            const elemCreateDt = document.getElementById('createDtText');
+            if (elemCreateDt) elemCreateDt.textContent = createDt;
+
+            // 큐레이션 요약문
+            const curationSummary = stage2.llm_response?.curation_summary ||
+                                   stage2.curation_summary ||
+                                   data.curation_summary ||
+                                   llmInfo.curation_summary ||
+                                   stage1.guide_result?.curation_summary ||
+                                   '';
+            const summaryWrap = document.getElementById('curationSummaryWrap');
+            const summaryText = document.getElementById('curationSummaryText');
+            if (summaryWrap && summaryText) {{
+                if (curationSummary && curationSummary.trim()) {{
+                    summaryText.textContent = curationSummary.trim();
+                    summaryWrap.style.display = 'flex';
+                }} else {{
+                    summaryWrap.style.display = 'none';
+                }}
+            }}
+
+            // 스타일 가이드 문구
+            let guideText = data.guide_text_html || '';
+            if (reason) {{
+                guideText = `
+                    <div style="background:#fff1f2; border:1px solid #fecdd3; color:#9f1239; padding:8px 12px; border-radius:6px; line-height:1.5; margin-bottom:8px;">
+                        <span style="font-weight:800; color:#be123c;">[미표시 사유] </span>${{escapeHtml(reason)}}
+                    </div>
+                ` + (guideText || '');
+            }}
+            const guideEl = document.getElementById('guideTextBody');
+            if (guideEl) guideEl.innerHTML = guideText || '가이드 문구가 없습니다.';
+
+            // 추출 태그
+            const catTag = data.extracted_category || stage1.guide_result?.extracted_category || '기본';
+            const genTag = data.extracted_gender || stage1.guide_result?.extracted_gender || '공용';
+            const seasonVal = data.extracted_season || stage1.guide_result?.extracted_season || ['사계절'];
+            const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(', ') : seasonVal;
+            const tagsEl = document.getElementById('extractedTagsHeader');
+            if (tagsEl) {{
+                tagsEl.innerHTML = `
+                    <span class="badge-chip-item badge-blue" style="font-weight:700;">카테고리: ${{catTag}}</span>
+                    <span class="badge-chip-item badge-gray">성별: ${{genTag}}</span>
+                    <span class="badge-chip-item badge-gray">계절: ${{seasonStr}}</span>
+                `;
+            }}
+
+            // 브랜드, 키워드 칩
+            const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
+            const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
+            const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
+
+            const brandChips = extBrands.map((b, bIdx) => {{
+                const bClean = (typeof b === 'object' ? b.name : b).trim();
+                const searchUrl = getKeywordSearchUrl(kw + ' ' + bClean);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{bClean}}' 검색">${{bClean}} ↗</a>`;
+            }}).join('');
+
+            const kwChips = extKws.map(k => {{
+                const searchUrl = getKeywordSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
+
+            const searchKwChips = extSearchKws.map(k => {{
+                const searchUrl = getKeywordSearchUrl(kw + ' ' + k);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kw}} ${{k}}' 검색">${{k}} ↗</a>`;
+            }}).join('');
+
+            const bWrap = document.getElementById('extractedBrandsWrap');
+            if (bWrap) {{
+                bWrap.innerHTML = brandChips ? `
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                        <span style="font-weight:700; color:#64748b; font-size:0.74rem; flex-shrink:0;">대상 브랜드:</span>
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">${{brandChips}}</div>
+                    </div>
+                ` : '';
+            }}
+
+            const kWrap = document.getElementById('extractedKeywordsWrap');
+            if (kWrap) {{
+                kWrap.innerHTML = kwChips ? `
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                        <span style="font-weight:700; color:#64748b; font-size:0.74rem; flex-shrink:0;">추출 키워드:</span>
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">${{kwChips}}</div>
+                    </div>
+                ` : '';
+            }}
+
+            const skWrap = document.getElementById('extractedSearchKeywordsWrap');
+            if (skWrap) {{
+                skWrap.innerHTML = searchKwChips ? `
+                    <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                        <span style="font-weight:700; color:#64748b; font-size:0.74rem; flex-shrink:0;">검색 키워드:</span>
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">${{searchKwChips}}</div>
+                    </div>
+                ` : '';
+            }}
+
+            // 참고 뉴스 기사
+            const articles = data.keyword_articles || llmInfo.keyword_articles || [];
+            const articlesContainer = document.getElementById('articlesListContainer');
+            const countBadge = document.getElementById('articlesCountBadge');
+            const wrap = document.getElementById('articlesWrapper');
+            if (countBadge) countBadge.textContent = `${{articles.length}}건`;
+            if (articlesContainer) {{
+                if (!articles || articles.length === 0) {{
+                    if (wrap) wrap.style.display = 'none';
+                    articlesContainer.innerHTML = '<div style="font-size:0.75rem; color:#94a3b8; padding:4px 0;">참고 뉴스 기사가 없습니다.</div>';
+                }} else {{
+                    if (wrap) wrap.style.display = 'block';
+                    articlesContainer.innerHTML = articles.map(art => {{
+                        const linkUrl = art.link || art.url || '#';
+                        const sourceName = art.source || art.media || '뉴스';
+                        const titleText = art.title || art.text || '제목 없음';
+                        const pubDate = art.publish_dt || art.published_date || art.date || '';
+                        const hasValidLink = linkUrl && linkUrl !== '#';
+
+                        return `
+                            <div style="background:#f8fafc; padding:6px 10px; border-radius:5px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; font-size:0.78rem; margin-bottom:4px;">
+                                <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+                                    <a href="${{linkUrl}}" ${{hasValidLink ? 'target="_blank" rel="noopener noreferrer"' : ''}} style="color:#0f172a; text-decoration:none; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${{titleText}}">${{titleText}} <span class="badge-chip-item badge-media">${{sourceName}}</span></a>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0; font-size:0.72rem; color:#64748b;">
+                                    ${{pubDate ? `<span>${{pubDate}}</span>` : ''}}
+                                    ${{hasValidLink ? `<a href="${{linkUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; text-decoration:underline; font-weight:600;">원문보기</a>` : ''}}
+                                </div>
+                            </div>
+                        `;
+                    }}).join('');
+                }}
+            }}
+
+            // 프롬프트 인스펙터 렌더링
+            renderPromptInspector(stage1, stage2);
+
+            // 추천 상품 렌더링
+            const products = data.recommended_products || data.products || data.items || data.result || [];
+            renderDashboardResults(products, false);
+        }}
+
+        function getKeywordSearchUrl(keyword) {{
+            const searchBase = currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
+            return `${{searchBase}}/search?keyword=${{encodeURIComponent(keyword)}}`;
+        }}
+
+        function renderKeywordChips(filterText = '') {{
+            const container = document.getElementById('kwChipsContainer');
+            if (!container) return;
+
+            const q = (filterText || '').trim().toLowerCase();
+            const filtered = q ? KEYWORDS_LIST.filter(k => k.toLowerCase().includes(q)) : KEYWORDS_LIST;
+
+            container.innerHTML = filtered.map(kw => `
+                <span class="kw-chip ${{kw === currentKeyword ? 'active' : ''}}" onclick="selectKeyword('${{kw}}')">
+                    ${{kw}}
+                </span>
+            `).join('');
+
+            const activeChip = container.querySelector('.kw-chip.active');
+            if (activeChip) activeChip.scrollIntoView({{ behavior: 'smooth', block: 'nearest', inline: 'center' }});
+        }}
+
+        function selectKeyword(kw) {{
+            currentKeyword = String(kw).trim();
+            const input = document.getElementById('directKwInput');
+            if (input) input.value = currentKeyword;
+            renderKeywordChips(document.getElementById('kwFilterInput')?.value || '');
+            updateUrlQuery();
+            fetchRecommendationApi();
+        }}
+
+        function triggerKeywordFetch() {{
+            const input = document.getElementById('directKwInput');
+            if (input && input.value.trim()) {{
+                currentKeyword = input.value.trim();
+            }}
+            renderKeywordChips(document.getElementById('kwFilterInput')?.value || '');
+            updateUrlQuery();
+            fetchRecommendationApi();
+        }}
+
+        function filterKeywordsList(q) {{
+            renderKeywordChips(q);
+        }}
+
+        function toggleArticlesAccordion() {{
+            const container = document.getElementById('articlesListContainer');
+            const icon = document.getElementById('articlesToggleIcon');
+            if (!container) return;
+            const isHidden = container.style.display === 'none';
+            container.style.display = isHidden ? 'block' : 'none';
+            if (icon) {{
+                icon.textContent = isHidden ? '목록 접기 ▲' : '목록 펼치기 ▼';
+            }}
+        }}
+
+        function renderPromptInspector(stage1, stage2) {{
+            promptResDataMap = {{}};
+
+            const p1Sys = stage1.prompt_info?.system_prompt;
+            const cardSys1 = document.getElementById('cardSysStage1');
+            const elemSys1 = document.getElementById('promptSysStage1');
+            if (p1Sys && elemSys1) {{
+                if (cardSys1) cardSys1.style.display = 'block';
+                promptResDataMap['promptSysStage1'] = p1Sys;
+                elemSys1.innerHTML = '';
+                elemSys1.appendChild(createJsonTree(p1Sys, true));
+            }}
+
+            const p1User = stage1.prompt_info?.user_prompt;
+            const cardUser1 = document.getElementById('cardUserStage1');
+            const elemUser1 = document.getElementById('promptUserStage1');
+            if (p1User && elemUser1) {{
+                if (cardUser1) cardUser1.style.display = 'block';
+                promptResDataMap['promptUserStage1'] = p1User;
+                elemUser1.innerHTML = '';
+                elemUser1.appendChild(createJsonTree(p1User, true));
+            }} else if (cardUser1) {{
+                cardUser1.style.display = 'none';
+            }}
+
+            const res1 = stage1.guide_result || stage1.prompt_info?.raw_response;
+            const cardRes1 = document.getElementById('cardResultStage1');
+            const elemRes1 = document.getElementById('promptResultStage1');
+            if (res1 && elemRes1) {{
+                if (cardRes1) cardRes1.style.display = 'block';
+                promptResDataMap['promptResultStage1'] = res1;
+                elemRes1.innerHTML = '';
+                elemRes1.appendChild(createJsonTree(res1, true));
+            }} else if (cardRes1) {{
+                cardRes1.style.display = 'none';
+            }}
+
+            const p2Sys = stage2.prompt_info?.system_prompt;
+            const cardSys2 = document.getElementById('cardSysStage2');
+            const elemSys2 = document.getElementById('promptSysStage2');
+            if (p2Sys && elemSys2) {{
+                if (cardSys2) cardSys2.style.display = 'block';
+                promptResDataMap['promptSysStage2'] = p2Sys;
+                elemSys2.innerHTML = '';
+                elemSys2.appendChild(createJsonTree(p2Sys, true));
+            }}
+
+            const p2User = stage2.prompt_info?.user_prompt;
+            const cardUser2 = document.getElementById('cardUserStage2');
+            const elemUser2 = document.getElementById('promptUserStage2');
+            if (p2User && elemUser2) {{
+                if (cardUser2) cardUser2.style.display = 'block';
+                promptResDataMap['promptUserStage2'] = p2User;
+                elemUser2.innerHTML = '';
+                elemUser2.appendChild(createJsonTree(p2User, true));
+            }} else if (cardUser2) {{
+                cardUser2.style.display = 'none';
+            }}
+
+            const res2 = stage2.prompt_info?.raw_response || stage2.llm_response;
+            const cardRes2 = document.getElementById('cardResultStage2');
+            const elemRes2 = document.getElementById('promptResultStage2');
+            if (res2 && elemRes2) {{
+                if (cardRes2) cardRes2.style.display = 'block';
+                promptResDataMap['promptResultStage2'] = res2;
+                elemRes2.innerHTML = '';
+                elemRes2.appendChild(createJsonTree(res2, true));
+            }} else if (cardRes2) {{
+                cardRes2.style.display = 'none';
+            }}
+        }}
+
+        function copyPromptTextToClipboard(containerId, btnId) {{
+            const data = promptResDataMap[containerId];
+            if (!data) return;
+            const textToCopy = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+            navigator.clipboard.writeText(textToCopy).then(() => {{
+                const btn = document.getElementById(btnId);
+                if (btn) {{
+                    const orig = btn.textContent;
+                    btn.textContent = '복사완료!';
+                    btn.style.background = '#059669';
+                    setTimeout(() => {{
+                        btn.textContent = orig;
+                        btn.style.background = '#334155';
+                    }}, 1500);
+                }}
+            }}).catch(() => {{
+                alert('복사 실패');
+            }});
         }}
 
         function handleApiSuccessResponse(data) {{
