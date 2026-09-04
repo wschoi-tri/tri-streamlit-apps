@@ -1140,6 +1140,10 @@ html_content = f"""
             overflow-x: auto;
             padding: 2px 0 4px 0;
             white-space: nowrap;
+            scrollbar-width: thin;
+        }}
+        .kw-chips-container:focus {{
+            outline: none;
         }}
         .kw-chip {{
             display: inline-flex;
@@ -1378,6 +1382,7 @@ html_content = f"""
                     <input type="text" id="directKwInput" class="primary-kw-input" placeholder="키워드 입력"/>
                     <button class="btn-query" onclick="triggerKeywordFetch()">조회</button>
                     <input type="text" id="kwFilterInput" class="kw-filter-input" placeholder="키워드 목록 필터..." oninput="filterKeywordsList(this.value)"/>
+                    <span style="font-size:0.72rem; color:#64748b; font-weight:600; margin-left:2px;" title="키보드 방향키로 이전/다음 키워드를 즉시 탐색할 수 있습니다.">(← → 키로 탐색)</span>
                 </div>
 
                 <div class="llm-meta-cluster">
@@ -1401,7 +1406,7 @@ html_content = f"""
             </div>
 
             <!-- 타겟 키워드 칩 스트립 -->
-            <div class="kw-chips-container" id="kwChipsContainer"></div>
+            <div class="kw-chips-container" id="kwChipsContainer" tabindex="0" title="좌우 방향키(←, →)로 키워드를 탐색할 수 있습니다."></div>
 
             <!-- AI 큐레이션 요약 & 스타일 가이드 & 참고 기사 카드 -->
             <div class="kw-ai-content-card">
@@ -1963,6 +1968,39 @@ html_content = f"""
                 sizeInput.addEventListener('change', () => {{
                     currentK = sizeInput.value;
                     executeRecommendFlow();
+                }});
+            }}
+
+            // 키보드 좌우 방향키 (ArrowLeft, ArrowRight)로 다음/이전 키워드 즉시 탐색
+            window.addEventListener('keydown', (e) => {{
+                if (currentMlType !== 'keyword-trend') return;
+
+                const activeTag = document.activeElement ? document.activeElement.tagName.toUpperCase() : '';
+                // 텍스트 입력 필드 포커스 시 일반 커서 이동 보호
+                if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') {{
+                    if (document.activeElement?.id === 'kwFilterInput' && e.key === 'ArrowDown') {{
+                        const chipsContainer = document.getElementById('kwChipsContainer');
+                        if (chipsContainer) chipsContainer.focus();
+                        e.preventDefault();
+                    }}
+                    return;
+                }}
+
+                if (e.key === 'ArrowRight') {{
+                    if (handleKeywordArrowNavigation('next')) e.preventDefault();
+                }} else if (e.key === 'ArrowLeft') {{
+                    if (handleKeywordArrowNavigation('prev')) e.preventDefault();
+                }}
+            }});
+
+            const chipsContainer = document.getElementById('kwChipsContainer');
+            if (chipsContainer) {{
+                chipsContainer.addEventListener('keydown', (e) => {{
+                    if (e.key === 'ArrowRight') {{
+                        if (handleKeywordArrowNavigation('next')) e.preventDefault();
+                    }} else if (e.key === 'ArrowLeft') {{
+                        if (handleKeywordArrowNavigation('prev')) e.preventDefault();
+                    }}
                 }});
             }}
         }}
@@ -2783,6 +2821,26 @@ html_content = f"""
 
         function filterKeywordsList(q) {{
             renderKeywordChips(q);
+        }}
+
+        function handleKeywordArrowNavigation(direction) {{
+            if (currentMlType !== 'keyword-trend') return false;
+
+            const filterInput = document.getElementById('kwFilterInput');
+            const q = (filterInput?.value || '').trim().toLowerCase();
+            const list = q ? KEYWORDS_LIST.filter(k => k.toLowerCase().includes(q)) : KEYWORDS_LIST;
+            if (!list || list.length === 0) return false;
+
+            let idx = list.indexOf(currentKeyword);
+            if (direction === 'next') {{
+                if (idx === -1) idx = 0;
+                else idx = (idx + 1) % list.length;
+            }} else if (direction === 'prev') {{
+                if (idx === -1) idx = list.length - 1;
+                else idx = (idx - 1 + list.length) % list.length;
+            }}
+            selectKeyword(list[idx]);
+            return true;
         }}
 
         function toggleArticlesAccordion() {{
