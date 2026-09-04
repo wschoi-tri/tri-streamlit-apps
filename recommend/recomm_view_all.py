@@ -379,11 +379,12 @@ html_content = f"""
         .multi-chips-row {{
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
             gap: 4px;
             margin-top: 8px;
             padding-top: 6px;
             border-top: 1px dotted #e2e8f0;
-            max-height: 52px;
+            max-height: 58px;
             overflow-y: auto;
         }}
         .prd-chip {{
@@ -395,11 +396,23 @@ html_content = f"""
             color: #2563eb;
             border: 1px solid #dbeafe;
             cursor: pointer;
+            transition: all 0.15s ease;
         }}
         .prd-chip:hover {{
             background: #fee2e2;
             color: #ef4444;
             border-color: #fca5a5;
+        }}
+        .chip-clear-all {{
+            background: #f1f5f9;
+            color: #ef4444;
+            border-color: #fecaca;
+            font-weight: 800;
+        }}
+        .chip-clear-all:hover {{
+            background: #ef4444;
+            color: #ffffff;
+            border-color: #ef4444;
         }}
 
         /* 우측: 기준 상품 선택기 */
@@ -456,6 +469,21 @@ html_content = f"""
         }}
         .btn-query:hover {{
             background: #2563eb;
+        }}
+        .btn-clear {{
+            background: #ffffff;
+            color: #ef4444;
+            border: 1px solid #fca5a5;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }}
+        .btn-clear:hover {{
+            background: #fef2f2;
+            border-color: #ef4444;
         }}
         .seed-instruction-text {{
             font-size: 0.75rem;
@@ -950,6 +978,9 @@ html_content = f"""
                         <span style="font-size:0.8rem; font-weight:700; color:#475569;">상품번호:</span>
                         <input type="text" id="directPrdInput" class="primary-prd-input" placeholder="단일 or 쉼표 다중"/>
 
+                        <!-- [신규] 선택 해제(초기화) 버튼 -->
+                        <button class="btn-clear" onclick="clearSelectedPrd()" title="선택된 기준 상품 모두 해제">선택 해제</button>
+
                         <!-- home 전용 필드 -->
                         <div id="homeFieldsWrap" style="display:none; align-items:center; gap:5px;">
                             <input type="text" id="basketPrdInput" class="home-extra-input" placeholder="장바구니 prdNo"/>
@@ -1086,7 +1117,14 @@ html_content = f"""
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
         }}
 
-        function getProductDetailUrl(prdNo) {{
+        // [사용자 요청] appPrdDtlUrl 필드 값을 최우선 사용하여 상품 링크 생성
+        function getProductDetailUrl(prdNo, appPrdDtlUrl = '') {{
+            if (appPrdDtlUrl && typeof appPrdDtlUrl === 'string' && appPrdDtlUrl.trim()) {{
+                const trimmed = appPrdDtlUrl.trim();
+                if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+                if (trimmed.startsWith('/')) return `${{getWebBaseUrl()}}${{trimmed}}`;
+                return `${{getWebBaseUrl()}}/${{trimmed}}`;
+            }}
             if (!prdNo || prdNo === '-') return '#';
             return `${{getWebBaseUrl()}}/product/${{prdNo}}`;
         }}
@@ -1098,6 +1136,7 @@ html_content = f"""
         }}
 
         function getSelectedPrdList() {{
+            if (!currentPrdNo) return [];
             return currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
         }}
 
@@ -1280,6 +1319,7 @@ html_content = f"""
                             full_name: dpCtgrNm1,
                             prd_no: prdNo,
                             prd_img: source.appPrdImgUrl || source.prdImg || '',
+                            app_prd_dtl_url: source.appPrdDtlUrl || '',
                             actual_prd_nm: source.prdNm || `상품${{i+1}}`
                         }});
                     }}
@@ -1294,19 +1334,19 @@ html_content = f"""
             }} catch (e) {{
                 if (seedStatus) seedStatus.textContent = '기본 베스트 상품 모드 (클릭: 교체 / Ctrl+클릭: 다중선택)';
                 currentSeedProducts = siteCd === '1' ? [
-                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": ""}},
-                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": ""}},
-                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": ""}},
-                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": ""}},
-                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": ""}},
-                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": ""}}
+                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": "", "app_prd_dtl_url": ""}}
                 ] : [
-                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": ""}},
-                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": ""}},
-                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": ""}},
-                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": ""}},
-                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": ""}},
-                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": ""}}
+                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": "", "app_prd_dtl_url": ""}},
+                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": "", "app_prd_dtl_url": ""}}
                 ];
             }}
 
@@ -1347,7 +1387,7 @@ html_content = f"""
 
             if (isMultiKey) {{
                 if (selectedList.includes(prdNo)) {{
-                    if (selectedList.length > 1) selectedList = selectedList.filter(p => p !== prdNo);
+                    selectedList = selectedList.filter(p => p !== prdNo);
                 }} else {{
                     selectedList.push(prdNo);
                 }}
@@ -1364,21 +1404,112 @@ html_content = f"""
             executeRecommendFlow();
         }}
 
+        // [신규] 개별 칩 삭제 (1개 남았을 때도 완전히 삭제 가능)
         function removeSelectedPrd(prdNo) {{
             let selectedList = getSelectedPrdList();
-            if (selectedList.length > 1) {{
-                selectedList = selectedList.filter(p => p !== prdNo);
-                currentPrdNo = selectedList.join(',');
-                const directInput = document.getElementById('directPrdInput');
-                if (directInput) directInput.value = currentPrdNo;
-                renderSeedGrid();
+            selectedList = selectedList.filter(p => p !== prdNo);
+            currentPrdNo = selectedList.join(',');
+
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = currentPrdNo;
+
+            renderSeedGrid();
+            if (currentPrdNo) {{
                 executeRecommendFlow();
+            }} else {{
+                clearSelectedPrd();
             }}
+        }}
+
+        // [사용자 요청] 전체 선택 해제 / 선택 없음 버튼 핸들러
+        function clearSelectedPrd() {{
+            currentPrdNo = "";
+            currentSelectedSeed = "";
+
+            const directInput = document.getElementById('directPrdInput');
+            if (directInput) directInput.value = "";
+
+            renderSeedGrid();
+            renderTargetProductCardEmpty();
+            updateUrlQuery();
+
+            if (currentMlType === 'home') {{
+                // home 모드는 prdNo 없이도 장바구니/좋아요/회원번호로 조회 가능
+                fetchRecommendationApi();
+            }} else {{
+                renderEmptyResultsNotice('기준 상품이 선택되지 않았습니다. 상품번호를 입력하거나 아래 실시간 베스트 상품을 선택하세요.');
+            }}
+        }}
+
+        function renderTargetProductCardEmpty() {{
+            const countBadge = document.getElementById('targetCountBadge');
+            if (countBadge) countBadge.textContent = '0개';
+
+            const mallLink = document.getElementById('targetMallLink');
+            if (mallLink) {{
+                mallLink.href = '#';
+                mallLink.style.display = 'none';
+            }}
+
+            const multiContainer = document.getElementById('multiChipsContainer');
+            if (multiContainer) {{
+                multiContainer.style.display = 'none';
+                multiContainer.innerHTML = '';
+            }}
+
+            const imgWrap = document.getElementById('targetThumbWrap');
+            if (imgWrap) imgWrap.innerHTML = '<span style="font-size:0.7rem; color:#94a3b8;">선택 없음</span>';
+
+            const brandEl = document.getElementById('targetBrandText');
+            if (brandEl) brandEl.textContent = '선택된 상품 없음';
+
+            const nameEl = document.getElementById('targetNameText');
+            if (nameEl) {{
+                nameEl.textContent = '기준 상품을 선택하거나 상품번호를 입력하세요.';
+                nameEl.title = '기준 상품을 선택하거나 상품번호를 입력하세요.';
+            }}
+
+            const priceEl = document.getElementById('targetPriceText');
+            if (priceEl) priceEl.textContent = '-';
+
+            const rateEl = document.getElementById('targetRateText');
+            if (rateEl) rateEl.textContent = '';
+
+            const catEl = document.getElementById('targetCatPath');
+            if (catEl) catEl.textContent = '실시간 베스트 상품을 클릭하여 기준 상품을 지정할 수 있습니다.';
+        }}
+
+        function renderEmptyResultsNotice(message) {{
+            const statusEl = document.getElementById('statusBadge');
+            if (statusEl) {{
+                statusEl.textContent = '대기 중';
+                statusEl.style.color = '#64748b';
+                statusEl.style.background = '#f1f5f9';
+                statusEl.style.borderColor = '#cbd5e1';
+            }}
+
+            const snippetEl = document.getElementById('activeApiUrlSnippet');
+            if (snippetEl) snippetEl.textContent = `기준 상품 선택 대기`;
+
+            const fullUrlEl = document.getElementById('calledApiUrlFull');
+            if (fullUrlEl) fullUrlEl.textContent = '-';
+
+            document.getElementById('productGridContainer').innerHTML = `
+                <div style="grid-column:1/-1; padding:60px 20px; text-align:center; color:#64748b; font-size:0.95rem; font-weight:600;">
+                    ${{escapeHtml(message)}}
+                </div>
+            `;
+
+            document.getElementById('productTableBody').innerHTML = `
+                <tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">${{escapeHtml(message)}}</td></tr>
+            `;
+
+            renderRawJsonView({{ message: message, status: "WAITING_FOR_INPUT" }});
         }}
 
         function triggerFetch() {{
             const directInput = document.getElementById('directPrdInput');
-            if (directInput && directInput.value.trim()) currentPrdNo = directInput.value.trim();
+            if (directInput) currentPrdNo = directInput.value.trim();
 
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput && sizeInput.value) currentK = sizeInput.value;
@@ -1423,12 +1554,19 @@ html_content = f"""
             updateUrlQuery();
 
             // 1. 현재 추천 기준 대상 상품 정보 카드 갱신
-            // (home 모드에서 특정 시드 탭이 선택되어 있다면 해당 시드 상품을, 아니면 currentPrdNo의 첫번째 상품을 표시)
             const activePrdToLoad = (currentMlType === 'home' && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
-            loadTargetProductInfo(activePrdToLoad);
+            if (activePrdToLoad) {{
+                loadTargetProductInfo(activePrdToLoad);
+            }} else {{
+                renderTargetProductCardEmpty();
+            }}
 
             // 2. 추천 API 호출
-            await fetchRecommendationApi();
+            if (currentPrdNo || currentMlType === 'home') {{
+                await fetchRecommendationApi();
+            }} else {{
+                renderEmptyResultsNotice('기준 상품이 선택되지 않았습니다. 상품번호를 입력하거나 아래 실시간 베스트 상품을 선택하세요.');
+            }}
         }}
 
         async function loadTargetProductInfo(prdNoStr) {{
@@ -1439,17 +1577,30 @@ html_content = f"""
             if (countBadge) countBadge.textContent = `${{prdList.length}}개`;
 
             const mallLink = document.getElementById('targetMallLink');
-            if (mallLink) mallLink.href = getProductDetailUrl(firstPrd);
+            if (mallLink) {{
+                mallLink.href = getProductDetailUrl(firstPrd);
+                mallLink.style.display = 'inline';
+            }}
 
             const multiContainer = document.getElementById('multiChipsContainer');
             if (multiContainer) {{
                 if (prdList.length > 1) {{
                     multiContainer.style.display = 'flex';
-                    multiContainer.innerHTML = prdList.map(p => `
-                        <span class="prd-chip" onclick="removeSelectedPrd('${{p}}')" title="클릭 시 선택 해제">
+                    let chipsHtml = prdList.map(p => `
+                        <span class="prd-chip" onclick="removeSelectedPrd('${{p}}')" title="클릭 시 선택 제외">
                             #${{p}} ✕
                         </span>
                     `).join('');
+                    chipsHtml += `<span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="모든 선택 상품 해제">전체 해제 ✕</span>`;
+                    multiContainer.innerHTML = chipsHtml;
+                }} else if (prdList.length === 1) {{
+                    multiContainer.style.display = 'flex';
+                    multiContainer.innerHTML = `
+                        <span class="prd-chip" onclick="removeSelectedPrd('${{firstPrd}}')" title="클릭 시 선택 해제">
+                            #${{firstPrd}} ✕
+                        </span>
+                        <span class="prd-chip chip-clear-all" onclick="clearSelectedPrd()" title="선택 해제">해제 ✕</span>
+                    `;
                 }} else {{
                     multiContainer.style.display = 'none';
                     multiContainer.innerHTML = '';
@@ -1468,7 +1619,7 @@ html_content = f"""
                 const hits = data?.data?.result?.hits?.hits || [];
                 if (hits.length > 0) {{
                     const src = hits[0]._source || hits[0];
-                    renderTargetProductCard(src);
+                    renderTargetProductCard(src, firstPrd);
                 }} else {{
                     renderTargetProductCardFallback(firstPrd);
                 }}
@@ -1477,22 +1628,32 @@ html_content = f"""
             }}
         }}
 
-        function renderTargetProductCard(src) {{
+        function renderTargetProductCard(src, firstPrd = '') {{
             const name = src.prdNm || '상품명 미확인';
             const brand = src.brandNm || src.brdNm || '브랜드 미확인';
             const dcPrice = src.dcPrcMc || src.dcPrcApp || src.selPrc || src.price || 0;
             const normPrice = src.normPrc || 0;
             const imgPath = src.appPrdImgUrl || src.prdImg || '';
             const fullImg = getImageUrl(imgPath);
+            const appDtlUrl = src.appPrdDtlUrl || src.app_prd_dtl_url || '';
+            const targetUrl = getProductDetailUrl(firstPrd || src.prdNo, appDtlUrl);
 
             const c1 = src.dpCtgrNm1 || '';
             const c2 = src.dpCtgrNm2 || '';
             const c3 = src.dpCtgrNm3 || '';
             const catPath = [c1, c2, c3].filter(Boolean).join(' > ');
 
+            const mallLink = document.getElementById('targetMallLink');
+            if (mallLink) {{
+                mallLink.href = targetUrl;
+                mallLink.style.display = 'inline';
+            }}
+
             const imgWrap = document.getElementById('targetThumbWrap');
             if (imgWrap) {{
-                imgWrap.innerHTML = fullImg ? `<img src="${{fullImg}}" class="target-thumb" alt="${{name}}"/>` : '<span style="font-size:0.7rem; color:#94a3b8;">No Image</span>';
+                imgWrap.innerHTML = fullImg 
+                    ? `<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer"><img src="${{fullImg}}" class="target-thumb" alt="${{name}}"/></a>`
+                    : '<span style="font-size:0.7rem; color:#94a3b8;">No Image</span>';
             }}
 
             const brandEl = document.getElementById('targetBrandText');
@@ -1500,7 +1661,7 @@ html_content = f"""
 
             const nameEl = document.getElementById('targetNameText');
             if (nameEl) {{
-                nameEl.textContent = name;
+                nameEl.innerHTML = `<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">${{name}}</a>`;
                 nameEl.title = name;
             }}
 
@@ -1525,6 +1686,13 @@ html_content = f"""
         }}
 
         function renderTargetProductCardFallback(prdNo) {{
+            const targetUrl = getProductDetailUrl(prdNo);
+            const mallLink = document.getElementById('targetMallLink');
+            if (mallLink) {{
+                mallLink.href = targetUrl;
+                mallLink.style.display = 'inline';
+            }}
+
             const imgWrap = document.getElementById('targetThumbWrap');
             if (imgWrap) imgWrap.innerHTML = `<span style="font-size:0.7rem; color:#94a3b8;">#${{prdNo}}</span>`;
 
@@ -1532,7 +1700,7 @@ html_content = f"""
             if (brandEl) brandEl.textContent = '상품 상세';
 
             const nameEl = document.getElementById('targetNameText');
-            if (nameEl) nameEl.textContent = `상품번호 #${{prdNo}}`;
+            if (nameEl) nameEl.innerHTML = `<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">상품번호 #${{prdNo}}</a>`;
 
             const priceEl = document.getElementById('targetPriceText');
             if (priceEl) priceEl.textContent = '-';
@@ -1732,7 +1900,11 @@ html_content = f"""
 
             if (!currentSelectedSeed) {{
                 // 1. FORYOU 선택 시: 상단 대상 카드는 원래의 currentPrdNo로 복귀
-                loadTargetProductInfo(currentPrdNo);
+                if (currentPrdNo) {{
+                    loadTargetProductInfo(currentPrdNo);
+                }} else {{
+                    renderTargetProductCardEmpty();
+                }}
 
                 // 2. FORYOU 전체 결과 렌더링
                 renderDashboardResults(homeOriginalResults, false);
@@ -1822,7 +1994,8 @@ html_content = f"""
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '');
-                const prdUrl = getProductDetailUrl(prdNo);
+                // [사용자 요청] appPrdDtlUrl 필드 값을 우선 사용하여 링크 생성
+                const prdUrl = getProductDetailUrl(prdNo, prd.appPrdDtlUrl || prd.app_prd_dtl_url);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '상품명 미확인';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '브랜드';
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
@@ -1899,7 +2072,8 @@ html_content = f"""
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '-');
-                const prdUrl = getProductDetailUrl(prdNo);
+                // [사용자 요청] appPrdDtlUrl 필드 값을 우선 사용하여 링크 생성
+                const prdUrl = getProductDetailUrl(prdNo, prd.appPrdDtlUrl || prd.app_prd_dtl_url);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '-';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
