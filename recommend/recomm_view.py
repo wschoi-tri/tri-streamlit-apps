@@ -798,7 +798,7 @@ html_content = f"""
             flex-direction: column;
             flex: 1;
         }}
-        /* 3단: 추천 결과 메인 탭 바 (호출 API 전면 배치) */
+        /* 3단: 추천 결과 메인 탭 바 (호출 API 전면 배치 및 스크롤바 원천 차단) */
         .results-tab-bar {{
             display: flex;
             align-items: center;
@@ -806,10 +806,15 @@ html_content = f"""
             gap: 12px;
             border-bottom: 2px solid #e2e8f0;
             margin-bottom: 12px;
-            padding-bottom: 4px;
+            padding-bottom: 0;
             flex-wrap: nowrap;
-            overflow-x: auto;
+            overflow: visible;
             white-space: nowrap;
+        }}
+        .results-tab-bar::-webkit-scrollbar {{
+            display: none;
+            width: 0;
+            height: 0;
         }}
         .active-api-badge-box {{
             display: inline-flex;
@@ -837,6 +842,27 @@ html_content = f"""
             font-family: monospace, -apple-system, BlinkMacSystemFont, sans-serif;
             white-space: nowrap;
         }}
+        .kw-search-link-btn {{
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #2563eb;
+            background: #ffffff;
+            border: 1px solid #bfdbfe;
+            border-radius: 4px;
+            padding: 2px 8px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }}
+        .kw-search-link-btn:hover {{
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+        }}
         .v-divider-tab {{
             width: 1px;
             height: 20px;
@@ -856,8 +882,8 @@ html_content = f"""
             background: none;
             border: none;
             cursor: pointer;
-            border-bottom: 3px solid transparent;
-            margin-bottom: -6px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
             transition: all 0.15s ease;
             white-space: nowrap;
         }}
