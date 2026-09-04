@@ -341,10 +341,24 @@ html_content = f"""
             min-width: 0;
             flex: 1;
         }}
+        .target-brand-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }}
         .target-brand {{
             font-size: 0.74rem;
             font-weight: 700;
             color: #64748b;
+        }}
+        .target-selacnt {{
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #2563eb;
+            background: #eff6ff;
+            padding: 1px 5px;
+            border-radius: 3px;
         }}
         .target-name {{
             font-size: 0.86rem;
@@ -867,6 +881,7 @@ html_content = f"""
         .badge-red {{ background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }}
         .badge-purple {{ background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }}
         .badge-emerald {{ background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }}
+        .badge-cyan {{ background: #ecfeff; color: #0891b2; border: 1px solid #cffafe; }}
 
         /* 데이터 테이블 */
         .data-table {{
@@ -963,7 +978,10 @@ html_content = f"""
                             <span style="font-size:0.7rem; color:#94a3b8;">선택 없음</span>
                         </div>
                         <div class="target-meta-details">
-                            <span class="target-brand" id="targetBrandText">선택된 상품 없음</span>
+                            <div class="target-brand-row">
+                                <span class="target-brand" id="targetBrandText">선택된 상품 없음</span>
+                                <span class="target-selacnt" id="targetSelAcntBadge" style="display:none;"></span>
+                            </div>
                             <span class="target-name" id="targetNameText" title="상품명">기준 상품을 선택하거나 상품번호를 입력하세요.</span>
                             <div class="target-price-row">
                                 <span class="target-dc-price" id="targetPriceText">-</span>
@@ -1046,6 +1064,7 @@ html_content = f"""
                             <th>상품번호</th>
                             <th>브랜드</th>
                             <th>상품명</th>
+                            <th>협력사(selAcntNo)</th>
                             <th>판매가</th>
                             <th>정가</th>
                             <th>할인율</th>
@@ -1055,7 +1074,7 @@ html_content = f"""
                         </tr>
                     </thead>
                     <tbody id="productTableBody">
-                        <tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">데이터를 불러오는 중입니다...</td></tr>
+                        <tr><td colspan="12" style="text-align:center; padding:30px; color:#64748b;">데이터를 불러오는 중입니다...</td></tr>
                     </tbody>
                 </table>
             </section>
@@ -1229,13 +1248,11 @@ html_content = f"""
             const group = document.getElementById('modelTabsGroup');
             if (!group) return;
 
-            // 사이트별 필터링: siteOnly가 있는 모델은 해당 사이트에서만 노출
             const availableModels = ML_TYPES_LIST.filter(m => {{
                 if (m.siteOnly && m.siteOnly !== currentSiteCd) return false;
                 return true;
             }});
 
-            // 만약 현재 선택된 모델이 변경된 사이트에서 미지원 모델이면 home으로 fallback
             if (!availableModels.some(m => m.id === currentMlType)) {{
                 currentMlType = 'home';
             }}
@@ -1302,7 +1319,6 @@ html_content = f"""
             }}
         }}
 
-        // 실시간 베스트 상품 로드 (가져오지 못할 경우 '서버 연결이 안됩니다' 명확히 표시)
         async function loadBestProducts(siteCd) {{
             const seedStatus = document.getElementById('seedStatusText');
             if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
@@ -1341,7 +1357,8 @@ html_content = f"""
                             full_name: dpCtgrNm1,
                             prd_no: prdNo,
                             prd_img: source.appPrdImgUrl || source.prdImg || '',
-                            actual_prd_nm: source.prdNm || `상품${{i+1}}`
+                            actual_prd_nm: source.prdNm || `상품${{i+1}}`,
+                            sel_acnt_no: source.selAcntNo || source.sel_acnt_no || ''
                         }});
                     }}
                 }}
@@ -1350,7 +1367,6 @@ html_content = f"""
                     currentSeedProducts = products;
                     if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
                     
-                    // [핵심] 사용자가 지정한 상품번호가 없을 때, 살아있는 실시간 1위 상품을 기본 기준으로 자연스럽게 설정
                     if (!currentPrdNo.trim()) {{
                         currentPrdNo = currentSeedProducts[0].prd_no;
                         const directInput = document.getElementById('directPrdInput');
@@ -1360,7 +1376,6 @@ html_content = f"""
                     throw new Error('데이터 없음');
                 }}
             }} catch (e) {{
-                // [사용자 요청] 서버 연결 실패 시 가짜 데이터 대신 "서버 연결이 안됩니다" 명확히 안내
                 currentSeedProducts = [];
                 if (seedStatus) {{
                     seedStatus.textContent = '서버 연결이 안됩니다';
@@ -1476,6 +1491,9 @@ html_content = f"""
             const brandEl = document.getElementById('targetBrandText');
             if (brandEl) brandEl.textContent = '선택된 상품 없음';
 
+            const selAcntBadge = document.getElementById('targetSelAcntBadge');
+            if (selAcntBadge) selAcntBadge.style.display = 'none';
+
             const nameEl = document.getElementById('targetNameText');
             if (nameEl) {{
                 nameEl.textContent = '기준 상품을 선택하거나 상품번호를 입력하세요.';
@@ -1493,7 +1511,6 @@ html_content = f"""
             if (catEl) catEl.textContent = '실시간 베스트 상품을 클릭하여 기준 상품을 지정할 수 있습니다.';
         }}
 
-        // [사용자 요청] 상품 상세 정보를 못 가져올 때 "서버 연결이 안됩니다" 명확히 표시
         function renderTargetProductCardError(prdNo) {{
             const countBadge = document.getElementById('targetCountBadge');
             if (countBadge) countBadge.textContent = '조회 실패';
@@ -1506,6 +1523,9 @@ html_content = f"""
 
             const brandEl = document.getElementById('targetBrandText');
             if (brandEl) brandEl.textContent = '연결 실패';
+
+            const selAcntBadge = document.getElementById('targetSelAcntBadge');
+            if (selAcntBadge) selAcntBadge.style.display = 'none';
 
             const nameEl = document.getElementById('targetNameText');
             if (nameEl) {{
@@ -1545,7 +1565,7 @@ html_content = f"""
             `;
 
             document.getElementById('productTableBody').innerHTML = `
-                <tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">${{escapeHtml(message)}}</td></tr>
+                <tr><td colspan="12" style="text-align:center; padding:30px; color:#64748b;">${{escapeHtml(message)}}</td></tr>
             `;
 
             renderRawJsonView({{ message: message, status: "WAITING_FOR_INPUT" }});
@@ -1597,7 +1617,6 @@ html_content = f"""
         async function executeRecommendFlow() {{
             updateUrlQuery();
 
-            // 1. 현재 추천 기준 대상 상품 정보 카드 갱신
             const activePrdToLoad = (isSeedCompatibleModel() && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
             if (activePrdToLoad) {{
                 loadTargetProductInfo(activePrdToLoad);
@@ -1605,7 +1624,6 @@ html_content = f"""
                 renderTargetProductCardEmpty();
             }}
 
-            // 2. 추천 API 호출
             if (currentPrdNo || isSeedCompatibleModel()) {{
                 await fetchRecommendationApi();
             }} else {{
@@ -1665,11 +1683,9 @@ html_content = f"""
                     const src = hits[0]._source || hits[0];
                     renderTargetProductCard(src, firstPrd);
                 }} else {{
-                    // [사용자 요청] 검색 결과 없을 때 "서버 연결이 안됩니다" 안내
                     renderTargetProductCardError(firstPrd);
                 }}
             }} catch (e) {{
-                // [사용자 요청] 오류 발생 시 "서버 연결이 안됩니다" 안내
                 renderTargetProductCardError(firstPrd);
             }}
         }}
@@ -1682,6 +1698,7 @@ html_content = f"""
             const imgPath = src.appPrdImgUrl || src.prdImg || '';
             const fullImg = getImageUrl(imgPath);
             const targetUrl = getProductDetailUrl(firstPrd || src.prdNo);
+            const selAcnt = src.selAcntNo || src.sel_acnt_no || '';
 
             const c1 = src.dpCtgrNm1 || '';
             const c2 = src.dpCtgrNm2 || '';
@@ -1703,6 +1720,17 @@ html_content = f"""
 
             const brandEl = document.getElementById('targetBrandText');
             if (brandEl) brandEl.textContent = brand;
+
+            const selAcntBadge = document.getElementById('targetSelAcntBadge');
+            if (selAcntBadge) {{
+                if (selAcnt) {{
+                    selAcntBadge.textContent = `협력사:${{selAcnt}}`;
+                    selAcntBadge.style.display = 'inline-block';
+                    selAcntBadge.title = `판매자(협력사) 번호: ${{selAcnt}}`;
+                }} else {{
+                    selAcntBadge.style.display = 'none';
+                }}
+            }}
 
             const nameEl = document.getElementById('targetNameText');
             if (nameEl) {{
@@ -1813,7 +1841,7 @@ html_content = f"""
                 `;
 
                 document.getElementById('productTableBody').innerHTML = `
-                    <tr><td colspan="11" style="text-align:center; padding:30px; color:#ef4444; font-weight:700;">서버 연결이 안됩니다 (${{escapeHtml(err.message)}})</td></tr>
+                    <tr><td colspan="12" style="text-align:center; padding:30px; color:#ef4444; font-weight:700;">서버 연결이 안됩니다 (${{escapeHtml(err.message)}})</td></tr>
                 `;
 
                 renderRawJsonView({{ error: "서버 연결이 안됩니다", detail: err.message, requested_url: currentApiUrl }});
@@ -1830,7 +1858,6 @@ html_content = f"""
                 products = data.result || data.data || data.items || data.results || [];
                 if (!Array.isArray(products) && typeof products === 'object') products = [products];
 
-                // home 및 lf API 시드 상품들 추출
                 if (data.seed) {{
                     if (Array.isArray(data.seed)) homeExtractedSeeds = data.seed;
                     else if (data.seed.result && Array.isArray(data.seed.result)) homeExtractedSeeds = data.seed.result;
@@ -1846,12 +1873,10 @@ html_content = f"""
 
             homeOriginalResults = products;
 
-            // home 또는 lf API인 경우 시드 탭 바 렌더링
             if (isSeedCompatibleModel()) {{
                 document.getElementById('homeSeedTabsSection').style.display = 'block';
                 renderHomeSeedTabs(homeExtractedSeeds);
 
-                // 만약 특정 시드 상품이 이미 선택된 상태라면 해당 상품 기준 유사 상품 호출 실행
                 if (currentSelectedSeed) {{
                     fetchSimilarItemForSeed(currentSelectedSeed);
                     return;
@@ -2012,6 +2037,7 @@ html_content = f"""
                 const esScore = prd.esscore !== undefined && prd.esscore !== '' ? Number(prd.esscore) : null;
                 const imgPath = prd.appPrdImgUrl || prd.prd_img || prd.prdImg || '';
                 const imgUrl = getImageUrl(imgPath);
+                const selAcnt = prd.selAcntNo || prd.sel_acnt_no || '';
 
                 const c1 = prd.dpCtgrNm1 || prd.category || '';
                 const seedVal = prd.seed || '';
@@ -2053,6 +2079,7 @@ html_content = f"""
                             <div class="badge-chip-container">
                                 ${{isOriginPrd ? '<span class="badge-chip-item badge-red">내가 본 상품</span>' : ''}}
                                 ${{typeLabel ? `<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>` : ''}}
+                                ${{selAcnt ? `<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호">협력사:${{selAcnt}}</span>` : ''}}
                                 ${{score !== null && !isNaN(score) ? `<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>` : ''}}
                                 ${{esScore !== null && !isNaN(esScore) ? `<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>` : ''}}
                                 ${{seedLabel ? `<span class="badge-chip-item badge-purple" title="시드 출처">${{seedLabel}}</span>` : ''}}
@@ -2070,7 +2097,7 @@ html_content = f"""
             if (!tbody) return;
 
             if (!products || products.length === 0) {{
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:30px; color:#64748b;">추천 상품 데이터가 없습니다.</td></tr>';
                 return;
             }}
 
@@ -2080,6 +2107,7 @@ html_content = f"""
                 const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '-';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
+                const selAcnt = prd.selAcntNo || prd.sel_acnt_no || '-';
                 const salePrc = prd.dcPrcMc || prd.dcPrcApp || prd.selPrc || prd.salePrc || prd.price || 0;
                 const normPrc = prd.normPrc || prd.nrmPrc || 0;
                 const discRt = prd.totRateApp || prd.discRt || (normPrc > salePrc && normPrc > 0 ? Math.round((normPrc - salePrc) / normPrc * 100) : 0);
@@ -2097,7 +2125,8 @@ html_content = f"""
                         <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}</td>
                         <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
                         <td style="font-weight:600;">${{brand}}</td>
-                        <td style="max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{name}}</td>
+                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{name}}</td>
+                        <td style="font-weight:700; color:#0891b2;">${{selAcnt}}</td>
                         <td style="font-weight:700; color:#0f172a;">${{Number(salePrc).toLocaleString()}}원</td>
                         <td style="color:#94a3b8; text-decoration:line-through;">${{normPrc > 0 ? Number(normPrc).toLocaleString() + '원' : '-'}}</td>
                         <td style="font-weight:800; color:#f43f5e;">${{discRt > 0 ? discRt + '%' : '-'}}</td>
