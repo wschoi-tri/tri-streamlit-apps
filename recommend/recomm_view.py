@@ -176,9 +176,9 @@ html_content = f"""
         .app-wrapper {{
             display: flex;
             flex-direction: column;
-            min-height: 100vh;
+            min-height: 1250px;
             width: 100%;
-            padding: 14px 20px 30px 20px;
+            padding: 14px 20px 40px 20px;
             max-width: 1920px;
             margin: 0 auto;
         }}
@@ -792,11 +792,12 @@ html_content = f"""
         .tag-basket {{ background: #fdf2f8; color: #db2777; }}
         .tag-wish {{ background: #fef2f2; color: #ef4444; }}
 
-        /* 3단: 추천 결과 메인 뷰 */
+        /* 3단: 추천 결과 메인 뷰 (최소 높이 확보로 탭 전환 시 흔들림 방지) */
         .results-section {{
             display: flex;
             flex-direction: column;
             flex: 1;
+            min-height: 850px;
         }}
         /* 3단: 추천 결과 메인 탭 바 (호출 API 전면 배치 및 스크롤바 원천 차단) */
         .results-tab-bar {{
@@ -894,14 +895,21 @@ html_content = f"""
             font-weight: 800;
         }}
 
-        .tab-pane {{ display: none; }}
-        .tab-pane.active {{ display: block; }}
+        .tab-pane {{
+            display: none;
+            min-height: 780px;
+        }}
+        .tab-pane.active {{
+            display: block;
+            min-height: 780px;
+        }}
 
         /* 10열 그리드 */
         .grid-10-container {{
             display: grid;
             grid-template-columns: repeat(10, 1fr);
             gap: 10px;
+            min-height: 400px;
         }}
         .product-card {{
             border: 1px solid #e2e8f0;
@@ -1799,9 +1807,8 @@ html_content = f"""
 
         function getKeywordSearchUrl(kw) {{
             const targetKw = encodeURIComponent(kw || currentKeyword || '');
-            return currentSiteCd === '2' 
-                ? `https://m.boribori.co.kr/search?keyword=${{targetKw}}` 
-                : `https://www.halfclub.com/search?keyword=${{targetKw}}`;
+            const base = getWebBaseUrl();
+            return `${{base}}/search/${{targetKw}}`;
         }}
 
         function updateKeywordSearchLinks() {{
