@@ -1408,14 +1408,8 @@ html_content = f"""
             <!-- 타겟 키워드 칩 스트립 -->
             <div class="kw-chips-container" id="kwChipsContainer" tabindex="0" title="좌우 방향키(←, →)로 키워드를 탐색할 수 있습니다."></div>
 
-            <!-- AI 큐레이션 요약 & 스타일 가이드 & 참고 기사 카드 -->
+            <!-- AI 큐레이션 가이드, 신호 칩, 뉴스 기사 및 최종 요약 카드 -->
             <div class="kw-ai-content-card">
-                <!-- 큐레이션 요약문 -->
-                <div class="curation-summary-wrap" id="curationSummaryWrap" style="display:none;">
-                    <span class="curation-summary-badge">AI 큐레이션 요약</span>
-                    <span class="curation-summary-text" id="curationSummaryText"></span>
-                </div>
-
                 <!-- 가이드 텍스트 & 추출 태그 영역 -->
                 <div class="guide-text-section">
                     <div class="guide-header-row">
@@ -1442,6 +1436,12 @@ html_content = f"""
                         <span id="articlesToggleIcon" style="font-size:0.8rem; color:#64748b; font-weight:700;">목록 접기 ▲</span>
                     </div>
                     <div class="articles-list-container" id="articlesListContainer"></div>
+                </div>
+
+                <!-- 큐레이션 요약문 (뉴스 기사 아래에 최종 결론 및 요약으로 배치) -->
+                <div class="curation-summary-wrap" id="curationSummaryWrap" style="display:none;">
+                    <span class="curation-summary-badge">AI 큐레이션 요약</span>
+                    <span class="curation-summary-text" id="curationSummaryText"></span>
                 </div>
             </div>
         </section>
