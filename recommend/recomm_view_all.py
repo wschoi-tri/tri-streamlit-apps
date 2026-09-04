@@ -865,15 +865,36 @@ html_content = f"""
         .product-info {{
             padding: 8px;
         }}
+        .product-brand-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+            margin-bottom: 2px;
+        }}
         .brand-name {{
             font-size: 0.72rem;
             color: #64748b;
             font-weight: 700;
-            margin-bottom: 2px;
             text-transform: uppercase;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            flex: 1;
+            min-width: 0;
+        }}
+        .product-card-prdno {{
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #2563eb;
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-family: monospace, -apple-system, BlinkMacSystemFont, sans-serif;
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1.3;
         }}
         .product-name {{
             font-size: 0.78rem;
@@ -2213,7 +2234,12 @@ html_content = f"""
                             </a>
                         </div>
                         <div class="product-info">
-                            <div class="brand-name" title="${{escapeHtml(brand)}}">${{brand}}</div>
+                            <div class="product-brand-row">
+                                <span class="brand-name" title="${{escapeHtml(brand)}}">${{brand}}</span>
+                                <span class="product-card-prdno" title="상품번호: ${{prdNo}} (클릭 시 상세 이동)">
+                                    <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">#${{prdNo}}</a>
+                                </span>
+                            </div>
                             <div class="product-name" title="${{escapeHtml(name)}}">
                                 <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
                                     ${{name}}
