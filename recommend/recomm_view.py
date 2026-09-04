@@ -578,6 +578,7 @@ html_content = f"""
             grid-template-columns: repeat(12, 1fr);
             gap: 6px;
             overflow-x: auto;
+            padding: 4px 2px;
         }}
         .seed-mini-card {{
             border: 1px solid #e2e8f0;
@@ -590,13 +591,13 @@ html_content = f"""
             align-items: center;
             text-align: center;
             padding: 3px;
-            transition: all 0.15s ease;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
             position: relative;
             user-select: none;
         }}
         .seed-mini-card:hover {{
-            border-color: #94a3b8;
-            transform: translateY(-1px);
+            border-color: #64748b;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
         }}
         .seed-mini-card.active {{
             border-color: #2563eb;
