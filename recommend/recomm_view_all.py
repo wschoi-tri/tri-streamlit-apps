@@ -2864,7 +2864,7 @@ html_content = f"""
                 if (cardSys1) cardSys1.style.display = 'block';
                 promptResDataMap['promptSysStage1'] = p1Sys;
                 elemSys1.innerHTML = '';
-                elemSys1.appendChild(createJsonTree(p1Sys, true));
+                elemSys1.appendChild(createJsonTree(p1Sys, true, true));
             }}
 
             const p1User = stage1.prompt_info?.user_prompt;
@@ -2874,7 +2874,7 @@ html_content = f"""
                 if (cardUser1) cardUser1.style.display = 'block';
                 promptResDataMap['promptUserStage1'] = p1User;
                 elemUser1.innerHTML = '';
-                elemUser1.appendChild(createJsonTree(p1User, true));
+                elemUser1.appendChild(createJsonTree(p1User, true, true));
             }} else if (cardUser1) {{
                 cardUser1.style.display = 'none';
             }}
@@ -2886,7 +2886,7 @@ html_content = f"""
                 if (cardRes1) cardRes1.style.display = 'block';
                 promptResDataMap['promptResultStage1'] = res1;
                 elemRes1.innerHTML = '';
-                elemRes1.appendChild(createJsonTree(res1, true));
+                elemRes1.appendChild(createJsonTree(res1, true, true));
             }} else if (cardRes1) {{
                 cardRes1.style.display = 'none';
             }}
@@ -2898,7 +2898,7 @@ html_content = f"""
                 if (cardSys2) cardSys2.style.display = 'block';
                 promptResDataMap['promptSysStage2'] = p2Sys;
                 elemSys2.innerHTML = '';
-                elemSys2.appendChild(createJsonTree(p2Sys, true));
+                elemSys2.appendChild(createJsonTree(p2Sys, true, true));
             }}
 
             const p2User = stage2.prompt_info?.user_prompt;
@@ -2908,7 +2908,7 @@ html_content = f"""
                 if (cardUser2) cardUser2.style.display = 'block';
                 promptResDataMap['promptUserStage2'] = p2User;
                 elemUser2.innerHTML = '';
-                elemUser2.appendChild(createJsonTree(p2User, true));
+                elemUser2.appendChild(createJsonTree(p2User, true, true));
             }} else if (cardUser2) {{
                 cardUser2.style.display = 'none';
             }}
@@ -2920,7 +2920,7 @@ html_content = f"""
                 if (cardRes2) cardRes2.style.display = 'block';
                 promptResDataMap['promptResultStage2'] = res2;
                 elemRes2.innerHTML = '';
-                elemRes2.appendChild(createJsonTree(res2, true));
+                elemRes2.appendChild(createJsonTree(res2, true, true));
             }} else if (cardRes2) {{
                 cardRes2.style.display = 'none';
             }}
@@ -3248,10 +3248,10 @@ html_content = f"""
             const container = document.getElementById('rawJsonBody');
             if (!container) return;
             container.innerHTML = '';
-            container.appendChild(createJsonTree(data, true));
+            container.appendChild(createJsonTree(data, true, true));
         }}
 
-        function createJsonTree(value, isRoot = false) {{
+        function createJsonTree(value, isRoot = false, defaultCollapsed = true) {{
             if (value === null) {{
                 const s = document.createElement('span');
                 s.className = 'json-null';
@@ -3293,7 +3293,7 @@ html_content = f"""
 
             const toggle = document.createElement('span');
             toggle.className = 'json-toggle';
-            toggle.textContent = '▼';
+            toggle.textContent = defaultCollapsed ? '▶' : '▼';
             headerRow.appendChild(toggle);
 
             const openSpan = document.createElement('span');
@@ -3303,6 +3303,9 @@ html_content = f"""
 
             const childrenContainer = document.createElement('div');
             childrenContainer.className = 'json-children';
+            if (defaultCollapsed) {{
+                childrenContainer.style.display = 'none';
+            }}
 
             keys.forEach((key, idx) => {{
                 const row = document.createElement('div');
@@ -3320,7 +3323,7 @@ html_content = f"""
                     row.appendChild(colon);
                 }}
 
-                row.appendChild(createJsonTree(value[key]));
+                row.appendChild(createJsonTree(value[key], false, defaultCollapsed));
 
                 if (idx < keys.length - 1) {{
                     const comma = document.createElement('span');
@@ -3342,7 +3345,6 @@ html_content = f"""
             function toggleNode() {{
                 const isHidden = childrenContainer.style.display === 'none';
                 childrenContainer.style.display = isHidden ? 'block' : 'none';
-                footerRow.style.display = isHidden ? 'block' : 'none';
                 toggle.textContent = isHidden ? '▼' : '▶';
             }}
 
