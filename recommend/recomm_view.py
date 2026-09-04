@@ -1402,8 +1402,10 @@ html_content = f"""
                         <button class="btn-query" onclick="triggerFetch()">조회</button>
                     </div>
 
-                    <div class="seed-instruction-text" id="seedStatusText">
-                        실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)
+                    <div class="seed-instruction-text" id="seedStatusWrap" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span id="seedStatusText">실시간 베스트 12개</span>
+                        <a id="bestPageLink" href="https://www.halfclub.com/best" target="_blank" rel="noopener noreferrer" class="best-link-btn" title="해당 사이트 실시간 베스트 상품 페이지 새창 열기">베스트 바로가기 ↗</a>
+                        <span style="color:#94a3b8; font-size:0.75rem;">(클릭: 선택 / Ctrl+클릭: 다중선택)</span>
                     </div>
                 </div>
 
