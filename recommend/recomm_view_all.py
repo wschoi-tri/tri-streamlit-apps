@@ -711,41 +711,74 @@ html_content = f"""
             flex-direction: column;
             flex: 1;
         }}
+        /* 3단: 추천 결과 메인 탭 바 (호출 API 전면 배치) */
         .results-tab-bar {{
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: flex-start;
+            gap: 12px;
             border-bottom: 2px solid #e2e8f0;
             margin-bottom: 12px;
-            padding-bottom: 2px;
+            padding-bottom: 4px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            white-space: nowrap;
+        }}
+        .active-api-badge-box {{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 4px 10px;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }}
+        .active-api-label {{
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #1d4ed8;
+            background: #dbeafe;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }}
+        .active-api-info-text {{
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #1e40af;
+            font-family: monospace, -apple-system, BlinkMacSystemFont, sans-serif;
+            white-space: nowrap;
+        }}
+        .v-divider-tab {{
+            width: 1px;
+            height: 20px;
+            background-color: #cbd5e1;
+            flex-shrink: 0;
         }}
         .tab-btn-cluster {{
             display: flex;
             gap: 4px;
+            flex-shrink: 0;
         }}
         .result-tab-btn {{
-            padding: 8px 16px;
-            font-size: 0.9rem;
+            padding: 7px 14px;
+            font-size: 0.88rem;
             font-weight: 700;
             color: #64748b;
             background: none;
             border: none;
             cursor: pointer;
             border-bottom: 3px solid transparent;
-            margin-bottom: -4px;
+            margin-bottom: -6px;
             transition: all 0.15s ease;
+            white-space: nowrap;
         }}
         .result-tab-btn:hover {{ color: #0f172a; }}
         .result-tab-btn.active {{
             color: #2563eb;
             border-bottom-color: #2563eb;
             font-weight: 800;
-        }}
-        .active-api-info-text {{
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #64748b;
-            font-family: monospace;
         }}
 
         .tab-pane {{ display: none; }}
@@ -1058,12 +1091,16 @@ html_content = f"""
         <!-- 3단: 추천 결과 메인 뷰 (100% 가로 폭) -->
         <main class="results-section">
             <div class="results-tab-bar">
+                <div class="active-api-badge-box" title="현재 호출된 추천 API 엔드포인트">
+                    <span class="active-api-label">호출 API</span>
+                    <span class="active-api-info-text" id="activeApiUrlSnippet">-</span>
+                </div>
+                <div class="v-divider-tab"></div>
                 <div class="tab-btn-cluster">
                     <button class="result-tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품 (10열 그리드)</button>
                     <button class="result-tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
                     <button class="result-tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
                 </div>
-                <div class="active-api-info-text" id="activeApiUrlSnippet">-</div>
             </div>
 
             <section class="tab-pane active" id="tabContentGrid">
@@ -1848,8 +1885,10 @@ html_content = f"""
 
             currentApiUrl = `${{apiBase}}/recommend/${{endpoint}}?${{params.toString()}}`;
 
+            const activeModelObj = ML_TYPES_LIST.find(m => m.id === currentMlType);
+            const modelTitle = activeModelObj ? activeModelObj.name : currentMlType;
             const snippetEl = document.getElementById('activeApiUrlSnippet');
-            if (snippetEl) snippetEl.textContent = `/recommend/${{endpoint}} (${{currentK}}개)`;
+            if (snippetEl) snippetEl.textContent = `${{modelTitle}} (/recommend/${{endpoint}}) · ${{currentK}}개`;
 
             const fullUrlEl = document.getElementById('calledApiUrlFull');
             if (fullUrlEl) fullUrlEl.textContent = currentApiUrl;
@@ -2011,8 +2050,9 @@ html_content = f"""
             }}
 
             const simEndpoint = currentMlType === 'lf' ? 'lfsimilaritem' : 'similaritem';
+            const simTitle = currentMlType === 'lf' ? 'LF 유사 상품' : '유사 상품';
             const snippetEl = document.getElementById('activeApiUrlSnippet');
-            if (snippetEl) snippetEl.textContent = `/recommend/${{simEndpoint}}?prdNo=${{seedPrdNo}} (시드 연계)`;
+            if (snippetEl) snippetEl.textContent = `시드 #${{seedPrdNo}} (${{simTitle}}: /recommend/${{simEndpoint}}) · ${{currentK}}개`;
 
             const similarUrl = `${{apiBase}}/recommend/${{simEndpoint}}?siteCd=${{currentSiteCd}}&size=${{currentK}}&prdNo=${{seedPrdNo}}&originPrdYn=true&randomYn=false`;
             const fullUrlEl = document.getElementById('calledApiUrlFull');
