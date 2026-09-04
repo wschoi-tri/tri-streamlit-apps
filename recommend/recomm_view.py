@@ -2879,27 +2879,39 @@ html_content = f"""
                 `;
             }}
 
-            // 브랜드, 키워드 칩
+            // 브랜드, 키워드 칩 (선택된 트렌드 키워드 + 서브 키워드 조합 검색 지원)
+            const baseKw = (kw || currentKeyword || '').trim();
+            function makeCompositeKw(subText) {{
+                const sub = String(subText || '').trim();
+                if (!sub) return baseKw;
+                if (!baseKw) return sub;
+                if (sub.toLowerCase().includes(baseKw.toLowerCase())) return sub;
+                return `${{baseKw}} ${{sub}}`;
+            }}
+
             const extBrands = data.extracted_brands || stage1.guide_result?.extracted_brands || llmInfo.extracted_brands || [];
             const extKws = data.extracted_keywords || stage1.guide_result?.extracted_keywords || llmInfo.extracted_keywords || [];
             const extSearchKws = data.extracted_search_keywords || stage1.guide_result?.extracted_search_keywords || llmInfo.extracted_search_keywords || [];
 
             const brandChips = extBrands.map((b, bIdx) => {{
                 const bClean = (typeof b === 'object' ? b.name : b).trim();
-                const searchUrl = getKeywordSearchUrl(bClean);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="'${{bClean}}' 검색">${{bClean}} ↗</a>`;
+                const compKw = makeCompositeKw(bClean);
+                const searchUrl = getKeywordSearchUrl(compKw);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-brand" style="text-decoration:none; cursor:pointer;" title="'${{compKw}}' 검색">${{bClean}} ↗</a>`;
             }}).join('');
 
             const kwChips = extKws.map(k => {{
                 const kClean = String(k).trim();
-                const searchUrl = getKeywordSearchUrl(kClean);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{kClean}}' 검색">${{kClean}} ↗</a>`;
+                const compKw = makeCompositeKw(kClean);
+                const searchUrl = getKeywordSearchUrl(compKw);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{compKw}}' 검색">${{kClean}} ↗</a>`;
             }}).join('');
 
             const searchKwChips = extSearchKws.map(k => {{
                 const kClean = String(k).trim();
-                const searchUrl = getKeywordSearchUrl(kClean);
-                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{kClean}}' 검색">${{kClean}} ↗</a>`;
+                const compKw = makeCompositeKw(kClean);
+                const searchUrl = getKeywordSearchUrl(compKw);
+                return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-purple" style="text-decoration:none; cursor:pointer;" title="'${{compKw}}' 검색">${{kClean}} ↗</a>`;
             }}).join('');
 
             const bWrap = document.getElementById('extractedBrandsWrap');
