@@ -2974,11 +2974,6 @@ html_content = f"""
             renderDashboardResults(products, false);
         }}
 
-        function getKeywordSearchUrl(keyword) {{
-            const searchBase = currentSiteCd === '2' ? DOMAINS.BORIBORI_WEB : DOMAINS.HALFCLUB_WEB;
-            return `${{searchBase}}/search?keyword=${{encodeURIComponent(keyword)}}`;
-        }}
-
         function renderKeywordChips(filterText = '') {{
             const container = document.getElementById('kwChipsContainer');
             if (!container) return;
