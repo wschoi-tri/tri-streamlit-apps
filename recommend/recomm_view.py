@@ -1916,7 +1916,7 @@ html_content = f"""
                 chipBadgesHtml += '<span class="badge-chip-item badge-onlyhalf-chip" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
             }}
             if (isBoriEdition) {{
-                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리에디션)">보리에디션</span>';
+                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리에디션)">보리plus</span>';
                 chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리에디션)">보리에디션</span>';
             }}
 
@@ -2392,10 +2392,13 @@ html_content = f"""
                 const fullImg = getImageUrl(p.prd_img);
                 const rankNum = p.best_rank !== undefined ? p.best_rank : (idx + 1);
                 const isTopRank = rankNum <= 3;
+                const excl = getExclusiveBadges(p);
                 return `
                     <div class="seed-mini-card ${{isSelected ? 'active' : ''}}" data-prdno="${{p.prd_no}}" onclick="handleSeedCardClick('${{p.prd_no}}', event)" title="${{p.full_name || p.prd_nm}} (${{rankNum}}위, #${{p.prd_no}})">
                         <span class="seed-mini-rank ${{isTopRank ? 'top-rank' : ''}}">${{rankNum}}위</span>
                         <span class="seed-mini-badge">V</span>
+                        ${{excl.isOnlyHalf ? '<span class="exclusive-badge badge-onlyhalf" style="position:absolute; top:2px; right:2px; font-size:7px; padding:1px 3px; z-index:4;">온리</span>' : ''}}
+                        ${{excl.isBoriEdition ? '<span class="exclusive-badge badge-boriedition" style="position:absolute; top:2px; right:2px; font-size:7px; padding:1px 3px; z-index:4;">에디션</span>' : ''}}
                         <img src="${{fullImg || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="seed-mini-img" alt="${{p.prd_nm}}" loading="lazy"/>
                         <span class="seed-mini-cat">${{p.prd_nm}}</span>
                         <span class="seed-mini-prdno">#${{p.prd_no}}</span>
@@ -2710,6 +2713,7 @@ html_content = f"""
             const fullImg = getImageUrl(imgPath);
             const targetUrl = getProductDetailUrl(firstPrd || src.prdNo);
             const selAcnt = src.selAcntNo || src.sel_acnt_no || '';
+            const excl = getExclusiveBadges(src);
 
             const c1 = src.dpCtgrNm1 || '';
             const c2 = src.dpCtgrNm2 || '';
@@ -2724,13 +2728,14 @@ html_content = f"""
 
             const imgWrap = document.getElementById('targetThumbWrap');
             if (imgWrap) {{
+                imgWrap.style.position = 'relative';
                 imgWrap.innerHTML = fullImg 
-                    ? `<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer"><img src="${{fullImg}}" class="target-thumb" alt="${{name}}"/></a>`
+                    ? `${{excl.imgBadgesHtml ? `<div class="exclusive-badges-wrap" style="top:2px; right:2px; transform:scale(0.85); transform-origin:top right;">${{excl.imgBadgesHtml}}</div>` : ''}}<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer"><img src="${{fullImg}}" class="target-thumb" alt="${{name}}"/></a>`
                     : '<span style="font-size:0.7rem; color:#94a3b8;">No Image</span>';
             }}
 
             const brandEl = document.getElementById('targetBrandText');
-            if (brandEl) brandEl.textContent = brand;
+            if (brandEl) brandEl.innerHTML = `${{brand}}${{excl.chipBadgesHtml ? ` ${{excl.chipBadgesHtml}}` : ''}}`;
 
             const selAcntBadge = document.getElementById('targetSelAcntBadge');
             if (selAcntBadge) {{
@@ -3514,6 +3519,7 @@ html_content = f"""
                 const score = prd.score !== undefined && prd.score !== '' && !isNaN(Number(prd.score)) ? Number(prd.score).toFixed(4) : '-';
                 const esScore = prd.esscore !== undefined && prd.esscore !== '' && !isNaN(Number(prd.esscore)) ? Number(prd.esscore).toFixed(4) : '-';
                 const c1 = prd.dpCtgrNm1 || prd.category || '-';
+                const excl = getExclusiveBadges(prd);
 
                 const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
                                     (prd.is_origin_forced === true) || 
@@ -3522,10 +3528,10 @@ html_content = f"""
                 return `
                     <tr style="${{isOriginPrd ? 'background-color:#fff1f2;' : ''}}">
                         <td style="font-weight:700; color:#64748b;">${{rank}}</td>
-                        <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}</td>
+                        <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}${{excl.chipBadgesHtml ? ` ${{excl.chipBadgesHtml}}` : ''}}</td>
                         <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
                         <td style="font-weight:600;">${{brand}}</td>
-                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{name}}</td>
+                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{excl.chipBadgesHtml ? `${{excl.chipBadgesHtml}} ` : ''}}${{name}}</td>
                         <td style="font-weight:700; color:#0891b2;">${{selAcnt}}</td>
                         <td style="font-weight:700; color:#0f172a;">${{Number(salePrc).toLocaleString()}}원</td>
                         <td style="color:#94a3b8; text-decoration:line-through;">${{normPrc > 0 ? Number(normPrc).toLocaleString() + '원' : '-'}}</td>
