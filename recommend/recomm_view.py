@@ -64,8 +64,8 @@ ML_TYPES = [
     {"id": "buytogether", "name": "함께 구매한 상품", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
     {"id": "similar-image", "name": "유사 이미지", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
     {"id": "recommendforyou", "name": "개인화 추천", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
-    {"id": "lf", "name": "LF 개인화", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf", "siteOnly": "1"},
-    {"id": "lfsimilaritem", "name": "LF 유사 상품", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"},
+    {"id": "lf", "name": "LF 개인화", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf"},
+    {"id": "lfsimilaritem", "name": "LF 유사 상품", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem"},
     {"id": "keyword-trend", "name": "키워드 트렌드", "desc": "AI 트렌드 큐레이션", "endpoint": "/recommend/keyword-trend"}
 ]
 
