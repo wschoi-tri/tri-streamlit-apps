@@ -56,17 +56,19 @@ try:
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# 3. 실제 서비스 중인 추천 API 모델 6종 정의
+# 3. 실제 서비스 중인 추천 API 모델 목록 (LF 모델 2종 신규 포함 총 8종)
 ML_TYPES = [
     {"id": "home", "name": "홈 개인화 (home)", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
     {"id": "similaritem", "name": "유사 상품 (similarItem)", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
     {"id": "viewtogether", "name": "함께 본 상품 (viewTogether)", "desc": "동시 조회 기반", "endpoint": "/recommend/viewtogether"},
     {"id": "buytogether", "name": "함께 구매한 상품 (buyTogether)", "desc": "동시 구매 기반", "endpoint": "/recommend/buytogether"},
     {"id": "similar-image", "name": "유사 이미지 (similarImage)", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
-    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"}
+    {"id": "recommendforyou", "name": "개인화 추천 (recommendForYou)", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
+    {"id": "lf", "name": "LF 개인화 (lf)", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf", "siteOnly": "1"},
+    {"id": "lfsimilaritem", "name": "LF 유사 상품 (lfSimilarItem)", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"}
 ]
 
-# 4. URL 쿼리 파라미터 디코딩 및 초기 상태 설정
+# 4. URL 쿼리 파라미터 디코딩 및 상태 설정 (하드코딩 초기값 완전 제거)
 qp = st.query_params
 raw_site = qp.get("siteCd", "1")
 if raw_site not in ["1", "2"]:
@@ -81,7 +83,7 @@ raw_prd = qp.get("prdNo", "")
 if raw_prd:
     raw_prd = urllib.parse.unquote(str(raw_prd)).strip()
 else:
-    raw_prd = "380118214"
+    raw_prd = ""  # [사용자 요청] 과거 상품번호 하드코딩 초기값 완전 제거
 
 raw_k = qp.get("k", "50")
 if not raw_k.isdigit() or int(raw_k) <= 0:
@@ -563,7 +565,7 @@ html_content = f"""
             width: 100%;
         }}
 
-        /* home API 전용: 홈 추천 탭 바 (recomm_home_hf.py 복원) */
+        /* home / lf API 전용: 홈 추천 탭 바 */
         .home-seed-tabs-section {{
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -952,22 +954,22 @@ html_content = f"""
                     <div class="target-header-row">
                         <div class="target-panel-title">
                             <span>추천 기준 대상 상품</span>
-                            <span id="targetCountBadge" style="font-size:10px; font-weight:800; background:#eff6ff; color:#2563eb; padding:1px 6px; border-radius:4px;">1개</span>
+                            <span id="targetCountBadge" style="font-size:10px; font-weight:800; background:#eff6ff; color:#2563eb; padding:1px 6px; border-radius:4px;">0개</span>
                         </div>
-                        <a id="targetMallLink" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:0.75rem; font-weight:700;" title="쇼핑몰 상세 새 탭 열기">쇼핑몰 이동 ↗</a>
+                        <a id="targetMallLink" href="#" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:#2563eb; font-size:0.75rem; font-weight:700; display:none;" title="쇼핑몰 상세 새 탭 열기">쇼핑몰 이동 ↗</a>
                     </div>
                     <div class="target-item-card">
                         <div class="target-thumb-wrap" id="targetThumbWrap">
-                            <span style="font-size:0.7rem; color:#94a3b8;">이미지</span>
+                            <span style="font-size:0.7rem; color:#94a3b8;">선택 없음</span>
                         </div>
                         <div class="target-meta-details">
-                            <span class="target-brand" id="targetBrandText">-</span>
-                            <span class="target-name" id="targetNameText" title="상품명">상품 정보를 조회 중입니다...</span>
+                            <span class="target-brand" id="targetBrandText">선택된 상품 없음</span>
+                            <span class="target-name" id="targetNameText" title="상품명">기준 상품을 선택하거나 상품번호를 입력하세요.</span>
                             <div class="target-price-row">
-                                <span class="target-dc-price" id="targetPriceText">- 원</span>
+                                <span class="target-dc-price" id="targetPriceText">-</span>
                                 <span class="target-rate" id="targetRateText"></span>
                             </div>
-                            <span class="target-cat-path" id="targetCatPath">카테고리 경로</span>
+                            <span class="target-cat-path" id="targetCatPath">실시간 베스트 상품을 클릭하여 기준 상품을 지정할 수 있습니다.</span>
                         </div>
                     </div>
                 </div>
@@ -980,10 +982,10 @@ html_content = f"""
                         <span style="font-size:0.8rem; font-weight:700; color:#475569;">상품번호:</span>
                         <input type="text" id="directPrdInput" class="primary-prd-input" placeholder="단일 or 쉼표 다중"/>
 
-                        <!-- [신규] 선택 해제(초기화) 버튼 -->
+                        <!-- [선택 해제] 버튼 -->
                         <button class="btn-clear" onclick="clearSelectedPrd()" title="선택된 기준 상품 모두 해제">선택 해제</button>
 
-                        <!-- home 전용 필드 -->
+                        <!-- home / lf 전용 필드 -->
                         <div id="homeFieldsWrap" style="display:none; align-items:center; gap:5px;">
                             <input type="text" id="basketPrdInput" class="home-extra-input" placeholder="장바구니 prdNo"/>
                             <input type="text" id="wishPrdInput" class="home-extra-input" placeholder="좋아요 prdNo"/>
@@ -998,7 +1000,7 @@ html_content = f"""
                     </div>
 
                     <div class="seed-instruction-text" id="seedStatusText">
-                        실시간 베스트 12개 (클릭: 교체 / Ctrl+클릭: 다중선택)
+                        실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)
                     </div>
                 </div>
 
@@ -1006,14 +1008,14 @@ html_content = f"""
             </div>
         </section>
 
-        <!-- [recomm_home_hf.py 복원] home API 전용: 추천 탭 및 시드 상품 목록 바 -->
+        <!-- [recomm_home_hf.py 복원] home / lf API 전용: 추천 탭 및 시드 상품 목록 바 -->
         <section class="home-seed-tabs-section" id="homeSeedTabsSection" style="display:none;">
             <div class="home-seed-tabs-header">
                 <div class="home-seed-tabs-title">
-                    <span>홈 추천 탭 (행동 시드 상품 연계)</span>
+                    <span>행동 시드 상품 연계 탭</span>
                     <span id="activeSeedStatus" style="font-size:0.75rem; font-weight:700; color:#2563eb; background:#eff6ff; padding:2px 8px; border-radius:4px;">전체 맞춤 추천 (FORYOU)</span>
                 </div>
-                <span style="font-size:0.75rem; color:#64748b;">시드 카드를 클릭하면 대상 상품 카드와 하단 유사 상품(similaritem)이 즉시 연동됩니다.</span>
+                <span style="font-size:0.75rem; color:#64748b;">시드 카드를 클릭하면 대상 상품 카드와 하단 유사 상품이 즉시 연동됩니다.</span>
             </div>
             <div class="home-seed-cards-container" id="homeSeedCardsContainer"></div>
         </section>
@@ -1031,7 +1033,7 @@ html_content = f"""
 
             <section class="tab-pane active" id="tabContentGrid">
                 <div class="grid-10-container" id="productGridContainer">
-                    <div style="grid-column:1/-1; padding:60px 20px; text-align:center; color:#64748b;">추천 데이터를 불러오는 중입니다...</div>
+                    <div style="grid-column:1/-1; padding:60px 20px; text-align:center; color:#64748b;">기준 상품을 선택하면 추천 데이터가 표출됩니다.</div>
                 </div>
             </section>
 
@@ -1121,12 +1123,10 @@ html_content = f"""
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_CDN : DOMAINS.HALFCLUB_CDN;
         }}
 
-        // [사용자 요청] halfclub_prd 및 boribori_prd 전용 도메인 반환
         function getPrdBaseUrl() {{
             return currentSiteCd === '2' ? DOMAINS.BORIBORI_PRD : DOMAINS.HALFCLUB_PRD;
         }}
 
-        // [사용자 요청] 상품 링크는 이전 포맷(도메인/product/prdNo)으로 유지하며 halfclub_prd/boribori_prd 도메인 사용
         function getProductDetailUrl(prdNo) {{
             if (!prdNo || prdNo === '-') return '#';
             return `${{getPrdBaseUrl()}}/product/${{prdNo}}`;
@@ -1141,6 +1141,10 @@ html_content = f"""
         function getSelectedPrdList() {{
             if (!currentPrdNo) return [];
             return currentPrdNo.split(',').map(s => s.trim()).filter(Boolean);
+        }}
+
+        function isSeedCompatibleModel() {{
+            return currentMlType === 'home' || currentMlType === 'lf';
         }}
 
         function updateUrlQuery() {{
@@ -1224,7 +1228,19 @@ html_content = f"""
         function renderModelTabs() {{
             const group = document.getElementById('modelTabsGroup');
             if (!group) return;
-            group.innerHTML = ML_TYPES_LIST.map(m => `
+
+            // 사이트별 필터링: siteOnly가 있는 모델은 해당 사이트에서만 노출
+            const availableModels = ML_TYPES_LIST.filter(m => {{
+                if (m.siteOnly && m.siteOnly !== currentSiteCd) return false;
+                return true;
+            }});
+
+            // 만약 현재 선택된 모델이 변경된 사이트에서 미지원 모델이면 home으로 fallback
+            if (!availableModels.some(m => m.id === currentMlType)) {{
+                currentMlType = 'home';
+            }}
+
+            group.innerHTML = availableModels.map(m => `
                 <button class="model-tab-btn ${{m.id === currentMlType ? 'active' : ''}}" onclick="selectMlType('${{m.id}}')">
                     ${{m.name}}
                 </button>
@@ -1258,14 +1274,16 @@ html_content = f"""
             currentSiteCd = newSiteCd;
             currentSelectedSeed = "";
             updateSiteButtons();
+            renderModelTabs();
             loadBestProducts(currentSiteCd);
         }}
 
         function updateHomeFieldsVisibility() {{
             const homeWrap = document.getElementById('homeFieldsWrap');
             const homeTabs = document.getElementById('homeSeedTabsSection');
-            if (homeWrap) homeWrap.style.display = currentMlType === 'home' ? 'flex' : 'none';
-            if (homeTabs) homeTabs.style.display = currentMlType === 'home' ? 'block' : 'none';
+            const isSeedModel = isSeedCompatibleModel();
+            if (homeWrap) homeWrap.style.display = isSeedModel ? 'flex' : 'none';
+            if (homeTabs) homeTabs.style.display = isSeedModel ? 'block' : 'none';
         }}
 
         function setupEventListeners() {{
@@ -1284,6 +1302,7 @@ html_content = f"""
             }}
         }}
 
+        // 실시간 베스트 상품 로드 (가져오지 못할 경우 '서버 연결이 안됩니다' 명확히 표시)
         async function loadBestProducts(siteCd) {{
             const seedStatus = document.getElementById('seedStatusText');
             if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 로딩 중...';
@@ -1329,33 +1348,28 @@ html_content = f"""
 
                 if (products.length > 0) {{
                     currentSeedProducts = products;
-                    if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 교체 / Ctrl+클릭: 다중선택)';
+                    if (seedStatus) seedStatus.textContent = '실시간 베스트 12개 (클릭: 선택 / Ctrl+클릭: 다중선택)';
+                    
+                    // [핵심] 사용자가 지정한 상품번호가 없을 때, 살아있는 실시간 1위 상품을 기본 기준으로 자연스럽게 설정
+                    if (!currentPrdNo.trim()) {{
+                        currentPrdNo = currentSeedProducts[0].prd_no;
+                        const directInput = document.getElementById('directPrdInput');
+                        if (directInput) directInput.value = currentPrdNo;
+                    }}
                 }} else {{
-                    throw new Error('상품 데이터 없음');
+                    throw new Error('데이터 없음');
                 }}
             }} catch (e) {{
-                if (seedStatus) seedStatus.textContent = '기본 베스트 상품 모드 (클릭: 교체 / Ctrl+클릭: 다중선택)';
-                currentSeedProducts = siteCd === '1' ? [
-                    {{"prd_nm": "여성의류", "prd_no": "380118214", "prd_img": ""}},
-                    {{"prd_nm": "남성의류", "prd_no": "402544118", "prd_img": ""}},
-                    {{"prd_nm": "신발", "prd_no": "379859455", "prd_img": ""}},
-                    {{"prd_nm": "가방", "prd_no": "393954850", "prd_img": ""}},
-                    {{"prd_nm": "스포츠", "prd_no": "391016367", "prd_img": ""}},
-                    {{"prd_nm": "액세서리", "prd_no": "380115991", "prd_img": ""}}
-                ] : [
-                    {{"prd_nm": "베이비", "prd_no": "380118214", "prd_img": ""}},
-                    {{"prd_nm": "키즈의류", "prd_no": "402544118", "prd_img": ""}},
-                    {{"prd_nm": "주니어", "prd_no": "379859455", "prd_img": ""}},
-                    {{"prd_nm": "유아신발", "prd_no": "393954850", "prd_img": ""}},
-                    {{"prd_nm": "아동가방", "prd_no": "391016367", "prd_img": ""}},
-                    {{"prd_nm": "육아용품", "prd_no": "380115991", "prd_img": ""}}
-                ];
-            }}
-
-            if (!currentPrdNo.trim() && currentSeedProducts.length > 0) {{
-                currentPrdNo = currentSeedProducts[0].prd_no;
-                const directInput = document.getElementById('directPrdInput');
-                if (directInput) directInput.value = currentPrdNo;
+                // [사용자 요청] 서버 연결 실패 시 가짜 데이터 대신 "서버 연결이 안됩니다" 명확히 안내
+                currentSeedProducts = [];
+                if (seedStatus) {{
+                    seedStatus.textContent = '서버 연결이 안됩니다';
+                    seedStatus.style.color = '#ef4444';
+                }}
+                const container = document.getElementById('seedGridContainer');
+                if (container) {{
+                    container.innerHTML = '<div style="grid-column:1/-1; padding:18px; text-align:center; color:#ef4444; font-weight:700; font-size:0.83rem;">서버 연결이 안됩니다 (실시간 베스트 상품 조회 실패)</div>';
+                }}
             }}
 
             renderSeedGrid();
@@ -1364,7 +1378,7 @@ html_content = f"""
 
         function renderSeedGrid() {{
             const container = document.getElementById('seedGridContainer');
-            if (!container) return;
+            if (!container || currentSeedProducts.length === 0) return;
 
             const selectedList = getSelectedPrdList();
 
@@ -1406,7 +1420,6 @@ html_content = f"""
             executeRecommendFlow();
         }}
 
-        // [신규] 개별 칩 삭제 (1개 남았을 때도 완전히 삭제 가능)
         function removeSelectedPrd(prdNo) {{
             let selectedList = getSelectedPrdList();
             selectedList = selectedList.filter(p => p !== prdNo);
@@ -1423,7 +1436,6 @@ html_content = f"""
             }}
         }}
 
-        // [사용자 요청] 전체 선택 해제 / 선택 없음 버튼 핸들러
         function clearSelectedPrd() {{
             currentPrdNo = "";
             currentSelectedSeed = "";
@@ -1435,8 +1447,7 @@ html_content = f"""
             renderTargetProductCardEmpty();
             updateUrlQuery();
 
-            if (currentMlType === 'home') {{
-                // home 모드는 prdNo 없이도 장바구니/좋아요/회원번호로 조회 가능
+            if (isSeedCompatibleModel()) {{
                 fetchRecommendationApi();
             }} else {{
                 renderEmptyResultsNotice('기준 상품이 선택되지 않았습니다. 상품번호를 입력하거나 아래 실시간 베스트 상품을 선택하세요.');
@@ -1469,6 +1480,7 @@ html_content = f"""
             if (nameEl) {{
                 nameEl.textContent = '기준 상품을 선택하거나 상품번호를 입력하세요.';
                 nameEl.title = '기준 상품을 선택하거나 상품번호를 입력하세요.';
+                nameEl.style.color = '#0f172a';
             }}
 
             const priceEl = document.getElementById('targetPriceText');
@@ -1479,6 +1491,36 @@ html_content = f"""
 
             const catEl = document.getElementById('targetCatPath');
             if (catEl) catEl.textContent = '실시간 베스트 상품을 클릭하여 기준 상품을 지정할 수 있습니다.';
+        }}
+
+        // [사용자 요청] 상품 상세 정보를 못 가져올 때 "서버 연결이 안됩니다" 명확히 표시
+        function renderTargetProductCardError(prdNo) {{
+            const countBadge = document.getElementById('targetCountBadge');
+            if (countBadge) countBadge.textContent = '조회 실패';
+
+            const mallLink = document.getElementById('targetMallLink');
+            if (mallLink) mallLink.style.display = 'none';
+
+            const imgWrap = document.getElementById('targetThumbWrap');
+            if (imgWrap) imgWrap.innerHTML = '<span style="font-size:0.7rem; color:#ef4444; font-weight:700;">오류</span>';
+
+            const brandEl = document.getElementById('targetBrandText');
+            if (brandEl) brandEl.textContent = '연결 실패';
+
+            const nameEl = document.getElementById('targetNameText');
+            if (nameEl) {{
+                nameEl.innerHTML = '<span style="color:#ef4444; font-weight:700;">서버 연결이 안됩니다</span>';
+                nameEl.title = '서버 연결이 안됩니다';
+            }}
+
+            const priceEl = document.getElementById('targetPriceText');
+            if (priceEl) priceEl.textContent = '-';
+
+            const rateEl = document.getElementById('targetRateText');
+            if (rateEl) rateEl.textContent = '';
+
+            const catEl = document.getElementById('targetCatPath');
+            if (catEl) catEl.textContent = `상품번호 #${{prdNo}}의 상세 정보를 서버에서 가져올 수 없습니다.`;
         }}
 
         function renderEmptyResultsNotice(message) {{
@@ -1556,7 +1598,7 @@ html_content = f"""
             updateUrlQuery();
 
             // 1. 현재 추천 기준 대상 상품 정보 카드 갱신
-            const activePrdToLoad = (currentMlType === 'home' && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
+            const activePrdToLoad = (isSeedCompatibleModel() && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
             if (activePrdToLoad) {{
                 loadTargetProductInfo(activePrdToLoad);
             }} else {{
@@ -1564,7 +1606,7 @@ html_content = f"""
             }}
 
             // 2. 추천 API 호출
-            if (currentPrdNo || currentMlType === 'home') {{
+            if (currentPrdNo || isSeedCompatibleModel()) {{
                 await fetchRecommendationApi();
             }} else {{
                 renderEmptyResultsNotice('기준 상품이 선택되지 않았습니다. 상품번호를 입력하거나 아래 실시간 베스트 상품을 선택하세요.');
@@ -1623,10 +1665,12 @@ html_content = f"""
                     const src = hits[0]._source || hits[0];
                     renderTargetProductCard(src, firstPrd);
                 }} else {{
-                    renderTargetProductCardFallback(firstPrd);
+                    // [사용자 요청] 검색 결과 없을 때 "서버 연결이 안됩니다" 안내
+                    renderTargetProductCardError(firstPrd);
                 }}
             }} catch (e) {{
-                renderTargetProductCardFallback(firstPrd);
+                // [사용자 요청] 오류 발생 시 "서버 연결이 안됩니다" 안내
+                renderTargetProductCardError(firstPrd);
             }}
         }}
 
@@ -1686,33 +1730,6 @@ html_content = f"""
             }}
         }}
 
-        function renderTargetProductCardFallback(prdNo) {{
-            const targetUrl = getProductDetailUrl(prdNo);
-            const mallLink = document.getElementById('targetMallLink');
-            if (mallLink) {{
-                mallLink.href = targetUrl;
-                mallLink.style.display = 'inline';
-            }}
-
-            const imgWrap = document.getElementById('targetThumbWrap');
-            if (imgWrap) imgWrap.innerHTML = `<span style="font-size:0.7rem; color:#94a3b8;">#${{prdNo}}</span>`;
-
-            const brandEl = document.getElementById('targetBrandText');
-            if (brandEl) brandEl.textContent = '상품 상세';
-
-            const nameEl = document.getElementById('targetNameText');
-            if (nameEl) nameEl.innerHTML = `<a href="${{targetUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">상품번호 #${{prdNo}}</a>`;
-
-            const priceEl = document.getElementById('targetPriceText');
-            if (priceEl) priceEl.textContent = '-';
-
-            const rateEl = document.getElementById('targetRateText');
-            if (rateEl) rateEl.textContent = '';
-
-            const catEl = document.getElementById('targetCatPath');
-            if (catEl) catEl.textContent = 'API 직접 조회 모드';
-        }}
-
         async function fetchRecommendationApi() {{
             const startTime = performance.now();
             const apiBase = getApiBaseUrl();
@@ -1731,7 +1748,7 @@ html_content = f"""
 
             const prdList = getSelectedPrdList();
 
-            if (currentMlType === 'home') {{
+            if (isSeedCompatibleModel()) {{
                 params.append('deviceCd', '001');
                 if (currentSelfYn) params.append('selfYn', 'true');
                 prdList.forEach(p => params.append('prdNo', p));
@@ -1745,13 +1762,11 @@ html_content = f"""
                 if (currentMem) {{
                     currentMem.split(',').map(s => s.trim()).filter(Boolean).forEach(m => params.append('memNo', m));
                 }}
-            }} else if (currentMlType === 'recommendforyou') {{
-                prdList.forEach(p => params.append('prdNo', p));
             }} else {{
                 prdList.forEach(p => params.append('prdNo', p));
             }}
 
-            if (currentMlType === 'similaritem') {{
+            if (currentMlType === 'similaritem' || currentMlType === 'lfsimilaritem') {{
                 params.append('randomYn', 'false');
             }}
 
@@ -1783,7 +1798,7 @@ html_content = f"""
             }} catch (err) {{
                 const duration = Math.round(performance.now() - startTime);
                 if (statusEl) {{
-                    statusEl.textContent = `실패 (${{duration}}ms)`;
+                    statusEl.textContent = `서버 연결이 안됩니다 (${{duration}}ms)`;
                     statusEl.style.color = '#ef4444';
                     statusEl.style.background = '#fef2f2';
                     statusEl.style.borderColor = '#fecaca';
@@ -1791,16 +1806,17 @@ html_content = f"""
 
                 document.getElementById('productGridContainer').innerHTML = `
                     <div style="grid-column:1/-1; padding:60px 20px; text-align:center; color:#ef4444; font-weight:700;">
-                        <div>API 호출 실패: ${{escapeHtml(err.message)}}</div>
+                        <div style="font-size:1.1rem; margin-bottom:8px;">서버 연결이 안됩니다</div>
+                        <div style="font-size:0.85rem; color:#64748b;">${{escapeHtml(err.message)}}</div>
                         <div style="font-size:0.8rem; color:#94a3b8; margin-top:6px; word-break:break-all;">${{currentApiUrl}}</div>
                     </div>
                 `;
 
                 document.getElementById('productTableBody').innerHTML = `
-                    <tr><td colspan="11" style="text-align:center; padding:30px; color:#ef4444;">API 호출 실패: ${{escapeHtml(err.message)}}</td></tr>
+                    <tr><td colspan="11" style="text-align:center; padding:30px; color:#ef4444; font-weight:700;">서버 연결이 안됩니다 (${{escapeHtml(err.message)}})</td></tr>
                 `;
 
-                renderRawJsonView({{ error: err.message, requested_url: currentApiUrl }});
+                renderRawJsonView({{ error: "서버 연결이 안됩니다", detail: err.message, requested_url: currentApiUrl }});
             }}
         }}
 
@@ -1814,7 +1830,7 @@ html_content = f"""
                 products = data.result || data.data || data.items || data.results || [];
                 if (!Array.isArray(products) && typeof products === 'object') products = [products];
 
-                // home API 시드 상품들 추출
+                // home 및 lf API 시드 상품들 추출
                 if (data.seed) {{
                     if (Array.isArray(data.seed)) homeExtractedSeeds = data.seed;
                     else if (data.seed.result && Array.isArray(data.seed.result)) homeExtractedSeeds = data.seed.result;
@@ -1830,12 +1846,12 @@ html_content = f"""
 
             homeOriginalResults = products;
 
-            // home API인 경우 홈 전용 시드 탭 바 렌더링
-            if (currentMlType === 'home') {{
+            // home 또는 lf API인 경우 시드 탭 바 렌더링
+            if (isSeedCompatibleModel()) {{
                 document.getElementById('homeSeedTabsSection').style.display = 'block';
                 renderHomeSeedTabs(homeExtractedSeeds);
 
-                // 만약 특정 시드 상품이 이미 선택된 상태라면 해당 상품 기준 similaritem 호출 실행
+                // 만약 특정 시드 상품이 이미 선택된 상태라면 해당 상품 기준 유사 상품 호출 실행
                 if (currentSelectedSeed) {{
                     fetchSimilarItemForSeed(currentSelectedSeed);
                     return;
@@ -1847,7 +1863,6 @@ html_content = f"""
             renderDashboardResults(products, false);
         }}
 
-        // [recomm_home_hf.py 복원] 홈 추천 탭 (FORYOU + 행동 시드 카드들) 렌더링
         function renderHomeSeedTabs(seeds) {{
             const container = document.getElementById('homeSeedCardsContainer');
             if (!container) return;
@@ -1886,7 +1901,6 @@ html_content = f"""
             container.innerHTML = html;
         }}
 
-        // [핵심 연동] 홈 시드 탭 전환 핸들러 (상단 대상 카드 + 하단 추천 결과 동시 갱신)
         function selectHomeSeedTab(seedPrdNo) {{
             currentSelectedSeed = String(seedPrdNo).trim();
             updateUrlQuery();
@@ -1895,32 +1909,26 @@ html_content = f"""
             const activeText = document.getElementById('activeSeedStatus');
             if (activeText) {{
                 activeText.textContent = currentSelectedSeed 
-                    ? `선택된 시드 상품 #${{currentSelectedSeed}} 기준 유사 상품 (similarItem)`
+                    ? `선택된 시드 상품 #${{currentSelectedSeed}} 기준 유사 상품`
                     : '전체 맞춤 추천 (FORYOU)';
             }}
 
             if (!currentSelectedSeed) {{
-                // 1. FORYOU 선택 시: 상단 대상 카드는 원래의 currentPrdNo로 복귀
                 if (currentPrdNo) {{
                     loadTargetProductInfo(currentPrdNo);
                 }} else {{
                     renderTargetProductCardEmpty();
                 }}
 
-                // 2. FORYOU 전체 결과 렌더링
                 renderDashboardResults(homeOriginalResults, false);
                 const snippetEl = document.getElementById('activeApiUrlSnippet');
-                if (snippetEl) snippetEl.textContent = `/recommend/home (FORYOU)`;
+                if (snippetEl) snippetEl.textContent = `/recommend/${{currentMlType}} (FORYOU)`;
             }} else {{
-                // 1. 특정 시드 상품 선택 시: 상단 대상 카드를 해당 시드 상품 정보로 즉시 갱신!
                 loadTargetProductInfo(currentSelectedSeed);
-
-                // 2. 해당 시드 상품으로 similaritem 호출하여 하단 결과 갱신
                 fetchSimilarItemForSeed(currentSelectedSeed);
             }}
         }}
 
-        // [recomm_home_hf.py 복원] 시드 상품 클릭 시 similaritem API 호출 및 [내가 본] 선택 상품 맨 앞 보장
         async function fetchSimilarItemForSeed(seedPrdNo) {{
             const startTime = performance.now();
             const apiBase = getApiBaseUrl();
@@ -1930,10 +1938,11 @@ html_content = f"""
                 statusEl.style.color = '#2563eb';
             }}
 
+            const simEndpoint = currentMlType === 'lf' ? 'lfsimilaritem' : 'similaritem';
             const snippetEl = document.getElementById('activeApiUrlSnippet');
-            if (snippetEl) snippetEl.textContent = `/recommend/similaritem?prdNo=${{seedPrdNo}} (시드 연계)`;
+            if (snippetEl) snippetEl.textContent = `/recommend/${{simEndpoint}}?prdNo=${{seedPrdNo}} (시드 연계)`;
 
-            const similarUrl = `${{apiBase}}/recommend/similaritem?siteCd=${{currentSiteCd}}&size=${{currentK}}&prdNo=${{seedPrdNo}}&originPrdYn=true&randomYn=false`;
+            const similarUrl = `${{apiBase}}/recommend/${{simEndpoint}}?siteCd=${{currentSiteCd}}&size=${{currentK}}&prdNo=${{seedPrdNo}}&originPrdYn=true&randomYn=false`;
             const fullUrlEl = document.getElementById('calledApiUrlFull');
             if (fullUrlEl) fullUrlEl.textContent = similarUrl;
 
@@ -1956,7 +1965,6 @@ html_content = f"""
                     results = data.result || data.data || data.items || [];
                 }}
 
-                // [중요] 만약 API 결과에 선택된 시드 상품이 맨 앞에 없으면, 시드 객체에서 찾아서 맨 앞에 보장 삽입
                 const exists = results.some(r => String(r.prdNo || r.prd_no) === String(seedPrdNo));
                 if (!exists) {{
                     const seedObj = homeExtractedSeeds.find(s => String(s.prdNo || s.prd_no) === String(seedPrdNo));
@@ -1969,11 +1977,10 @@ html_content = f"""
                     }}
                 }}
 
-                // 선택된 시드 상품에 [내가 본] 태그 부여하며 렌더링
                 renderDashboardResults(results, true, seedPrdNo);
             }} catch (e) {{
-                if (statusEl) statusEl.textContent = '시드 조회 실패';
-                alert(`similaritem API 호출 오류: ${{e.message}}`);
+                if (statusEl) statusEl.textContent = '서버 연결이 안됩니다';
+                alert(`서버 연결이 안됩니다 (${{e.message}})`);
             }}
         }}
 
@@ -1995,7 +2002,6 @@ html_content = f"""
             container.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '');
-                // [사용자 요청] 이전 방식 유지하며 getProductDetailUrl(prdNo) (halfclub_prd/boribori_prd 도메인) 사용
                 const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '상품명 미확인';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '브랜드';
@@ -2012,12 +2018,10 @@ html_content = f"""
                 const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
-                // [recomm_home_hf.py 복원] 내가 본 선택 상품인지 판별
                 const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
                                     (prd.is_origin_forced === true) || 
                                     (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
 
-                // 추천 출처 태그 (베스트 / 휴리스틱)
                 let typeLabel = '';
                 if (prd.type === 'self') typeLabel = '베스트';
                 else if (prd.type === 'DB') typeLabel = '휴리스틱';
@@ -2073,7 +2077,6 @@ html_content = f"""
             tbody.innerHTML = products.map((prd, idx) => {{
                 const rank = idx + 1;
                 const prdNo = String(prd.prdNo || prd.prd_no || prd.id || '-');
-                // [사용자 요청] 이전 방식 유지하며 getProductDetailUrl(prdNo) (halfclub_prd/boribori_prd 도메인) 사용
                 const prdUrl = getProductDetailUrl(prdNo);
                 const name = prd.prdNm || prd.prd_nm || prd.name || '-';
                 const brand = prd.brandNm || prd.brand_nm || prd.brdNm || '-';
