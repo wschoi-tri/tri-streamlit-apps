@@ -3428,6 +3428,7 @@ html_content = f"""
                 const imgPath = prd.appPrdImgUrl || prd.prd_img || prd.prdImg || '';
                 const imgUrl = getImageUrl(imgPath);
                 const selAcnt = prd.selAcntNo || prd.sel_acnt_no || '';
+                const excl = getExclusiveBadges(prd);
 
                 const c1 = prd.dpCtgrNm1 || prd.category || '';
                 const seedVal = prd.seed || '';
@@ -3449,7 +3450,10 @@ html_content = f"""
                     <div class="product-card ${{isOriginPrd ? 'card-origin' : ''}}">
                         <div class="product-img-wrap">
                             <span class="${{rankClass}}">${{rankText}}</span>
-                            ${{isOriginPrd ? '<span class="origin-badge">[ 내가 본 ]</span>' : ''}}
+                            <div class="exclusive-badges-wrap">
+                                ${{isOriginPrd ? '<span class="origin-badge" style="position:static;">[ 내가 본 ]</span>' : ''}}
+                                ${{excl.imgBadgesHtml}}
+                            </div>
                             <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="display:block; width:100%; height:100%;">
                                 <img src="${{imgUrl || 'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'100\\' height=\\'100\\'%3E%3Crect width=\\'100\\' height=\\'100\\' fill=\\'%23f1f5f9\\'/ %3E%3C/svg%3E'}}" class="product-img" alt="${{escapeHtml(name)}}" loading="lazy"/>
                             </a>
@@ -3472,6 +3476,7 @@ html_content = f"""
                                 ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
                             </div>
                             <div class="badge-chip-container">
+                                ${{excl.chipBadgesHtml}}
                                 ${{isOriginPrd ? '<span class="badge-chip-item badge-red">내가 본 상품</span>' : ''}}
                                 ${{typeLabel ? `<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>` : ''}}
                                 ${{selAcnt ? `<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호">협력사:${{selAcnt}}</span>` : ''}}
