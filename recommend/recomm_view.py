@@ -1916,8 +1916,8 @@ html_content = f"""
                 chipBadgesHtml += '<span class="badge-chip-item badge-onlyhalf-chip" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
             }}
             if (isBoriEdition) {{
-                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리에디션)">보리plus</span>';
-                chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리에디션)">보리에디션</span>';
+                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
+                chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
             }}
 
             return {{ isOnlyHalf, isBoriEdition, imgBadgesHtml, chipBadgesHtml }};
