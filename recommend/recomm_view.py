@@ -1753,6 +1753,21 @@ html_content = f"""
             return `${{getPrdBaseUrl()}}/product/${{prdNo}}`;
         }}
 
+        function getBestPageUrl() {{
+            return currentSiteCd === '2' 
+                ? 'https://m.boribori.co.kr/home/best' 
+                : 'https://www.halfclub.com/best';
+        }}
+
+        function updateBestPageLink() {{
+            const link = document.getElementById('bestPageLink');
+            if (link) {{
+                link.href = getBestPageUrl();
+                link.textContent = currentSiteCd === '2' ? '보리보리 베스트 ↗' : '하프클럽 베스트 ↗';
+                link.title = `${{currentSiteCd === '2' ? '보리보리' : '하프클럽'}} 실시간 베스트 상품 페이지 새창 열기`;
+            }}
+        }}
+
         function getImageUrl(imgPath) {{
             if (!imgPath) return '';
             if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
@@ -1833,6 +1848,7 @@ html_content = f"""
         function initApp() {{
             renderModelTabs();
             updateSiteButtons();
+            updateBestPageLink();
 
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
@@ -1978,6 +1994,7 @@ html_content = f"""
             if (imgWrap) imgWrap.innerHTML = '<span style="font-size:0.75rem; color:#94a3b8;">Loading...</span>';
 
             updateSiteButtons();
+            updateBestPageLink();
             renderModelTabs();
             updateHomeFieldsVisibility();
             updatePanelVisibility();
