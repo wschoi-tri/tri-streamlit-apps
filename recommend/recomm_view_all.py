@@ -56,7 +56,7 @@ try:
 except Exception as e:
     raise ValueError(f".streamlit/secrets.toml 내 [domains] 섹션 및 필수 도메인 키가 누락되었습니다: {e}")
 
-# 3. 실제 서비스 중인 추천 API 모델 목록 (LF 모델 2종 신규 포함 총 8종)
+# 3. 실제 서비스 중인 추천 API 모델 목록 (LF 모델 2종 및 키워드 트렌드 포함 총 9종)
 ML_TYPES = [
     {"id": "home", "name": "홈 개인화", "desc": "FORYOU 종합 맞춤", "endpoint": "/recommend/home"},
     {"id": "similaritem", "name": "유사 상품", "desc": "속성/메타 유사도", "endpoint": "/recommend/similaritem"},
@@ -65,8 +65,35 @@ ML_TYPES = [
     {"id": "similar-image", "name": "유사 이미지", "desc": "비전 임베딩 유사도", "endpoint": "/recommend/similar-image"},
     {"id": "recommendforyou", "name": "개인화 추천", "desc": "다중 히스토리 맞춤", "endpoint": "/recommend/recommendforyou"},
     {"id": "lf", "name": "LF 개인화", "desc": "LF 계열 종합 맞춤", "endpoint": "/recommend/lf", "siteOnly": "1"},
-    {"id": "lfsimilaritem", "name": "LF 유사 상품", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"}
+    {"id": "lfsimilaritem", "name": "LF 유사 상품", "desc": "LF 계열 유사도", "endpoint": "/recommend/lfsimilaritem", "siteOnly": "1"},
+    {"id": "keyword-trend", "name": "키워드 트렌드", "desc": "AI 트렌드 큐레이션", "endpoint": "/recommend/keyword-trend"}
 ]
+
+# 3-1. 키워드 트렌드 타겟 키워드 리스트 로드
+def load_keywords():
+    kw_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "keywords.json")
+    if os.path.exists(kw_path):
+        try:
+            with open(kw_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return [
+        "가디건", "가방", "골프모자", "골프백", "골프장갑", "골프티", "골프화", "귀걸이", "긴바지", "긴팔티셔츠",
+        "남성가방", "남성골프화", "남성벨트", "넥워머", "넥타이", "니트", "토드백", "데님", "데님팬츠", "드레스",
+        "등산화", "런닝화", "레깅스", "레더자켓", "레인부츠", "로퍼", "맨투맨", "머플러", "모자", "목걸이",
+        "민소매", "민소매티셔츠", "반바지", "반팔", "반팔티셔츠", "베스트", "벨트", "보스턴백", "보스톤백", "볼캡",
+        "부츠", "브로치", "비니", "샌들", "서류가방", "선글라스", "셋업", "셔츠", "손수건", "숄더백",
+        "스니커즈", "스카프", "스커트", "스포츠웨어", "슬랙스", "슬리퍼", "슬링백", "신발", "아우터", "양말",
+        "에코백", "여성가방", "여성골프화", "여성벨트", "오픈토", "요가복", "우산", "우비", "운동화", "원피스",
+        "자켓", "바람막이", "잠옷", "장갑", "점퍼", "정장", "정장자켓", "정장팬츠", "정장화", "조끼",
+        "집업", "집업티셔츠", "코트", "크로스백", "클러치", "토트백", "트렌치", "티셔츠", "패딩", "팔찌",
+        "팬츠", "펌프스", "플랫", "하프팬츠", "후드", "힐", "후리스", "후드티", "스웨터", "블라우스",
+        "발찌", "슈즈", "양산", "지갑", "시계", "홈웨어", "수트", "무스탕"
+    ]
+
+keywords_list = load_keywords()
+keywords_json_str = json.dumps(keywords_list, ensure_ascii=False)
 
 # 4. URL 쿼리 파라미터 디코딩 및 상태 설정 (하드코딩 초기값 완전 제거)
 qp = st.query_params
@@ -85,6 +112,12 @@ if raw_prd:
 else:
     raw_prd = ""  # [사용자 요청] 과거 상품번호 하드코딩 초기값 완전 제거
 
+raw_kw = qp.get("keyword", "")
+if raw_kw:
+    raw_kw = urllib.parse.unquote(str(raw_kw)).strip()
+if not raw_kw:
+    raw_kw = keywords_list[0] if keywords_list else "가디건"
+
 raw_k = qp.get("k", "50")
 if not raw_k.isdigit() or int(raw_k) <= 0:
     raw_k = "50"
@@ -96,13 +129,14 @@ raw_self = qp.get("selfYn", "false")
 raw_selected_seed = qp.get("seedPrdNo", "")
 
 raw_tab = qp.get("tab", "grid")
-if raw_tab not in ["grid", "table", "raw"]:
+if raw_tab not in ["grid", "table", "raw", "prompt"]:
     raw_tab = "grid"
 
 ml_types_json = json.dumps(ML_TYPES, ensure_ascii=False)
 initial_site_json = json.dumps(raw_site, ensure_ascii=False)
 initial_type_json = json.dumps(raw_type, ensure_ascii=False)
 initial_prd_json = json.dumps(raw_prd, ensure_ascii=False)
+initial_keyword_json = json.dumps(raw_kw, ensure_ascii=False)
 initial_k_json = json.dumps(raw_k, ensure_ascii=False)
 initial_basket_json = json.dumps(raw_basket, ensure_ascii=False)
 initial_wish_json = json.dumps(raw_wish, ensure_ascii=False)
@@ -1008,6 +1042,230 @@ html_content = f"""
             cursor: pointer;
         }}
         .json-ctrl-btn:hover {{ background: #475569; }}
+
+        /* 키워드 트렌드 전용 2단 패널 */
+        .keyword-trend-panel {{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }}
+        .kw-controls-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: nowrap;
+        }}
+        .kw-input-cluster {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
+        }}
+        .primary-kw-input {{
+            width: 140px;
+            padding: 4px 8px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            color: #0f172a;
+            outline: none;
+        }}
+        .primary-kw-input:focus {{
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+        }}
+        .kw-filter-input {{
+            width: 130px;
+            padding: 4px 8px;
+            font-size: 0.78rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            color: #475569;
+            outline: none;
+        }}
+        .kw-filter-input:focus {{
+            border-color: #94a3b8;
+        }}
+        .llm-meta-cluster {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.74rem;
+        }}
+        .llm-meta-item {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }}
+        .llm-meta-label {{
+            color: #64748b;
+            font-weight: 700;
+        }}
+        .llm-meta-val {{
+            color: #0f172a;
+            font-weight: 600;
+        }}
+        .kw-chips-container {{
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            overflow-x: auto;
+            padding: 2px 0 4px 0;
+            white-space: nowrap;
+        }}
+        .kw-chip {{
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 14px;
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: #475569;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            user-select: none;
+            flex-shrink: 0;
+        }}
+        .kw-chip:hover {{
+            background: #e2e8f0;
+            color: #0f172a;
+        }}
+        .kw-chip.active {{
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(37,99,235,0.25);
+        }}
+        .kw-ai-content-card {{
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 8px;
+        }}
+        .curation-summary-wrap {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(90deg, #eff6ff 0%, #f0fdf4 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 6px 12px;
+        }}
+        .curation-summary-badge {{
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #1d4ed8;
+            background: #dbeafe;
+            padding: 2px 6px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }}
+        .curation-summary-text {{
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.4;
+        }}
+        .guide-text-section {{
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 12px;
+        }}
+        .guide-header-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            gap: 8px;
+        }}
+        .guide-title {{
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #475569;
+        }}
+        .extracted-tags-header {{
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }}
+        .guide-text-body {{
+            font-size: 0.84rem;
+            line-height: 1.6;
+            color: #1e293b;
+        }}
+        .guide-text-body b,
+        .guide-text-body strong {{
+            color: #1d4ed8;
+            font-weight: 800;
+            background: #eff6ff;
+            padding: 1px 4px;
+            border-radius: 3px;
+        }}
+        .extracted-signals-box {{
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.78rem;
+        }}
+        .badge-brand {{
+            background: #eff6ff;
+            color: #2563eb;
+            border: 1px solid #bfdbfe;
+            font-weight: 700;
+        }}
+        .badge-brand:hover {{
+            background: #dbeafe;
+        }}
+        .badge-media {{
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }}
+        .articles-wrapper {{
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 2px;
+        }}
+        .articles-header-btn {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 12px;
+            background: #f8fafc;
+            cursor: pointer;
+            user-select: none;
+        }}
+        .articles-header-btn:hover {{
+            background: #f1f5f9;
+        }}
+        .articles-list-container {{
+            padding: 8px 12px;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            max-height: 180px;
+            overflow-y: auto;
+        }}
     </style>
 </head>
 <body>
@@ -1034,7 +1292,7 @@ html_content = f"""
         </header>
 
         <!-- 2단: 추천 기준 상품 설정 및 대상 정보 일체형 카드 -->
-        <section class="criterion-panel">
+        <section class="criterion-panel" id="criterionPanel">
             <div class="target-preview-box">
                 <div>
                     <div class="target-header-row">
@@ -1097,6 +1355,78 @@ html_content = f"""
             </div>
         </section>
 
+        <!-- 2단 B: 키워드 트렌드 AI 큐레이션 전용 패널 (keyword-trend 선택 시 표출) -->
+        <section class="keyword-trend-panel" id="keywordTrendPanel" style="display:none;">
+            <!-- 키워드 컨트롤러 및 LLM 메타 바 -->
+            <div class="kw-controls-row">
+                <div class="kw-input-cluster">
+                    <span style="font-size:0.82rem; font-weight:700; color:#334155; flex-shrink:0;">트렌드 키워드:</span>
+                    <input type="text" id="directKwInput" class="primary-kw-input" placeholder="키워드 입력"/>
+                    <button class="btn-query" onclick="triggerKeywordFetch()">조회</button>
+                    <input type="text" id="kwFilterInput" class="kw-filter-input" placeholder="키워드 목록 필터..." oninput="filterKeywordsList(this.value)"/>
+                </div>
+
+                <div class="llm-meta-cluster">
+                    <div class="llm-meta-item" title="적용된 LLM Provider 및 모델">
+                        <span class="llm-meta-label">LLM:</span>
+                        <span class="llm-meta-val" id="llmModelText">-</span>
+                    </div>
+                    <div class="llm-meta-item" title="LLM 토큰 사용량">
+                        <span class="llm-meta-label">토큰:</span>
+                        <span class="llm-meta-val" id="tokenUsageText">-</span>
+                    </div>
+                    <div class="llm-meta-item" title="카테고리/성별 필터링 상태">
+                        <span class="llm-meta-label">필터:</span>
+                        <span id="filterBadgesText" style="display:inline-flex; gap:4px;">-</span>
+                    </div>
+                    <div class="llm-meta-item" title="큐레이션 생성/수정 일시">
+                        <span class="llm-meta-label">일시:</span>
+                        <span class="llm-meta-val" id="createDtText">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 타겟 키워드 칩 스트립 -->
+            <div class="kw-chips-container" id="kwChipsContainer"></div>
+
+            <!-- AI 큐레이션 요약 & 스타일 가이드 & 참고 기사 카드 -->
+            <div class="kw-ai-content-card">
+                <!-- 큐레이션 요약문 -->
+                <div class="curation-summary-wrap" id="curationSummaryWrap" style="display:none;">
+                    <span class="curation-summary-badge">AI 큐레이션 요약</span>
+                    <span class="curation-summary-text" id="curationSummaryText"></span>
+                </div>
+
+                <!-- 가이드 텍스트 & 추출 태그 영역 -->
+                <div class="guide-text-section">
+                    <div class="guide-header-row">
+                        <span class="guide-title">스타일 트렌드 가이드 문구</span>
+                        <div class="extracted-tags-header" id="extractedTagsHeader"></div>
+                    </div>
+                    <div class="guide-text-body" id="guideTextBody">키워드를 선택하거나 조회하세요.</div>
+                </div>
+
+                <!-- 추출 브랜드 / 키워드 / 검색 키워드 칩 영역 -->
+                <div class="extracted-signals-box">
+                    <div id="extractedBrandsWrap"></div>
+                    <div id="extractedKeywordsWrap"></div>
+                    <div id="extractedSearchKeywordsWrap"></div>
+                </div>
+
+                <!-- 참고 뉴스 기사 아코디언 -->
+                <div class="articles-wrapper" id="articlesWrapper" style="display:none;">
+                    <div class="articles-header-btn" onclick="toggleArticlesAccordion()">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <span style="font-weight:700; color:#334155; font-size:0.85rem;">참고 뉴스 기사</span>
+                            <span class="badge-chip-item badge-blue" id="articlesCountBadge">0건</span>
+                        </div>
+                        <span id="articlesToggleIcon" style="font-size:0.8rem; color:#64748b; font-weight:700;">목록 접기 ▲</span>
+                    </div>
+                    <div class="articles-list-container" id="articlesListContainer"></div>
+                </div>
+            </div>
+        </section>
+
         <!-- [recomm_home_hf.py 복원] home / lf API 전용: 추천 탭 및 시드 상품 목록 바 -->
         <section class="home-seed-tabs-section" id="homeSeedTabsSection" style="display:none;">
             <div class="home-seed-tabs-header">
@@ -1121,6 +1451,7 @@ html_content = f"""
                     <button class="result-tab-btn active" id="tabBtnGrid" onclick="switchViewTab('grid')">추천 상품 그리드</button>
                     <button class="result-tab-btn" id="tabBtnTable" onclick="switchViewTab('table')">추천 상품 데이터 확인</button>
                     <button class="result-tab-btn" id="tabBtnRaw" onclick="switchViewTab('raw')">API JSON 데이터 확인</button>
+                    <button class="result-tab-btn" id="tabBtnPrompt" onclick="switchViewTab('prompt')" style="display:none;">프롬프트 메타 정보</button>
                 </div>
             </div>
 
@@ -1171,6 +1502,129 @@ html_content = f"""
                     </div>
                 </div>
             </section>
+
+            <!-- 탭 4: LLM 프롬프트 & 산출 상세 인스펙터 (keyword-trend 전용) -->
+            <section class="tab-pane" id="tabContentPrompt">
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    <h3 style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:2px; display:flex; align-items:center; gap:8px;">
+                        <span>STAGE 1 : 스타일 트렌드 가이드 작성 프롬프트 & LLM 산출</span>
+                    </h3>
+
+                    <!-- 1단계 시스템 프롬프트 카드 -->
+                    <div id="cardSysStage1" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">system_prompt</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage1')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage1')">전체 접기</button>
+                                <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptSysStage1" class="json-tree-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- 1단계 입력 User Prompt 카드 -->
+                    <div id="cardUserStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">user_prompt</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 가이드 생성 프롬프트 (실 데이터)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage1')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage1')">전체 접기</button>
+                                <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptUserStage1" class="json-tree-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- 1단계 LLM 결과 JSON 카드 -->
+                    <div id="cardResultStage1" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">response</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage1')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage1')">전체 접기</button>
+                                <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptResultStage1" class="json-tree-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:16px; margin-top:14px;">
+                    <h3 style="font-size:0.95rem; font-weight:800; color:#0f172a; margin-bottom:2px; display:flex; align-items:center; gap:8px;">
+                        <span>STAGE 2 : 상품 큐레이션 및 정렬 프롬프트 & LLM 산출</span>
+                    </h3>
+
+                    <!-- 2단계 시스템 프롬프트 카드 -->
+                    <div id="cardSysStage2" style="background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">system_prompt</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptSysStage2')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptSysStage2')">전체 접기</button>
+                                <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptSysStage2" class="json-tree-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2단계 입력 User Prompt 카드 -->
+                    <div id="cardUserStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#059669; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">user_prompt</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 키워드 트렌드 상품 선택 프롬프트 (실 데이터)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptUserStage2')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptUserStage2')">전체 접기</button>
+                                <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptUserStage2" class="json-tree-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- 2단계 LLM 결과 JSON 카드 -->
+                    <div id="cardResultStage2" style="display:none; background:#0f172a; border-radius:8px; border:1px solid #1e293b; box-shadow:0 1px 3px rgba(0,0,0,0.2); overflow:hidden;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 14px; background:#1e293b; border-bottom:1px solid #334155;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#8b5cf6; color:#ffffff; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">response</span>
+                                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">LLM 응답 (JSON 트리 접기/펼치기 가능)</span>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button class="json-ctrl-btn" onclick="expandAllJson('promptResultStage2')">전체 펼치기</button>
+                                <button class="json-ctrl-btn" onclick="collapseAllJson('promptResultStage2')">전체 접기</button>
+                                <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" class="json-ctrl-btn">내용 복사</button>
+                            </div>
+                        </div>
+                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                            <div id="promptResultStage2" class="json-tree-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
     </div>
 
@@ -1187,10 +1641,12 @@ html_content = f"""
         }};
 
         const ML_TYPES_LIST = {ml_types_json};
+        const KEYWORDS_LIST = {keywords_json_str};
 
         let currentSiteCd = {initial_site_json};
         let currentMlType = {initial_type_json};
         let currentPrdNo = {initial_prd_json};
+        let currentKeyword = {initial_keyword_json};
         let currentK = {initial_k_json};
         let currentBasket = {initial_basket_json};
         let currentWish = {initial_wish_json};
@@ -1204,6 +1660,7 @@ html_content = f"""
         let currentSeedProducts = [];
         let homeExtractedSeeds = [];
         let homeOriginalResults = [];
+        let promptResDataMap = {{}};
         let recommendFlowTimer = null;
         let recommendRequestId = 0;
         let targetProductRequestId = 0;
@@ -1254,7 +1711,13 @@ html_content = f"""
 
         function updateUrlQuery() {{
             try {{
-                const queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}&tab=${{encodeURIComponent(currentTab)}}`;
+                let queryStr = `?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&k=${{encodeURIComponent(currentK)}}&tab=${{encodeURIComponent(currentTab)}}`;
+                if (currentMlType === 'keyword-trend') {{
+                    queryStr += `&keyword=${{encodeURIComponent(currentKeyword)}}`;
+                }} else {{
+                    queryStr += `&prdNo=${{encodeURIComponent(currentPrdNo)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}`;
+                }}
+
                 try {{
                     if (window.parent && window.parent.history && window.parent.history.replaceState) {{
                         let targetPath = queryStr;
@@ -1283,7 +1746,13 @@ html_content = f"""
             const hostUrl = (window.parent && window.parent.location && window.parent.location.origin) 
                 ? (window.parent.location.origin + window.parent.location.pathname)
                 : (window.location.origin + window.location.pathname);
-            const curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&prdNo=${{encodeURIComponent(currentPrdNo)}}&k=${{encodeURIComponent(currentK)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}&tab=${{encodeURIComponent(currentTab)}}`;
+            let curUrl = `${{hostUrl}}?siteCd=${{encodeURIComponent(currentSiteCd)}}&mlType=${{encodeURIComponent(currentMlType)}}&k=${{encodeURIComponent(currentK)}}&tab=${{encodeURIComponent(currentTab)}}`;
+            if (currentMlType === 'keyword-trend') {{
+                curUrl += `&keyword=${{encodeURIComponent(currentKeyword)}}`;
+            }} else {{
+                curUrl += `&prdNo=${{encodeURIComponent(currentPrdNo)}}&basketPrdNo=${{encodeURIComponent(currentBasket)}}&wishPrdNo=${{encodeURIComponent(currentWish)}}&memNo=${{encodeURIComponent(currentMem)}}&selfYn=${{currentSelfYn}}&seedPrdNo=${{encodeURIComponent(currentSelectedSeed)}}`;
+            }}
+
             navigator.clipboard.writeText(curUrl).then(() => {{
                 const btn = document.getElementById('btnCopyUrl');
                 if (btn) {{
@@ -1309,6 +1778,9 @@ html_content = f"""
             const directInput = document.getElementById('directPrdInput');
             if (directInput) directInput.value = currentPrdNo;
 
+            const kwInput = document.getElementById('directKwInput');
+            if (kwInput) kwInput.value = currentKeyword;
+
             const sizeInput = document.getElementById('sizeInput');
             if (sizeInput) sizeInput.value = currentK;
 
@@ -1325,9 +1797,34 @@ html_content = f"""
             if (selfCheck) selfCheck.checked = currentSelfYn;
 
             updateHomeFieldsVisibility();
+            updatePanelVisibility();
             switchViewTab(currentTab, false);
             setupEventListeners();
             loadBestProducts(currentSiteCd);
+        }}
+
+        function updatePanelVisibility() {{
+            const criterionPanel = document.getElementById('criterionPanel');
+            const kwPanel = document.getElementById('keywordTrendPanel');
+            const promptTabBtn = document.getElementById('tabBtnPrompt');
+            const seedTabsSection = document.getElementById('homeSeedTabsSection');
+
+            if (currentMlType === 'keyword-trend') {{
+                if (criterionPanel) criterionPanel.style.display = 'none';
+                if (seedTabsSection) seedTabsSection.style.display = 'none';
+                if (kwPanel) kwPanel.style.display = 'flex';
+                if (promptTabBtn) promptTabBtn.style.display = 'inline-block';
+                renderKeywordChips();
+                const kwInput = document.getElementById('directKwInput');
+                if (kwInput) kwInput.value = currentKeyword;
+            }} else {{
+                if (criterionPanel) criterionPanel.style.display = 'flex';
+                if (kwPanel) kwPanel.style.display = 'none';
+                if (promptTabBtn) promptTabBtn.style.display = 'none';
+                if (currentTab === 'prompt') {{
+                    switchViewTab('grid');
+                }}
+            }}
         }}
 
         function renderModelTabs() {{
@@ -1355,6 +1852,7 @@ html_content = f"""
             currentSelectedSeed = "";
             renderModelTabs();
             updateHomeFieldsVisibility();
+            updatePanelVisibility();
             executeRecommendFlow();
         }}
 
@@ -1796,6 +2294,9 @@ html_content = f"""
             }} else if (tabName === 'raw') {{
                 document.getElementById('tabBtnRaw')?.classList.add('active');
                 document.getElementById('tabContentRaw')?.classList.add('active');
+            }} else if (tabName === 'prompt') {{
+                document.getElementById('tabBtnPrompt')?.classList.add('active');
+                document.getElementById('tabContentPrompt')?.classList.add('active');
             }}
 
             if (updateUrl) updateUrlQuery();
@@ -1803,6 +2304,11 @@ html_content = f"""
 
         async function executeRecommendFlow() {{
             updateUrlQuery();
+
+            if (currentMlType === 'keyword-trend') {{
+                await fetchRecommendationApi();
+                return;
+            }}
 
             const activePrdToLoad = (isSeedCompatibleModel() && currentSelectedSeed) ? currentSelectedSeed : currentPrdNo;
             if (activePrdToLoad) {{
@@ -1932,40 +2438,47 @@ html_content = f"""
             }}
 
             const endpoint = currentMlType;
-            const params = new URLSearchParams();
-            params.append('siteCd', currentSiteCd);
-            params.append('size', currentK);
-
-            const prdList = getSelectedPrdList();
-
-            if (isSeedCompatibleModel()) {{
-                params.append('deviceCd', '001');
-                if (currentSelfYn) params.append('selfYn', 'true');
-                prdList.forEach(p => params.append('prdNo', p));
-
-                if (currentBasket) {{
-                    currentBasket.split(',').map(s => s.trim()).filter(Boolean).forEach(b => params.append('basketPrdNo', b));
-                }}
-                if (currentWish) {{
-                    currentWish.split(',').map(s => s.trim()).filter(Boolean).forEach(w => params.append('wishPrdNo', w));
-                }}
-                if (currentMem) {{
-                    currentMem.split(',').map(s => s.trim()).filter(Boolean).forEach(m => params.append('memNo', m));
-                }}
+            if (currentMlType === 'keyword-trend') {{
+                currentApiUrl = `${{apiBase}}/recommend/keyword-trend?llmInfo=true&siteCd=${{currentSiteCd}}&size=${{currentK}}&keyword=${{encodeURIComponent(currentKeyword)}}`;
             }} else {{
-                prdList.forEach(p => params.append('prdNo', p));
-            }}
+                const params = new URLSearchParams();
+                params.append('siteCd', currentSiteCd);
+                params.append('size', currentK);
 
-            if (currentMlType === 'similaritem' || currentMlType === 'lfsimilaritem') {{
-                params.append('randomYn', 'false');
-            }}
+                const prdList = getSelectedPrdList();
 
-            currentApiUrl = `${{apiBase}}/recommend/${{endpoint}}?${{params.toString()}}`;
+                if (isSeedCompatibleModel()) {{
+                    params.append('deviceCd', '001');
+                    if (currentSelfYn) params.append('selfYn', 'true');
+                    prdList.forEach(p => params.append('prdNo', p));
+
+                    if (currentBasket) {{
+                        currentBasket.split(',').map(s => s.trim()).filter(Boolean).forEach(b => params.append('basketPrdNo', b));
+                    }}
+                    if (currentWish) {{
+                        currentWish.split(',').map(s => s.trim()).filter(Boolean).forEach(w => params.append('wishPrdNo', w));
+                    }}
+                    if (currentMem) {{
+                        currentMem.split(',').map(s => s.trim()).filter(Boolean).forEach(m => params.append('memNo', m));
+                    }}
+                }} else {{
+                    prdList.forEach(p => params.append('prdNo', p));
+                }}
+
+                if (currentMlType === 'similaritem' || currentMlType === 'lfsimilaritem') {{
+                    params.append('randomYn', 'false');
+                }}
+
+                currentApiUrl = `${{apiBase}}/recommend/${{endpoint}}?${{params.toString()}}`;
+            }}
 
             const activeModelObj = ML_TYPES_LIST.find(m => m.id === currentMlType);
             const modelTitle = activeModelObj ? activeModelObj.name : currentMlType;
             const snippetEl = document.getElementById('activeApiUrlSnippet');
-            if (snippetEl) snippetEl.textContent = `${{modelTitle}} (/recommend/${{endpoint}}) · ${{currentK}}개`;
+            if (snippetEl) {{
+                const extraInfo = currentMlType === 'keyword-trend' ? `키워드: '${{currentKeyword}}'` : `${{currentK}}개`;
+                snippetEl.textContent = `${{modelTitle}} (/recommend/${{endpoint}}) · ${{extraInfo}}`;
+            }}
 
             const fullUrlEl = document.getElementById('calledApiUrlFull');
             if (fullUrlEl) fullUrlEl.textContent = currentApiUrl;
@@ -1987,7 +2500,11 @@ html_content = f"""
                     statusEl.style.borderColor = '#a7f3d0';
                 }}
 
-                handleApiSuccessResponse(data);
+                if (currentMlType === 'keyword-trend') {{
+                    handleKeywordTrendSuccessResponse(data, currentKeyword);
+                }} else {{
+                    handleApiSuccessResponse(data);
+                }}
             }} catch (err) {{
                 if (curReqId !== recommendRequestId) return;
                 const duration = Math.round(performance.now() - startTime);
