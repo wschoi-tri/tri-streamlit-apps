@@ -603,6 +603,44 @@ html_content = f"""
             background: #eff6ff;
             box-shadow: 0 0 0 2px rgba(37,99,235,0.3);
         }}
+        .seed-mini-rank {{
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(15, 23, 42, 0.78);
+            color: #ffffff;
+            font-size: 9.5px;
+            font-weight: 800;
+            padding: 1.5px 4.5px;
+            border-radius: 3px;
+            line-height: 1.1;
+            z-index: 2;
+            letter-spacing: -0.2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }}
+        .seed-mini-rank.top-rank {{
+            background: #ea580c;
+        }}
+        .best-link-btn {{
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #2563eb;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 4px;
+            padding: 1.5px 7px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }}
+        .best-link-btn:hover {{
+            background: #dbeafe;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+        }}
         .seed-mini-badge {{
             position: absolute;
             top: 4px;
