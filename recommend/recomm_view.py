@@ -3614,4 +3614,4 @@ html_content = f"""
 """
 
 # 6. Streamlit 컴포넌트 렌더링 (풀스크린 뷰포트)
-components.html(html_content, height=1000, scrolling=False)
+components.html(html_content, height=1250, scrolling=False)
