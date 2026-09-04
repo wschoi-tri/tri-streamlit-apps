@@ -341,13 +341,21 @@ html_content = f"""
             gap: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.03);
             margin-bottom: 14px;
+            box-sizing: border-box;
+            width: 100%;
         }}
         .target-preview-box {{
+            width: 340px;
+            min-width: 340px;
+            max-width: 340px;
+            box-sizing: border-box;
+            flex-shrink: 0;
             border-right: 1px solid #f1f5f9;
             padding-right: 18px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            overflow: hidden;
         }}
         .target-header-row {{
             display: flex;
@@ -367,6 +375,8 @@ html_content = f"""
             display: flex;
             gap: 12px;
             align-items: center;
+            min-width: 0;
+            width: 100%;
         }}
         .target-thumb-wrap {{
             width: 72px;
@@ -391,6 +401,7 @@ html_content = f"""
             gap: 2px;
             min-width: 0;
             flex: 1;
+            overflow: hidden;
         }}
         .target-brand-row {{
             display: flex;
@@ -419,6 +430,9 @@ html_content = f"""
             overflow: hidden;
             text-overflow: ellipsis;
             line-height: 1.35;
+            display: block;
+            width: 100%;
+            min-width: 0;
         }}
         .target-price-row {{
             display: flex;
@@ -453,8 +467,8 @@ html_content = f"""
             margin-top: 8px;
             padding-top: 6px;
             border-top: 1px dotted #e2e8f0;
-            max-height: 58px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
         }}
         .prd-chip {{
             font-size: 10px;
@@ -1263,8 +1277,8 @@ html_content = f"""
             padding: 8px 12px;
             background: #ffffff;
             border-top: 1px solid #e2e8f0;
-            max-height: 180px;
-            overflow-y: auto;
+            max-height: none;
+            overflow: visible;
         }}
     </style>
 </head>
@@ -1497,7 +1511,7 @@ html_content = f"""
                             <button id="btnCopyJson" class="json-ctrl-btn" onclick="copyJsonTextToClipboard()">내용 복사</button>
                         </div>
                     </div>
-                    <div style="padding:14px 16px; background:#0f172a; max-height:650px; overflow:auto;">
+                    <div style="padding:14px 16px; background:#0f172a; overflow:visible;">
                         <div id="rawJsonBody"></div>
                     </div>
                 </div>
@@ -1523,7 +1537,7 @@ html_content = f"""
                                 <button id="btnCopySys1" onclick="copyPromptTextToClipboard('promptSysStage1', 'btnCopySys1')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptSysStage1" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1541,7 +1555,7 @@ html_content = f"""
                                 <button id="btnCopyUser1" onclick="copyPromptTextToClipboard('promptUserStage1', 'btnCopyUser1')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptUserStage1" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1559,7 +1573,7 @@ html_content = f"""
                                 <button id="btnCopyResult1" onclick="copyPromptTextToClipboard('promptResultStage1', 'btnCopyResult1')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptResultStage1" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1583,7 +1597,7 @@ html_content = f"""
                                 <button id="btnCopySys2" onclick="copyPromptTextToClipboard('promptSysStage2', 'btnCopySys2')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptSysStage2" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1601,7 +1615,7 @@ html_content = f"""
                                 <button id="btnCopyUser2" onclick="copyPromptTextToClipboard('promptUserStage2', 'btnCopyUser2')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptUserStage2" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1619,7 +1633,7 @@ html_content = f"""
                                 <button id="btnCopyResult2" onclick="copyPromptTextToClipboard('promptResultStage2', 'btnCopyResult2')" class="json-ctrl-btn">내용 복사</button>
                             </div>
                         </div>
-                        <div style="padding:12px 14px; background:#0f172a; max-height:340px; overflow:auto;">
+                        <div style="padding:12px 14px; background:#0f172a; overflow:visible;">
                             <div id="promptResultStage2" class="json-tree-container"></div>
                         </div>
                     </div>
@@ -1818,7 +1832,7 @@ html_content = f"""
                 const kwInput = document.getElementById('directKwInput');
                 if (kwInput) kwInput.value = currentKeyword;
             }} else {{
-                if (criterionPanel) criterionPanel.style.display = 'flex';
+                if (criterionPanel) criterionPanel.style.display = 'grid';
                 if (kwPanel) kwPanel.style.display = 'none';
                 if (promptTabBtn) promptTabBtn.style.display = 'none';
                 if (currentTab === 'prompt') {{
