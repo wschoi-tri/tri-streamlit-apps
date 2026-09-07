@@ -1041,6 +1041,15 @@ html_content = f"""
             border: 1px solid #dbeafe !important;
             font-weight: 700 !important;
         }}
+        .emblem-img-overlay {{
+            height: 18px;
+            max-width: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
+            border-radius: 2px;
+            display: block;
+            pointer-events: none;
+        }}
         .product-info {{
             padding: 8px;
         }}
@@ -2015,17 +2024,20 @@ html_content = f"""
 
             // 엠블럼 이미지 (eblmImg 또는 badgeImg)
             let emblemHtml = '';
+            let emblemImgOverlayHtml = '';
             const eblmSrc = (prd.eblmImg && typeof prd.eblmImg === 'string' && prd.eblmImg.trim()) 
                 ? prd.eblmImg.trim() 
                 : ((prd.badgeImg && typeof prd.badgeImg === 'string' && prd.badgeImg.trim()) ? prd.badgeImg.trim() : '');
             if (eblmSrc) {{
                 const eblmUrl = getImageUrl(eblmSrc);
                 emblemHtml = `<img src="${{eblmUrl}}" style="height:16px; max-width:40px; vertical-align:middle; border-radius:2px; flex-shrink:0; object-fit:contain;" alt="엠블럼" title="엠블럼"/>`;
+                emblemImgOverlayHtml = `<img src="${{eblmUrl}}" class="emblem-img-overlay" alt="엠블럼" title="엠블럼"/>`;
+                imgBadgesHtml += emblemImgOverlayHtml;
             }}
 
             let chipBadgesHtml = [onlyHalfChipHtml, tvChipHtml, freeDlvChipHtml, extraBadgesHtml, emblemHtml].filter(Boolean).join('');
 
-            return {{ isOnlyHalf, isBoriEdition, isTvShopping, isFreeDlv, imgBadgesHtml, onlyHalfChipHtml, tvChipHtml, freeDlvChipHtml, extraBadgesHtml, emblemHtml, chipBadgesHtml }};
+            return {{ isOnlyHalf, isBoriEdition, isTvShopping, isFreeDlv, imgBadgesHtml, emblemImgOverlayHtml, onlyHalfChipHtml, tvChipHtml, freeDlvChipHtml, extraBadgesHtml, emblemHtml, chipBadgesHtml }};
         }}
 
         function getSelectedPrdList() {{
