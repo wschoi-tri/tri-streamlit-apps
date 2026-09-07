@@ -1042,11 +1042,11 @@ html_content = f"""
             font-weight: 700 !important;
         }}
         .emblem-img-overlay {{
-            height: 18px;
-            max-width: 48px;
+            height: 25px;
+            max-width: 60px;
             object-fit: contain;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-            border-radius: 2px;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.45));
+            border-radius: 3px;
             display: block;
             pointer-events: none;
         }}
@@ -2030,7 +2030,7 @@ html_content = f"""
                 : ((prd.badgeImg && typeof prd.badgeImg === 'string' && prd.badgeImg.trim()) ? prd.badgeImg.trim() : '');
             if (eblmSrc) {{
                 const eblmUrl = getImageUrl(eblmSrc);
-                emblemHtml = `<img src="${{eblmUrl}}" style="height:16px; max-width:40px; vertical-align:middle; border-radius:2px; flex-shrink:0; object-fit:contain;" alt="엠블럼" title="엠블럼"/>`;
+                emblemHtml = `<img src="${{eblmUrl}}" style="height:17px; max-width:48px; vertical-align:middle; border-radius:2px; flex-shrink:0; object-fit:contain;" alt="엠블럼" title="엠블럼"/>`;
                 emblemImgOverlayHtml = `<img src="${{eblmUrl}}" class="emblem-img-overlay" alt="엠블럼" title="엠블럼"/>`;
                 imgBadgesHtml += emblemImgOverlayHtml;
             }}
@@ -3726,10 +3726,23 @@ html_content = f"""
                                     (prd.is_origin_forced === true) || 
                                     (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
 
+                let typeLabel = '';
+                if (prd.type === 'self') typeLabel = '베스트';
+                else if (prd.type === 'DB') typeLabel = '휴리스틱';
+
+                let typeBadgeHtml = '';
+                if (isOriginPrd) {{
+                    typeBadgeHtml = '<span class="badge-chip-item badge-red">[내가본]</span>';
+                }} else if (typeLabel) {{
+                    typeBadgeHtml = `<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`;
+                }} else {{
+                    typeBadgeHtml = '<span class="badge-chip-item badge-blue">추천</span>';
+                }}
+
                 return `
                     <tr style="${{isOriginPrd ? 'background-color:#fff1f2;' : ''}}">
                         <td style="font-weight:700; color:#64748b;">${{rank}}</td>
-                        <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}${{excl.chipBadgesHtml ? ` ${{excl.chipBadgesHtml}}` : ''}}</td>
+                        <td>${{typeBadgeHtml}}${{excl.chipBadgesHtml ? ` ${{excl.chipBadgesHtml}}` : ''}}</td>
                         <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
                         <td style="font-weight:600;">${{brand}}</td>
                         <td style="max-width:280px;" title="${{escapeHtml(name)}}">
