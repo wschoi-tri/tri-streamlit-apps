@@ -3505,34 +3505,11 @@ html_content = f"""
 
                 const c1 = prd.dpCtgrNm1 || prd.category || '';
                 const seedVal = prd.seed || '';
-                const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
+                const seedLabelMap = { 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' };
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
                 const isKwModel = currentMlType === 'keyword-trend';
                 const matchedKws = prd.matched_keywords || [];
-                let matchedKwRowHtml = '';
-                if (isKwModel) {{
-                    let kwChipsHtml = '';
-                    if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
-                        const curKw = currentKeyword || '';
-                        kwChipsHtml = matchedKws.map(k => {{
-                            const cleanK = String(k).trim();
-                            const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
-                            const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
-                            return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="matched-kw-chip" title="'${{escapeHtml(queryTerm)}}' 검색">${{escapeHtml(cleanK)}} ↗</a>`;
-                        }}).join('');
-                    }} else {{
-                        kwChipsHtml = '<span style="font-size:9px; color:#94a3b8;">매칭 정보 없음</span>';
-                    }}
-                    matchedKwRowHtml = `
-                        <div class="card-matched-kw-row">
-                            <span class="matched-kw-label">매칭</span>
-                            <div style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
-                                ${{kwChipsHtml}}
-                            </div>
-                        </div>
-                    `;
-                }}
 
                 const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
                                     (prd.is_origin_forced === true) || 
@@ -3545,22 +3522,51 @@ html_content = f"""
                 const rankClass = rank === 1 ? 'rank-badge rank-top1' : (rank === 2 ? 'rank-badge rank-top2' : (rank === 3 ? 'rank-badge rank-top3' : 'rank-badge'));
                 const rankText = isOriginPrd ? '선택' : (rank <= 3 ? `TOP ${{rank}}` : `#${{rank}}`);
 
-                // 상단 메타 라인: 협력사, 카테고리, 단독/출처 배지
+                // 1줄: 상품 정보 (협력사, 카테고리)
                 const line1Items = [];
-                if (excl.chipBadgesHtml) line1Items.push(excl.chipBadgesHtml);
-                if (isOriginPrd) line1Items.push('<span class="badge-chip-item badge-red">내가본</span>');
-                if (typeLabel) line1Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
-                if (selAcnt) line1Items.push(`<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호">협력사:${{selAcnt}}</span>`);
-                if (c1) line1Items.push(`<span class="badge-chip-item badge-gray" title="카테고리">${{c1}}</span>`);
-                const metaLine1Html = line1Items.length > 0 ? `<div class="meta-chips-line">${{line1Items.join('')}}</div>` : '<div class="meta-chips-line"></div>';
+                if (selAcnt) line1Items.push(`<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호: ${{selAcnt}}">협력사:${{selAcnt}}</span>`);
+                if (c1) line1Items.push(`<span class="badge-chip-item badge-gray" title="카테고리: ${{escapeHtml(c1)}}">${{escapeHtml(c1)}}</span>`);
+                const metaLine1Html = line1Items.length > 0 ? `<div class="meta-chips-line card-line-prdinfo">${{line1Items.join('')}}</div>` : '<div class="meta-chips-line card-line-prdinfo"></div>';
 
-                // 하단 스코어 라인: 추천 스코어, ES 스코어, 시드 출처
+                // 2줄: 최근본, 온리하프, 기준
                 const line2Items = [];
-                if (score !== null && !isNaN(score)) line2Items.push(`<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>`);
-                if (esScore !== null && !isNaN(esScore)) line2Items.push(`<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>`);
-                if (seedLabel) line2Items.push(`<span class="badge-chip-item badge-purple" title="시드 출처">${{seedLabel}}</span>`);
-                if (prd.rcm_prd_no && !isOriginPrd) line2Items.push(`<span class="badge-chip-item badge-gray" title="추천 대상">기준:#${{prd.rcm_prd_no}}</span>`);
-                const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line"></div>';
+                if (seedLabel) line2Items.push(`<span class="badge-chip-item badge-purple" title="시드 출처: ${{escapeHtml(seedLabel)}}">${{escapeHtml(seedLabel)}}</span>`);
+                if (excl.chipBadgesHtml) line2Items.push(excl.chipBadgesHtml);
+                if (isOriginPrd) line2Items.push('<span class="badge-chip-item badge-red">내가본</span>');
+                else if (prd.rcm_prd_no) line2Items.push(`<span class="badge-chip-item badge-gray" title="추천 대상">기준:#${{prd.rcm_prd_no}}</span>`);
+                const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line card-line-origin">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line card-line-origin"></div>';
+
+                // 3줄: 매칭 : 키워드1, 키워드2 (키워드 트렌드 모델 전용)
+                let metaLine3Html = '';
+                if (isKwModel) {{
+                    let kwChipsHtml = '';
+                    if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
+                        const curKw = currentKeyword || '';
+                        kwChipsHtml = matchedKws.map(k => {{
+                            const cleanK = String(k).trim();
+                            const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
+                            const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
+                            return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="matched-kw-chip" title="'${{escapeHtml(queryTerm)}}' 검색">${{escapeHtml(cleanK)}} ↗</a>`;
+                        }}).join('');
+                    }} else {{
+                        kwChipsHtml = '<span style="font-size:9.5px; color:#94a3b8;">-</span>';
+                    }}
+                    metaLine3Html = `
+                        <div class="meta-chips-line card-line-matched">
+                            <span class="matched-kw-label">매칭 :</span>
+                            <div style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
+                                ${{kwChipsHtml}}
+                            </div>
+                        </div>
+                    `;
+                }}
+
+                // 4줄: 추천 점수 (추천 스코어, ES 스코어, 추천 유형)
+                const line4Items = [];
+                if (score !== null && !isNaN(score)) line4Items.push(`<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>`);
+                if (esScore !== null && !isNaN(esScore)) line4Items.push(`<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>`);
+                if (typeLabel) line4Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
+                const metaLine4Html = line4Items.length > 0 ? `<div class="meta-chips-line card-line-score">${{line4Items.join('')}}</div>` : '<div class="meta-chips-line card-line-score"></div>';
 
                 return `
                     <div class="product-card ${{isOriginPrd ? 'card-origin' : ''}}">
@@ -3591,10 +3597,11 @@ html_content = f"""
                                 <span class="sale-price">${{Number(salePrc).toLocaleString()}}원</span>
                                 ${{normPrc > salePrc ? `<span class="normal-price">${{Number(normPrc).toLocaleString()}}원</span>` : ''}}
                             </div>
-                            ${{matchedKwRowHtml}}
                             <div class="card-meta-chips-wrap">
                                 ${{metaLine1Html}}
                                 ${{metaLine2Html}}
+                                ${{metaLine3Html}}
+                                ${{metaLine4Html}}
                             </div>
                         </div>
                     </div>
@@ -3631,7 +3638,7 @@ html_content = f"""
                 if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
                     const curKw = currentKeyword || '';
                     matchedKwsTableHtml = `<div style="display:flex; gap:3px; flex-wrap:wrap; margin-top:3px;">` +
-                        `<span class="badge-chip-item badge-purple" style="font-size:9px; padding:1px 4px; font-weight:700;">매칭</span>` +
+                        `<span class="badge-chip-item badge-purple" style="font-size:9px; padding:1px 4px; font-weight:700;">매칭 :</span>` +
                         matchedKws.map(k => {{
                             const cleanK = String(k).trim();
                             const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
