@@ -1080,38 +1080,104 @@ html_content = f"""
             display: flex;
             align-items: baseline;
             gap: 4px;
+            height: 20px;
+            min-height: 20px;
             margin-bottom: 4px;
-            flex-wrap: wrap;
+            white-space: nowrap;
+            overflow: hidden;
         }}
         .discount-rate {{
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             color: #f43f5e;
             font-weight: 800;
+            line-height: 1;
         }}
         .sale-price {{
-            font-size: 0.88rem;
+            font-size: 0.85rem;
             font-weight: 800;
             color: #0f172a;
+            line-height: 1;
         }}
         .normal-price {{
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             color: #94a3b8;
             text-decoration: line-through;
+            line-height: 1;
         }}
-        .badge-chip-container {{
+
+        /* 키워드 트렌드 매칭 키워드 전용 1행 규격 */
+        .card-matched-kw-row {{
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px;
+            height: 22px;
+            min-height: 22px;
+            margin-bottom: 4px;
+            overflow: hidden;
+            white-space: nowrap;
+        }}
+        .matched-kw-label {{
+            font-size: 9px;
+            font-weight: 800;
+            color: #7c3aed;
+            background: #f5f3ff;
+            border: 1px solid #ddd6fe;
+            padding: 1px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            line-height: 1.3;
+        }}
+        .matched-kw-chip {{
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #2563eb;
+            background: #eff6ff;
+            border: 1px solid #dbeafe;
+            padding: 1px 5px;
+            border-radius: 3px;
+            text-decoration: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.3;
+            flex-shrink: 0;
+            max-width: 90px;
+            transition: all 0.15s ease;
+        }}
+        .matched-kw-chip:hover {{
+            background: #dbeafe;
+            color: #1d4ed8;
+        }}
+
+        /* 하단 메타 뱃지 컨테이너 (정돈된 2줄 라인 배치) */
+        .card-meta-chips-wrap {{
+            display: flex;
+            flex-direction: column;
             gap: 3px;
-            margin-top: 4px;
+            margin-top: 2px;
+        }}
+        .meta-chips-line {{
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 18px;
+            min-height: 18px;
+            overflow: hidden;
+            white-space: nowrap;
         }}
         .badge-chip-item {{
-            font-size: 10px;
-            padding: 1px 5px;
-            border-radius: 4px;
+            font-size: 9.5px;
+            padding: 1px 4px;
+            border-radius: 3px;
             font-weight: 600;
             display: inline-flex;
             align-items: center;
             gap: 2px;
+            line-height: 1.3;
+            white-space: nowrap;
+            flex-shrink: 0;
         }}
         .badge-blue {{ background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }}
         .badge-amber {{ background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }}
