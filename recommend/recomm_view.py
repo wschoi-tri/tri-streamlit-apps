@@ -1203,6 +1203,71 @@ html_content = f"""
             white-space: nowrap;
         }}
 
+        /* 조그마한 플로팅 팝업 스타일 (실제 넘침 감지 팝업) */
+        .tri-floating-popover {{
+            position: fixed;
+            z-index: 999999;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.18), 0 4px 6px -2px rgba(15, 23, 42, 0.08);
+            padding: 7px 9px;
+            max-width: 290px;
+            min-width: 130px;
+            font-size: 11px;
+            line-height: 1.4;
+            color: #1e293b;
+            pointer-events: auto;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(4px);
+            transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s ease;
+        }}
+        .tri-floating-popover.visible {{
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }}
+        .tri-popover-header {{
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #64748b;
+            margin-bottom: 5px;
+            padding-bottom: 3px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }}
+        .tri-popover-body {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+            max-height: 160px;
+            overflow-y: auto;
+        }}
+        /* 플로팅 팝업 화살표 */
+        .tri-floating-popover::after {{
+            content: '';
+            position: absolute;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent;
+        }}
+        .tri-floating-popover.arrow-bottom::after {{
+            bottom: -10px;
+            left: var(--arrow-left, 50%);
+            transform: translateX(-50%);
+            border-top-color: #cbd5e1;
+        }}
+        .tri-floating-popover.arrow-top::after {{
+            top: -10px;
+            left: var(--arrow-left, 50%);
+            transform: translateX(-50%);
+            border-bottom-color: #cbd5e1;
+        }}
+
         .badge-chip-item {{
             font-size: 9.5px;
             padding: 1px 4px;
@@ -1508,6 +1573,12 @@ html_content = f"""
     </style>
 </head>
 <body>
+    <!-- 조그마한 플로팅 팝업 공통 컨테이너 -->
+    <div id="triFloatingPopover" class="tri-floating-popover" role="tooltip" style="display:none;">
+        <div id="triPopoverHeader" class="tri-popover-header"></div>
+        <div id="triPopoverBody" class="tri-popover-body"></div>
+    </div>
+
     <div class="app-wrapper">
         <!-- 1단: 최상단 글로벌 통합 네비게이션 헤더 -->
         <header class="top-global-header">
@@ -2365,6 +2436,146 @@ html_content = f"""
                     if (handleKeywordArrowNavigation('prev')) e.preventDefault();
                 }}
             }});
+
+            setupFloatingPopoverHandlers();
+        }}
+
+        let popoverHideTimer = null;
+
+        function showFloatingPopover(target, title, contentHtml) {{
+            const popoverEl = document.getElementById('triFloatingPopover');
+            const popoverHeader = document.getElementById('triPopoverHeader');
+            const popoverBody = document.getElementById('triPopoverBody');
+            if (!popoverEl || !popoverHeader || !popoverBody || !target) return;
+
+            if (popoverHideTimer) {{
+                clearTimeout(popoverHideTimer);
+                popoverHideTimer = null;
+            }}
+
+            popoverHeader.textContent = title || '상세 정보';
+            popoverBody.innerHTML = contentHtml;
+
+            // 크기 측정을 위해 임시로 표시하되 visibility를 hidden 처리
+            popoverEl.style.display = 'block';
+            popoverEl.style.visibility = 'hidden';
+            popoverEl.classList.remove('visible', 'arrow-top', 'arrow-bottom');
+
+            const rect = target.getBoundingClientRect();
+            const popWidth = popoverEl.offsetWidth || 230;
+            const popHeight = popoverEl.offsetHeight || 60;
+
+            let top = rect.top - popHeight - 7;
+            let isTop = true;
+            if (top < 8) {{
+                // 상단 공간 부족 시 타겟 아래쪽에 표출
+                top = rect.bottom + 7;
+                isTop = false;
+            }}
+
+            let left = rect.left + (rect.width / 2) - (popWidth / 2);
+            const minLeft = 10;
+            const maxLeft = window.innerWidth - popWidth - 10;
+            if (left < minLeft) left = minLeft;
+            if (left > maxLeft) left = maxLeft;
+
+            const arrowLeft = Math.max(15, Math.min(popWidth - 15, (rect.left + rect.width / 2) - left));
+            popoverEl.style.setProperty('--arrow-left', arrowLeft + 'px');
+
+            popoverEl.style.top = top + 'px';
+            popoverEl.style.left = left + 'px';
+
+            popoverEl.classList.add(isTop ? 'arrow-bottom' : 'arrow-top');
+            popoverEl.style.visibility = 'visible';
+            popoverEl.classList.add('visible');
+        }}
+
+        function hideFloatingPopover(immediate = false) {{
+            const popoverEl = document.getElementById('triFloatingPopover');
+            if (!popoverEl) return;
+            if (popoverHideTimer) clearTimeout(popoverHideTimer);
+
+            if (immediate) {{
+                popoverEl.classList.remove('visible');
+                popoverEl.style.display = 'none';
+                return;
+            }}
+
+            popoverHideTimer = setTimeout(() => {{
+                popoverEl.classList.remove('visible');
+                setTimeout(() => {{
+                    if (!popoverEl.classList.contains('visible')) {{
+                        popoverEl.style.display = 'none';
+                    }}
+                }}, 120);
+            }}, 160);
+        }}
+
+        function setupFloatingPopoverHandlers() {{
+            const popoverEl = document.getElementById('triFloatingPopover');
+            if (popoverEl) {{
+                popoverEl.addEventListener('mouseenter', () => {{
+                    if (popoverHideTimer) {{
+                        clearTimeout(popoverHideTimer);
+                        popoverHideTimer = null;
+                    }}
+                }});
+                popoverEl.addEventListener('mouseleave', () => {{
+                    hideFloatingPopover(false);
+                }});
+            }}
+
+            document.addEventListener('mouseover', (e) => {{
+                // 1. Line 2 (온리하프 및 뱃지 라인)
+                const line2Target = e.target.closest('.card-line-origin');
+                if (line2Target) {{
+                    // 실제 가로폭을 넘어가서 잘린 경우 (scrollWidth > clientWidth)
+                    if (line2Target.scrollWidth > line2Target.clientWidth) {{
+                        const badgeCount = line2Target.getAttribute('data-badge-count') || line2Target.querySelectorAll('.badge-chip-item, img').length;
+                        showFloatingPopover(line2Target, `전체 뱃지 목록 (${{badgeCount}}개)`, line2Target.innerHTML);
+                        return;
+                    }}
+                }}
+
+                // 2. Line 3 (매칭 키워드 라인 또는 +N 미니 칩)
+                const kwMoreTarget = e.target.closest('.matched-kw-more');
+                const line3Target = e.target.closest('.card-line-matched');
+                if (kwMoreTarget || line3Target) {{
+                    const targetLine = line3Target || kwMoreTarget.closest('.card-line-matched');
+                    if (targetLine) {{
+                        const tpl = targetLine.querySelector('.kw-popup-template');
+                        const kwInner = targetLine.querySelector('.matched-kw-inner-list');
+                        const hasMore = !!targetLine.querySelector('.matched-kw-more');
+                        const isOverflow = (kwInner && kwInner.scrollWidth > kwInner.clientWidth) || hasMore || targetLine.scrollWidth > targetLine.clientWidth;
+                        
+                        // 실제로 잘렸거나 +N 칩이 있는 경우, 혹은 +N 칩에 마우스를 올린 경우
+                        if ((isOverflow || kwMoreTarget) && tpl) {{
+                            const kwCount = targetLine.getAttribute('data-kw-count') || '';
+                            const title = kwCount ? `전체 매칭 키워드 (${{kwCount}}개)` : '전체 매칭 키워드';
+                            showFloatingPopover(kwMoreTarget || targetLine, title, tpl.innerHTML);
+                            return;
+                        }}
+                    }}
+                }}
+
+                // 3. 상품명 (두 줄 이상 말줄임으로 넘어간 경우)
+                const nameTarget = e.target.closest('.product-name');
+                if (nameTarget) {{
+                    if (nameTarget.scrollHeight > nameTarget.clientHeight || nameTarget.scrollWidth > nameTarget.clientWidth) {{
+                        showFloatingPopover(nameTarget, '상품명 전체', `<div style="font-size:11px; font-weight:600; color:#0f172a; line-height:1.4; word-break:break-all;">${{escapeHtml(nameTarget.textContent)}}</div>`);
+                        return;
+                    }}
+                }}
+            }});
+
+            document.addEventListener('mouseout', (e) => {{
+                const isTarget = e.target.closest('.card-line-origin, .card-line-matched, .matched-kw-more, .product-name');
+                if (isTarget) {{
+                    hideFloatingPopover(false);
+                }}
+            }});
+
+            window.addEventListener('scroll', () => hideFloatingPopover(true), true);
         }}
 
         async function loadBestProducts(siteCd, isSiteChange = false) {{
@@ -3622,9 +3833,12 @@ html_content = f"""
                 // 7. 엠블럼
                 if (excl.emblemHtml) line2Items.push(excl.emblemHtml);
 
-                const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line card-line-origin">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line card-line-origin"></div>';
+                const metaLine2Html = line2Items.length > 0 ? `
+                    <div class="meta-chips-line card-line-origin" data-overflow-target="badges" data-badge-count="${{line2Items.length}}">
+                        ${{line2Items.join('')}}
+                    </div>` : '<div class="meta-chips-line card-line-origin"></div>';
 
-                // 3줄: 매칭 : 키워드1, 키워드2 +N (키워드 트렌드 모델 전용, 방안 1 적용)
+                // 3줄: 매칭 : 키워드1, 키워드2 +N (키워드 트렌드 모델 전용, 방안 1 + 플로팅 팝업 지원)
                 let metaLine3Html = '';
                 if (isKwModel) {{
                     let kwChipsHtml = '';
@@ -3645,18 +3859,34 @@ html_content = f"""
                         if (extraCount > 0) {{
                             kwChipsHtml += `<span class="matched-kw-more" title="전체 매칭 키워드 (${{allCleanKws.length}}개): ${{escapeHtml(allKwTooltip)}}">+${{extraCount}}</span>`;
                         }}
-                    }} else {{
-                        kwChipsHtml = '<span style="font-size:9.5px; color:#94a3b8;">-</span>';
-                    }}
-                    const fullListTitle = allCleanKws.length > 0 ? `전체 매칭 키워드 (${{allCleanKws.length}}개): ${{escapeHtml(allCleanKws.join(', '))}}` : '매칭 정보 없음';
-                    metaLine3Html = `
-                        <div class="meta-chips-line card-line-matched" title="${{fullListTitle}}">
-                            <span class="matched-kw-label">매칭 :</span>
-                            <div style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
-                                ${{kwChipsHtml}}
+
+                        // 플로팅 팝업용 전체 키워드 검색 링크 칩
+                        const allChipsPopupHtml = allCleanKws.map(cleanK => {{
+                            const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
+                            const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
+                            return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="matched-kw-chip" title="'${{escapeHtml(queryTerm)}}' 검색">${{escapeHtml(cleanK)}} ↗</a>`;
+                        }}).join('');
+
+                        const fullListTitle = `전체 매칭 키워드 (${{allCleanKws.length}}개): ${{escapeHtml(allKwTooltip)}}`;
+                        metaLine3Html = `
+                            <div class="meta-chips-line card-line-matched" title="${{fullListTitle}}" data-overflow-target="keywords" data-kw-count="${{allCleanKws.length}}">
+                                <span class="matched-kw-label">매칭 :</span>
+                                <div class="matched-kw-inner-list" style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
+                                    ${{kwChipsHtml}}
+                                </div>
+                                <template class="kw-popup-template">${{allChipsPopupHtml}}</template>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }} else {{
+                        metaLine3Html = `
+                            <div class="meta-chips-line card-line-matched" title="매칭 정보 없음">
+                                <span class="matched-kw-label">매칭 :</span>
+                                <div style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
+                                    <span style="font-size:9.5px; color:#94a3b8;">-</span>
+                                </div>
+                            </div>
+                        `;
+                    }}
                 }}
 
                 // 4줄: 추천 점수 (추천 스코어, ES 스코어)
