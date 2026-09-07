@@ -1083,6 +1083,17 @@ html_content = f"""
             white-space: nowrap;
             flex-shrink: 0;
             line-height: 1.3;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }}
+        .product-card-prdno:hover {{
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-color: #bfdbfe;
+        }}
+        .product-card-prdno:active {{
+            transform: scale(0.95);
         }}
         .product-name {{
             font-size: 0.78rem;
@@ -2193,6 +2204,67 @@ html_content = f"""
             }}).catch(() => {{
                 alert('URL: ' + curUrl);
             }});
+        }}
+
+        function copyPrdNoToClipboard(prdNo, el, event) {{
+            if (event) {{
+                event.preventDefault();
+                event.stopPropagation();
+            }}
+            if (!prdNo) return;
+
+            const copyText = String(prdNo).trim();
+            const doFeedback = () => {{
+                if (!el) return;
+                const origText = el.textContent;
+                const origBg = el.style.backgroundColor;
+                const origColor = el.style.color;
+                const origBorder = el.style.borderColor;
+
+                el.textContent = '복사됨!';
+                el.style.backgroundColor = '#dcfce7';
+                el.style.color = '#15803d';
+                el.style.borderColor = '#86efac';
+
+                setTimeout(() => {{
+                    el.textContent = origText;
+                    el.style.backgroundColor = origBg;
+                    el.style.color = origColor;
+                    el.style.borderColor = origBorder;
+                }}, 1200);
+            }};
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {{
+                navigator.clipboard.writeText(copyText).then(() => {{
+                    doFeedback();
+                }}).catch(() => {{
+                    const temp = document.createElement('textarea');
+                    temp.value = copyText;
+                    temp.style.position = 'fixed';
+                    temp.style.left = '-9999px';
+                    document.body.appendChild(temp);
+                    temp.focus();
+                    temp.select();
+                    try {{
+                        document.execCommand('copy');
+                        doFeedback();
+                    }} catch (e) {{}}
+                    document.body.removeChild(temp);
+                }});
+            }} else {{
+                const temp = document.createElement('textarea');
+                temp.value = copyText;
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.focus();
+                temp.select();
+                try {{
+                    document.execCommand('copy');
+                    doFeedback();
+                }} catch (e) {{}}
+                document.body.removeChild(temp);
+            }}
         }}
 
         function initApp() {{
@@ -3910,9 +3982,7 @@ html_content = f"""
                         <div class="product-info">
                             <div class="product-brand-row">
                                 <span class="brand-name" title="${{escapeHtml(brand)}}">${{brand}}</span>
-                                <span class="product-card-prdno" title="상품번호: ${{prdNo}} (클릭 시 상세 이동)">
-                                    <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">#${{prdNo}}</a>
-                                </span>
+                                <span class="product-card-prdno" title="상품번호: ${{prdNo}} (클릭 시 클립보드 복사)" onclick="copyPrdNoToClipboard('${{prdNo}}', this, event)">#${{prdNo}}</span>
                             </div>
                             <div class="product-name" title="${{escapeHtml(name)}}">
                                 <a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
