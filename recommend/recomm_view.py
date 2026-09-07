@@ -1029,6 +1029,18 @@ html_content = f"""
             border: 1px solid #ddd6fe !important;
             font-weight: 800 !important;
         }}
+        .badge-chip-item.badge-tv-chip {{
+            background: #fff7ed !important;
+            color: #c2410c !important;
+            border: 1px solid #ffedd5 !important;
+            font-weight: 700 !important;
+        }}
+        .badge-chip-item.badge-freedlv-chip {{
+            background: #eff6ff !important;
+            color: #1d4ed8 !important;
+            border: 1px solid #dbeafe !important;
+            font-weight: 700 !important;
+        }}
         .product-info {{
             padding: 8px;
         }}
@@ -1952,7 +1964,7 @@ html_content = f"""
         }}
 
         function getExclusiveBadges(prd) {{
-            if (!prd) return {{ isOnlyHalf: false, isBoriEdition: false, imgBadgesHtml: '', chipBadgesHtml: '' }};
+            if (!prd) return {{ isOnlyHalf: false, isBoriEdition: false, isTvShopping: false, isFreeDlv: false, imgBadgesHtml: '', chipBadgesHtml: '' }};
 
             let nms = [];
             if (Array.isArray(prd.icnNms)) {{
@@ -1974,8 +1986,18 @@ html_content = f"""
 
             const isBoriEdition = nms.some(s => {{
                 const c = String(s || '').trim();
-                return c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션');
+                return c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션') || c.includes('보리plus');
             }});
+
+            const isTvShopping = nms.some(s => {{
+                const c = String(s || '').trim();
+                return c.includes('TV쇼핑') || c.includes('TV') || c.includes('티비') || c.includes('방송');
+            }}) || (prd.tvYn === 'Y') || (prd.isTv === true) || (prd.tv_yn === 'Y');
+
+            const isFreeDlv = nms.some(s => {{
+                const c = String(s || '').trim();
+                return c.includes('무료배송') || c.includes('무배');
+            }}) || (prd.freeDlvYn === 'Y') || (prd.free_dlv_yn === 'Y') || (prd.isFreeDlv === true) || (prd.dlvCost === 0 && prd.dlvCost !== undefined);
 
             let imgBadgesHtml = '';
             let chipBadgesHtml = '';
@@ -1988,8 +2010,14 @@ html_content = f"""
                 imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
                 chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
             }}
+            if (isTvShopping) {{
+                chipBadgesHtml += '<span class="badge-chip-item badge-tv-chip" title="TV쇼핑 방송 상품">TV쇼핑</span>';
+            }}
+            if (isFreeDlv) {{
+                chipBadgesHtml += '<span class="badge-chip-item badge-freedlv-chip" title="무료배송">무료배송</span>';
+            }}
 
-            return {{ isOnlyHalf, isBoriEdition, imgBadgesHtml, chipBadgesHtml }};
+            return {{ isOnlyHalf, isBoriEdition, isTvShopping, isFreeDlv, imgBadgesHtml, chipBadgesHtml }};
         }}
 
         function getSelectedPrdList() {{
@@ -3536,10 +3564,11 @@ html_content = f"""
                 if (c1) line1Items.push(`<span class="badge-chip-item badge-gray" title="카테고리: ${{escapeHtml(c1)}}">${{escapeHtml(c1)}}</span>`);
                 const metaLine1Html = line1Items.length > 0 ? `<div class="meta-chips-line card-line-prdinfo">${{line1Items.join('')}}</div>` : '<div class="meta-chips-line card-line-prdinfo"></div>';
 
-                // 2줄: 최근본, 온리하프, 기준
+                // 2줄: 최근본, 온리하프, 베스트, 기준
                 const line2Items = [];
                 if (seedLabel) line2Items.push(`<span class="badge-chip-item badge-purple" title="시드 출처: ${{escapeHtml(seedLabel)}}">${{escapeHtml(seedLabel)}}</span>`);
                 if (excl.chipBadgesHtml) line2Items.push(excl.chipBadgesHtml);
+                if (typeLabel) line2Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
                 if (isOriginPrd) line2Items.push('<span class="badge-chip-item badge-red">내가본</span>');
                 else if (prd.rcm_prd_no) line2Items.push(`<span class="badge-chip-item badge-gray" title="추천 대상">기준:#${{prd.rcm_prd_no}}</span>`);
                 const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line card-line-origin">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line card-line-origin"></div>';
@@ -3569,11 +3598,10 @@ html_content = f"""
                     `;
                 }}
 
-                // 4줄: 추천 점수 (추천 스코어, ES 스코어, 추천 유형)
+                // 4줄: 추천 점수 (추천 스코어, ES 스코어)
                 const line4Items = [];
                 if (score !== null && !isNaN(score)) line4Items.push(`<span class="badge-chip-item badge-blue" title="추천 스코어">추천: ${{score.toFixed(3)}}</span>`);
                 if (esScore !== null && !isNaN(esScore)) line4Items.push(`<span class="badge-chip-item badge-amber" title="ES 스코어">ES: ${{esScore.toFixed(2)}}</span>`);
-                if (typeLabel) line4Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
                 const metaLine4Html = line4Items.length > 0 ? `<div class="meta-chips-line card-line-score">${{line4Items.join('')}}</div>` : '<div class="meta-chips-line card-line-score"></div>';
 
                 return `
