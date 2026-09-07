@@ -2077,6 +2077,13 @@ html_content = f"""
         function selectMlType(typeId) {{
             currentMlType = typeId;
             currentSelectedSeed = "";
+            if (typeId === 'keyword-trend') {{
+                if (KEYWORDS_LIST && KEYWORDS_LIST.length > 0) {{
+                    currentKeyword = KEYWORDS_LIST[0];
+                }}
+                const kwFilterInput = document.getElementById('kwFilterInput');
+                if (kwFilterInput) kwFilterInput.value = '';
+            }}
             renderModelTabs();
             updateHomeFieldsVisibility();
             updatePanelVisibility();
@@ -2164,6 +2171,11 @@ html_content = f"""
             updateUrlQuery();
 
             if (currentMlType === 'keyword-trend') {{
+                if (KEYWORDS_LIST && KEYWORDS_LIST.length > 0) {{
+                    currentKeyword = KEYWORDS_LIST[0];
+                }}
+                const kwFilterInput = document.getElementById('kwFilterInput');
+                if (kwFilterInput) kwFilterInput.value = '';
                 executeRecommendFlow();
             }} else {{
                 loadBestProducts(currentSiteCd, true);
