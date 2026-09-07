@@ -2218,17 +2218,6 @@ html_content = f"""
                     if (handleKeywordArrowNavigation('prev')) e.preventDefault();
                 }}
             }});
-
-            const chipsContainer = document.getElementById('kwChipsContainer');
-            if (chipsContainer) {{
-                chipsContainer.addEventListener('keydown', (e) => {{
-                    if (e.key === 'ArrowRight') {{
-                        if (handleKeywordArrowNavigation('next')) e.preventDefault();
-                    }} else if (e.key === 'ArrowLeft') {{
-                        if (handleKeywordArrowNavigation('prev')) e.preventDefault();
-                    }}
-                }});
-            }}
         }}
 
         async function loadBestProducts(siteCd, isSiteChange = false) {{
