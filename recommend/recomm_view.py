@@ -2083,6 +2083,14 @@ html_content = f"""
                 }}
                 const kwFilterInput = document.getElementById('kwFilterInput');
                 if (kwFilterInput) kwFilterInput.value = '';
+            }} else {{
+                if (!currentSeedProducts || currentSeedProducts.length === 0 || !currentPrdNo) {{
+                    renderModelTabs();
+                    updateHomeFieldsVisibility();
+                    updatePanelVisibility();
+                    loadBestProducts(currentSiteCd, true);
+                    return;
+                }}
             }}
             renderModelTabs();
             updateHomeFieldsVisibility();
@@ -2176,10 +2184,8 @@ html_content = f"""
                 }}
                 const kwFilterInput = document.getElementById('kwFilterInput');
                 if (kwFilterInput) kwFilterInput.value = '';
-                executeRecommendFlow();
-            }} else {{
-                loadBestProducts(currentSiteCd, true);
             }}
+            loadBestProducts(currentSiteCd, true);
         }}
 
         function updateHomeFieldsVisibility() {{
@@ -2288,7 +2294,7 @@ html_content = f"""
                         seedStatus.style.color = '#475569';
                     }}
 
-                    if (isSiteChange || (!currentPrdNo && currentMlType !== 'keyword-trend')) {{
+                    if (isSiteChange || !currentPrdNo) {{
                         currentPrdNo = String(products[0].prd_no);
                         const directInput = document.getElementById('directPrdInput');
                         if (directInput) directInput.value = currentPrdNo;
@@ -2300,12 +2306,12 @@ html_content = f"""
             }} catch (e) {{
                 currentSeedProducts = [];
                 if (seedStatus) {{
-                    seedStatus.textContent = '서버 연결이 안됩니다';
+                    seedStatus.innerHTML = '서버 연결이 안됩니다 <button onclick="loadBestProducts(currentSiteCd, true)" style="margin-left:4px; padding:1px 6px; font-size:0.7rem; border:1px solid #ef4444; background:#ffffff; color:#ef4444; border-radius:3px; cursor:pointer; font-weight:700;">다시 시도 ↻</button>';
                     seedStatus.style.color = '#ef4444';
                 }}
                 const container = document.getElementById('seedGridContainer');
                 if (container) {{
-                    container.innerHTML = '<div style="grid-column:1/-1; padding:18px; text-align:center; color:#ef4444; font-weight:700; font-size:0.83rem;">서버 연결이 안됩니다 (실시간 베스트 상품 조회 실패)</div>';
+                    container.innerHTML = '<div style="grid-column:1/-1; padding:18px; text-align:center; color:#ef4444; font-weight:700; font-size:0.83rem;">서버 연결이 안됩니다 (실시간 베스트 상품 조회 실패) <button onclick="loadBestProducts(currentSiteCd, true)" style="margin-left:8px; padding:2px 8px; font-size:0.75rem; border:1px solid #ef4444; background:#ffffff; color:#ef4444; border-radius:4px; cursor:pointer; font-weight:700;">다시 시도 ↻</button></div>';
                 }}
             }}
 
