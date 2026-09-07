@@ -3505,7 +3505,7 @@ html_content = f"""
 
                 const c1 = prd.dpCtgrNm1 || prd.category || '';
                 const seedVal = prd.seed || '';
-                const seedLabelMap = { 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' };
+                const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
                 const isKwModel = currentMlType === 'keyword-trend';
