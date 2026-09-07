@@ -1189,6 +1189,19 @@ html_content = f"""
             background: #dbeafe;
             color: #1d4ed8;
         }}
+        .matched-kw-more {{
+            font-size: 9px;
+            padding: 1px 4px;
+            font-weight: 700;
+            color: #475569;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            cursor: help;
+            border-radius: 3px;
+            flex-shrink: 0;
+            line-height: 1.3;
+            white-space: nowrap;
+        }}
 
         .badge-chip-item {{
             font-size: 9.5px;
@@ -3611,23 +3624,33 @@ html_content = f"""
 
                 const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line card-line-origin">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line card-line-origin"></div>';
 
-                // 3줄: 매칭 : 키워드1, 키워드2 (키워드 트렌드 모델 전용)
+                // 3줄: 매칭 : 키워드1, 키워드2 +N (키워드 트렌드 모델 전용, 방안 1 적용)
                 let metaLine3Html = '';
                 if (isKwModel) {{
                     let kwChipsHtml = '';
-                    if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
+                    const allCleanKws = (Array.isArray(matchedKws) ? matchedKws : []).map(k => String(k || '').trim()).filter(Boolean);
+                    if (allCleanKws.length > 0) {{
                         const curKw = currentKeyword || '';
-                        kwChipsHtml = matchedKws.map(k => {{
-                            const cleanK = String(k).trim();
+                        const allKwTooltip = allCleanKws.join(', ');
+                        const maxVisible = 2;
+                        const visibleKws = allCleanKws.slice(0, maxVisible);
+                        const extraCount = allCleanKws.length - maxVisible;
+
+                        kwChipsHtml = visibleKws.map(cleanK => {{
                             const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
                             const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
                             return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="matched-kw-chip" title="'${{escapeHtml(queryTerm)}}' 검색">${{escapeHtml(cleanK)}} ↗</a>`;
                         }}).join('');
+
+                        if (extraCount > 0) {{
+                            kwChipsHtml += `<span class="matched-kw-more" title="전체 매칭 키워드 (${{allCleanKws.length}}개): ${{escapeHtml(allKwTooltip)}}">+${{extraCount}}</span>`;
+                        }}
                     }} else {{
                         kwChipsHtml = '<span style="font-size:9.5px; color:#94a3b8;">-</span>';
                     }}
+                    const fullListTitle = allCleanKws.length > 0 ? `전체 매칭 키워드 (${{allCleanKws.length}}개): ${{escapeHtml(allCleanKws.join(', '))}}` : '매칭 정보 없음';
                     metaLine3Html = `
-                        <div class="meta-chips-line card-line-matched">
+                        <div class="meta-chips-line card-line-matched" title="${{fullListTitle}}">
                             <span class="matched-kw-label">매칭 :</span>
                             <div style="display:flex; align-items:center; gap:3px; overflow:hidden; white-space:nowrap;">
                                 ${{kwChipsHtml}}
