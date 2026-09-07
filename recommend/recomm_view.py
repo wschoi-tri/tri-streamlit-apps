@@ -1964,7 +1964,7 @@ html_content = f"""
         }}
 
         function getExclusiveBadges(prd) {{
-            if (!prd) return {{ isOnlyHalf: false, isBoriEdition: false, isTvShopping: false, isFreeDlv: false, imgBadgesHtml: '', chipBadgesHtml: '' }};
+            if (!prd) return {{ isOnlyHalf: false, isBoriEdition: false, isTvShopping: false, isFreeDlv: false, imgBadgesHtml: '', onlyHalfChipHtml: '', tvChipHtml: '', freeDlvChipHtml: '', extraBadgesHtml: '', emblemHtml: '', chipBadgesHtml: '' }};
 
             let nms = [];
             if (Array.isArray(prd.icnNms)) {{
@@ -1979,45 +1979,53 @@ html_content = f"""
                 nms.push(...prd.icnNm);
             }}
 
-            const isOnlyHalf = nms.some(s => {{
-                const c = String(s || '').trim();
-                return c.includes('온리하프') || c.includes('ONLY HALF') || c.includes('온리');
+            const cleanNms = nms.map(s => String(s || '').trim()).filter(Boolean);
+
+            const isOnlyHalf = cleanNms.some(c => c.includes('온리하프') || c.includes('ONLY HALF') || c.includes('온리'));
+            const isBoriEdition = cleanNms.some(c => c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션') || c.includes('보리plus'));
+            const isTvShopping = cleanNms.some(c => c.includes('TV쇼핑') || c.includes('TV') || c.includes('티비') || c.includes('방송')) || (prd.tvYn === 'Y') || (prd.isTv === true) || (prd.tv_yn === 'Y');
+            const isFreeDlv = cleanNms.some(c => c.includes('무료배송') || c.includes('무배')) || (prd.freeDlvYn === 'Y') || (prd.free_dlv_yn === 'Y') || (prd.isFreeDlv === true) || (prd.dlvCost === 0 && prd.dlvCost !== undefined);
+
+            // 기타 등등 뱃지 (온리하프/보리에디션/TV쇼핑/무료배송 제외한 뱃지들 중복 제거)
+            const extraBadges = [];
+            const seen = new Set();
+            cleanNms.forEach(c => {{
+                if (c.includes('온리하프') || c.includes('ONLY HALF') || c.includes('온리')) return;
+                if (c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션') || c.includes('보리plus')) return;
+                if (c.includes('TV쇼핑') || c.includes('TV') || c.includes('티비') || c.includes('방송')) return;
+                if (c.includes('무료배송') || c.includes('무배')) return;
+                if (!seen.has(c)) {{
+                    seen.add(c);
+                    extraBadges.push(c);
+                }}
             }});
-
-            const isBoriEdition = nms.some(s => {{
-                const c = String(s || '').trim();
-                return c.includes('보리에디션') || c.includes('BORI EDITION') || c.includes('보리 에디션') || c.includes('보리plus');
-            }});
-
-            const isTvShopping = nms.some(s => {{
-                const c = String(s || '').trim();
-                return c.includes('TV쇼핑') || c.includes('TV') || c.includes('티비') || c.includes('방송');
-            }}) || (prd.tvYn === 'Y') || (prd.isTv === true) || (prd.tv_yn === 'Y');
-
-            const isFreeDlv = nms.some(s => {{
-                const c = String(s || '').trim();
-                return c.includes('무료배송') || c.includes('무배');
-            }}) || (prd.freeDlvYn === 'Y') || (prd.free_dlv_yn === 'Y') || (prd.isFreeDlv === true) || (prd.dlvCost === 0 && prd.dlvCost !== undefined);
 
             let imgBadgesHtml = '';
-            let chipBadgesHtml = '';
+            if (isOnlyHalf) imgBadgesHtml += '<span class="exclusive-badge badge-onlyhalf" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
+            if (isBoriEdition) imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
 
-            if (isOnlyHalf) {{
-                imgBadgesHtml += '<span class="exclusive-badge badge-onlyhalf" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
-                chipBadgesHtml += '<span class="badge-chip-item badge-onlyhalf-chip" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
-            }}
-            if (isBoriEdition) {{
-                imgBadgesHtml += '<span class="exclusive-badge badge-boriedition" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
-                chipBadgesHtml += '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
-            }}
-            if (isTvShopping) {{
-                chipBadgesHtml += '<span class="badge-chip-item badge-tv-chip" title="TV쇼핑 방송 상품">TV쇼핑</span>';
-            }}
-            if (isFreeDlv) {{
-                chipBadgesHtml += '<span class="badge-chip-item badge-freedlv-chip" title="무료배송">무료배송</span>';
+            let onlyHalfChipHtml = '';
+            if (isOnlyHalf) onlyHalfChipHtml = '<span class="badge-chip-item badge-onlyhalf-chip" title="하프클럽 단독 상품 (온리하프)">온리하프</span>';
+            else if (isBoriEdition) onlyHalfChipHtml = '<span class="badge-chip-item badge-boriedition-chip" title="보리보리 단독 상품 (보리plus)">보리plus</span>';
+
+            let tvChipHtml = isTvShopping ? '<span class="badge-chip-item badge-tv-chip" title="TV쇼핑 방송 상품">TV쇼핑</span>' : '';
+            let freeDlvChipHtml = isFreeDlv ? '<span class="badge-chip-item badge-freedlv-chip" title="무료배송">무료배송</span>' : '';
+
+            let extraBadgesHtml = extraBadges.map(b => `<span class="badge-chip-item badge-gray" title="${{escapeHtml(b)}}">${{escapeHtml(b)}}</span>`).join('');
+
+            // 엠블럼 이미지 (eblmImg 또는 badgeImg)
+            let emblemHtml = '';
+            const eblmSrc = (prd.eblmImg && typeof prd.eblmImg === 'string' && prd.eblmImg.trim()) 
+                ? prd.eblmImg.trim() 
+                : ((prd.badgeImg && typeof prd.badgeImg === 'string' && prd.badgeImg.trim()) ? prd.badgeImg.trim() : '');
+            if (eblmSrc) {{
+                const eblmUrl = getImageUrl(eblmSrc);
+                emblemHtml = `<img src="${{eblmUrl}}" style="height:16px; max-width:40px; vertical-align:middle; border-radius:2px; flex-shrink:0; object-fit:contain;" alt="엠블럼" title="엠블럼"/>`;
             }}
 
-            return {{ isOnlyHalf, isBoriEdition, isTvShopping, isFreeDlv, imgBadgesHtml, chipBadgesHtml }};
+            let chipBadgesHtml = [onlyHalfChipHtml, tvChipHtml, freeDlvChipHtml, extraBadgesHtml, emblemHtml].filter(Boolean).join('');
+
+            return {{ isOnlyHalf, isBoriEdition, isTvShopping, isFreeDlv, imgBadgesHtml, onlyHalfChipHtml, tvChipHtml, freeDlvChipHtml, extraBadgesHtml, emblemHtml, chipBadgesHtml }};
         }}
 
         function getSelectedPrdList() {{
@@ -3564,13 +3572,31 @@ html_content = f"""
                 if (c1) line1Items.push(`<span class="badge-chip-item badge-gray" title="카테고리: ${{escapeHtml(c1)}}">${{escapeHtml(c1)}}</span>`);
                 const metaLine1Html = line1Items.length > 0 ? `<div class="meta-chips-line card-line-prdinfo">${{line1Items.join('')}}</div>` : '<div class="meta-chips-line card-line-prdinfo"></div>';
 
-                // 2줄: 최근본, 온리하프, 베스트, 기준
+                // 2줄: 기준, 베스트, 온리하프, TV쇼핑, 무료배송 ... 기타 등등 뱃지, 엠블럼
                 const line2Items = [];
-                if (seedLabel) line2Items.push(`<span class="badge-chip-item badge-purple" title="시드 출처: ${{escapeHtml(seedLabel)}}">${{escapeHtml(seedLabel)}}</span>`);
-                if (excl.chipBadgesHtml) line2Items.push(excl.chipBadgesHtml);
-                if (typeLabel) line2Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
+                // 1. 기준
                 if (isOriginPrd) line2Items.push('<span class="badge-chip-item badge-red">내가본</span>');
                 else if (prd.rcm_prd_no) line2Items.push(`<span class="badge-chip-item badge-gray" title="추천 대상">기준:#${{prd.rcm_prd_no}}</span>`);
+                if (seedLabel) line2Items.push(`<span class="badge-chip-item badge-purple" title="시드 출처: ${{escapeHtml(seedLabel)}}">${{escapeHtml(seedLabel)}}</span>`);
+
+                // 2. 베스트
+                if (typeLabel) line2Items.push(`<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>`);
+
+                // 3. 온리하프
+                if (excl.onlyHalfChipHtml) line2Items.push(excl.onlyHalfChipHtml);
+
+                // 4. TV쇼핑
+                if (excl.tvChipHtml) line2Items.push(excl.tvChipHtml);
+
+                // 5. 무료배송
+                if (excl.freeDlvChipHtml) line2Items.push(excl.freeDlvChipHtml);
+
+                // 6. ... 기타 등등 뱃지
+                if (excl.extraBadgesHtml) line2Items.push(excl.extraBadgesHtml);
+
+                // 7. 엠블럼
+                if (excl.emblemHtml) line2Items.push(excl.emblemHtml);
+
                 const metaLine2Html = line2Items.length > 0 ? `<div class="meta-chips-line card-line-origin">${{line2Items.join('')}}</div>` : '<div class="meta-chips-line card-line-origin"></div>';
 
                 // 3줄: 매칭 : 키워드1, 키워드2 (키워드 트렌드 모델 전용)
