@@ -3448,6 +3448,18 @@ html_content = f"""
                 const seedLabelMap = {{ 'recent': '최근본', 'basket': '장바구니', 'wish': '좋아요' }};
                 const seedLabel = seedLabelMap[seedVal] || seedVal;
 
+                const matchedKws = prd.matched_keywords || [];
+                let matchedKwChipsHtml = '';
+                if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
+                    const curKw = currentKeyword || '';
+                    matchedKwChipsHtml = matchedKws.map(k => {{
+                        const cleanK = String(k).trim();
+                        const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
+                        const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
+                        return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; cursor:pointer;" title="'${{escapeHtml(queryTerm)}}' 쇼핑몰 검색 바로가기">${{escapeHtml(cleanK)}} ↗</a>`;
+                    }}).join('');
+                }}
+
                 const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
                                     (prd.is_origin_forced === true) || 
                                     (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
@@ -3490,6 +3502,7 @@ html_content = f"""
                             </div>
                             <div class="badge-chip-container">
                                 ${{excl.chipBadgesHtml}}
+                                ${{matchedKwChipsHtml ? `<span class="badge-chip-item badge-purple" style="font-weight:700;" title="AI 트렌드 매칭 키워드">매칭</span>${{matchedKwChipsHtml}}` : ''}}
                                 ${{isOriginPrd ? '<span class="badge-chip-item badge-red">내가 본 상품</span>' : ''}}
                                 ${{typeLabel ? `<span class="badge-chip-item badge-emerald">${{typeLabel}}</span>` : ''}}
                                 ${{selAcnt ? `<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호">협력사:${{selAcnt}}</span>` : ''}}
@@ -3529,6 +3542,21 @@ html_content = f"""
                 const c1 = prd.dpCtgrNm1 || prd.category || '-';
                 const excl = getExclusiveBadges(prd);
 
+                const matchedKws = prd.matched_keywords || [];
+                let matchedKwsTableHtml = '';
+                if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
+                    const curKw = currentKeyword || '';
+                    matchedKwsTableHtml = `<div style="display:flex; gap:3px; flex-wrap:wrap; margin-top:3px;">` +
+                        `<span class="badge-chip-item badge-purple" style="font-size:9px; padding:1px 4px; font-weight:700;">매칭</span>` +
+                        matchedKws.map(k => {{
+                            const cleanK = String(k).trim();
+                            const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
+                            const searchUrl = `${{getWebBaseUrl()}}/search/${{encodeURIComponent(queryTerm)}}`;
+                            return `<a href="${{searchUrl}}" target="_blank" rel="noopener noreferrer" class="badge-chip-item badge-blue" style="text-decoration:none; font-size:10px; padding:1px 4px;" title="'${{escapeHtml(queryTerm)}}' 검색">${{escapeHtml(cleanK)}} ↗</a>`;
+                        }}).join('') +
+                        `</div>`;
+                }}
+
                 const isOriginPrd = (isSimilarMode && seedPrdNo && prdNo === String(seedPrdNo)) || 
                                     (prd.is_origin_forced === true) || 
                                     (prd.rcm_prd_no && String(prd.rcm_prd_no) === prdNo);
@@ -3539,7 +3567,12 @@ html_content = f"""
                         <td>${{isOriginPrd ? '<span class="badge-chip-item badge-red">[내가본]</span>' : '<span class="badge-chip-item badge-blue">추천</span>'}}${{excl.chipBadgesHtml ? ` ${{excl.chipBadgesHtml}}` : ''}}</td>
                         <td><a href="${{prdUrl}}" target="_blank" rel="noopener noreferrer" style="color:#2563eb; font-weight:700; text-decoration:none;">${{prdNo}} ↗</a></td>
                         <td style="font-weight:600;">${{brand}}</td>
-                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${{escapeHtml(name)}}">${{excl.chipBadgesHtml ? `${{excl.chipBadgesHtml}} ` : ''}}${{name}}</td>
+                        <td style="max-width:280px;" title="${{escapeHtml(name)}}">
+                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                ${{excl.chipBadgesHtml ? `${{excl.chipBadgesHtml}} ` : ''}}${{name}}
+                            </div>
+                            ${{matchedKwsTableHtml}}
+                        </td>
                         <td style="font-weight:700; color:#0891b2;">${{selAcnt}}</td>
                         <td style="font-weight:700; color:#0f172a;">${{Number(salePrc).toLocaleString()}}원</td>
                         <td style="color:#94a3b8; text-decoration:line-through;">${{normPrc > 0 ? Number(normPrc).toLocaleString() + '원' : '-'}}</td>
