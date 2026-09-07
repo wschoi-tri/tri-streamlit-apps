@@ -1105,24 +1105,34 @@ html_content = f"""
             line-height: 1;
         }}
 
-        /* 키워드 트렌드 매칭 키워드 전용 1행 규격 */
-        .card-matched-kw-row {{
+        /* 상품 카드 메타 정보 4단 라인 규격 */
+        .card-meta-chips-wrap {{
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-top: 3px;
+        }}
+        .meta-chips-line {{
             display: flex;
             align-items: center;
-            gap: 4px;
-            height: 22px;
-            min-height: 22px;
-            margin-bottom: 4px;
+            gap: 3px;
+            height: 19px;
+            min-height: 19px;
             overflow: hidden;
             white-space: nowrap;
         }}
+        .card-line-prdinfo {{}}
+        .card-line-origin {{}}
+        .card-line-matched {{}}
+        .card-line-score {{}}
+
         .matched-kw-label {{
-            font-size: 9px;
-            font-weight: 800;
-            color: #7c3aed;
-            background: #f5f3ff;
-            border: 1px solid #ddd6fe;
-            padding: 1px 5px;
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #6b21a8;
+            background: #f3e8ff;
+            border: 1px solid #e9d5ff;
+            padding: 1px 4px;
             border-radius: 3px;
             flex-shrink: 0;
             line-height: 1.3;
@@ -1133,7 +1143,7 @@ html_content = f"""
             color: #2563eb;
             background: #eff6ff;
             border: 1px solid #dbeafe;
-            padding: 1px 5px;
+            padding: 1px 4px;
             border-radius: 3px;
             text-decoration: none;
             overflow: hidden;
@@ -1143,7 +1153,7 @@ html_content = f"""
             align-items: center;
             line-height: 1.3;
             flex-shrink: 0;
-            max-width: 90px;
+            max-width: 80px;
             transition: all 0.15s ease;
         }}
         .matched-kw-chip:hover {{
@@ -1151,22 +1161,6 @@ html_content = f"""
             color: #1d4ed8;
         }}
 
-        /* 하단 메타 뱃지 컨테이너 (정돈된 2줄 라인 배치) */
-        .card-meta-chips-wrap {{
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            margin-top: 2px;
-        }}
-        .meta-chips-line {{
-            display: flex;
-            align-items: center;
-            gap: 3px;
-            height: 18px;
-            min-height: 18px;
-            overflow: hidden;
-            white-space: nowrap;
-        }}
         .badge-chip-item {{
             font-size: 9.5px;
             padding: 1px 4px;
