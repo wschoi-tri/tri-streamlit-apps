@@ -1126,16 +1126,24 @@ html_content = f"""
         .card-line-matched {{}}
         .card-line-score {{}}
 
+        /* 협력사 단순 텍스트 표기 (색상 박스 없음) */
+        .card-vendor-text {{
+            font-size: 9.5px;
+            color: #64748b;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+            line-height: 1.3;
+        }}
+
+        /* 매칭 라벨 단순 텍스트 표기 (색상 박스 없음) */
         .matched-kw-label {{
             font-size: 9.5px;
             font-weight: 700;
-            color: #6b21a8;
-            background: #f3e8ff;
-            border: 1px solid #e9d5ff;
-            padding: 1px 4px;
-            border-radius: 3px;
+            color: #7c3aed;
             flex-shrink: 0;
             line-height: 1.3;
+            white-space: nowrap;
         }}
         .matched-kw-chip {{
             font-size: 9.5px;
@@ -3524,7 +3532,7 @@ html_content = f"""
 
                 // 1줄: 상품 정보 (협력사, 카테고리)
                 const line1Items = [];
-                if (selAcnt) line1Items.push(`<span class="badge-chip-item badge-cyan" title="협력사(판매자) 번호: ${{selAcnt}}">협력사:${{selAcnt}}</span>`);
+                if (selAcnt) line1Items.push(`<span class="card-vendor-text" title="협력사(판매자) 번호: ${{selAcnt}}">협력사:${{selAcnt}}</span>`);
                 if (c1) line1Items.push(`<span class="badge-chip-item badge-gray" title="카테고리: ${{escapeHtml(c1)}}">${{escapeHtml(c1)}}</span>`);
                 const metaLine1Html = line1Items.length > 0 ? `<div class="meta-chips-line card-line-prdinfo">${{line1Items.join('')}}</div>` : '<div class="meta-chips-line card-line-prdinfo"></div>';
 
@@ -3637,8 +3645,8 @@ html_content = f"""
                 let matchedKwsTableHtml = '';
                 if (Array.isArray(matchedKws) && matchedKws.length > 0) {{
                     const curKw = currentKeyword || '';
-                    matchedKwsTableHtml = `<div style="display:flex; gap:3px; flex-wrap:wrap; margin-top:3px;">` +
-                        `<span class="badge-chip-item badge-purple" style="font-size:9px; padding:1px 4px; font-weight:700;">매칭 :</span>` +
+                    matchedKwsTableHtml = `<div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:3px; align-items:center;">` +
+                        `<span style="font-size:9.5px; font-weight:700; color:#7c3aed; white-space:nowrap;">매칭 :</span>` +
                         matchedKws.map(k => {{
                             const cleanK = String(k).trim();
                             const queryTerm = curKw ? `${{curKw}} ${{cleanK}}` : cleanK;
