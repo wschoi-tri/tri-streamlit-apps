@@ -3237,6 +3237,7 @@ html_content = f"""
 
                 currentApiUrl = `${{apiBase}}/recommend/${{endpoint}}?${{params.toString()}}`;
             }}
+            currentApiUrl = currentApiUrl + '&test=view'
 
             const activeModelObj = ML_TYPES_LIST.find(m => m.id === currentMlType);
             const modelTitle = activeModelObj ? activeModelObj.name : currentMlType;
