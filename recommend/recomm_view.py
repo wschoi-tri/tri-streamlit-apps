@@ -1653,12 +1653,6 @@ html_content = f"""
                         <!-- [선택 해제] 버튼 -->
                         <button class="btn-clear" onclick="clearSelectedPrd()" title="선택된 기준 상품 모두 해제">선택 해제</button>
 
-                        <!-- home / lf 전용 필드 -->
-                        <div id="homeFieldsWrap" style="display:none; align-items:center; gap:5px;">
-                            <input type="text" id="basketPrdInput" class="home-extra-input" placeholder="장바구니 prdNo"/>
-                            <input type="text" id="wishPrdInput" class="home-extra-input" placeholder="좋아요 prdNo"/>
-                        </div>
-
                         <button class="btn-query" onclick="triggerFetch()">조회</button>
                     </div>
 
