@@ -139,17 +139,13 @@ def render_client_side_ip_guard(allowed_ips: list[str]):
                 const myIp = (data && data.ip) ? data.ip.trim() : '';
 
                 if (!myIp || !checkAllowed(myIp)) {{
-                    const msg = myIp ? `접근이 허용되지 않은 IP입니다. (내 공인 IP: ${{myIp}})` : '접속자 공인 IP를 확인할 수 없어 접속이 차단되었습니다.';
                     if (window.parent && window.parent.document) {{
                         const body = window.parent.document.body;
                         if (body) {{
                             body.innerHTML = `
-                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#0f172a; text-align:center; padding:20px;">
-                                    <div style="background:#fee2e2; border:1px solid #ef4444; border-radius:12px; padding:32px 40px; max-width:550px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
-                                        <div style="font-size:20px; font-weight:800; color:#b91c1c; margin-bottom:12px;">접근 제한 안내</div>
-                                        <div style="font-size:15px; font-weight:600; color:#7f1d1d; line-height:1.5; margin-bottom:16px;">${{msg}}</div>
-                                        <div style="font-size:12px; color:#991b1b;">관리자에게 IP 등록을 요청하세요. (.streamlit/secrets.toml)</div>
-                                    </div>
+                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#475569; text-align:center; padding:20px;">
+                                    <div style="font-size:24px; font-weight:800; color:#0f172a; margin-bottom:8px;">403 Forbidden</div>
+                                    <div style="font-size:14px; color:#64748b;">접근 권한이 없습니다.</div>
                                 </div>
                             `;
                         }}
@@ -171,7 +167,7 @@ def verify_ip_access() -> str:
     # 1. 서버 헤더에서 공인 IP가 확인된 경우 즉시 검증
     if public_ip:
         if not is_ip_allowed(public_ip, allowed_ips):
-            st.error(f"접근이 허용되지 않은 IP입니다. (접속 IP: {public_ip})")
+            st.error("접근 권한이 없습니다.")
             st.stop()
         return public_ip
 
