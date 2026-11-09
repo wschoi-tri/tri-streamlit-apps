@@ -1,18 +1,180 @@
 import os
-import sys
 import json
 import urllib.parse
+import ipaddress
 import streamlit as st
 import streamlit.components.v1 as components
 
-# 프로젝트 루트 경로 추가 및 공통 IP 보안 모듈 로드
-_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _ROOT_DIR not in sys.path:
-    sys.path.insert(0, _ROOT_DIR)
+# ==============================================================================
+# 0. 접속자 IP 화이트리스트 검증 (단일 파일 일체형 보안 가드)
+# ==============================================================================
+def is_private_ip(ip_str: str) -> bool:
+    """10.x, 172.16~31.x, 192.168.x 등 클라우드 내부 사설망 및 루프백 판별"""
+    if not ip_str:
+        return True
+    clean_ip = str(ip_str).strip()
+    if clean_ip in ["localhost", "127.0.0.1", "::1"]:
+        return True
+    try:
+        addr = ipaddress.ip_address(clean_ip)
+        return addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
+    except ValueError:
+        return False
 
-from common.ip_auth import verify_ip_access
+def get_public_ip_from_headers() -> str:
+    """Streamlit 요청 헤더에서 사설 IP를 철저히 배제하고 순수 외부 공인 IP만 추출"""
+    if not (hasattr(st, "context") and hasattr(st.context, "headers")):
+        return ""
+    headers = st.context.headers
 
-# 0. 접속자 IP 화이트리스트 검증 (미허용 시 즉시 중단)
+    for key in ["CF-Connecting-IP", "True-Client-IP", "X-Client-IP"]:
+        val = headers.get(key)
+        if val:
+            ip = val.strip()
+            if not is_private_ip(ip):
+                return ip
+
+    xff = headers.get("X-Forwarded-For")
+    if xff:
+        for cand in [p.strip() for p in xff.split(",") if p.strip()]:
+            if not is_private_ip(cand):
+                return cand
+
+    x_real = headers.get("X-Real-IP")
+    if x_real:
+        ip = x_real.strip()
+        if not is_private_ip(ip):
+            return ip
+
+    if getattr(st.context, "ip_address", None):
+        ip = str(st.context.ip_address).strip()
+        if not is_private_ip(ip):
+            return ip
+
+    return ""
+
+def is_ip_allowed(client_ip: str, allowed_list: list[str]) -> bool:
+    """단일 IP 또는 CIDR 서브넷 대역과 클라이언트 IP 일치 여부 판별"""
+    if not client_ip:
+        return False
+    clean_client = str(client_ip).strip()
+    if clean_client in ["localhost", "127.0.0.1", "::1"] and any(
+        a in ["localhost", "127.0.0.1", "::1"] for a in allowed_list
+    ):
+        return True
+    try:
+        client_addr = ipaddress.ip_address(clean_client)
+    except ValueError:
+        return False
+
+    for item in allowed_list:
+        clean_item = str(item).strip()
+        if not clean_item:
+            continue
+        if clean_item == "localhost":
+            if client_addr.is_loopback:
+                return True
+            continue
+        try:
+            network = ipaddress.ip_network(clean_item, strict=False)
+            if client_addr in network:
+                return True
+        except ValueError:
+            if clean_client == clean_item:
+                return True
+    return False
+
+def get_allowed_ips_from_secrets() -> list[str]:
+    """secrets.toml에서 allowed_ips 화이트리스트 목록 로드"""
+    if "security" not in st.secrets:
+        raise ValueError(".streamlit/secrets.toml 내 [security] 섹션이 누락되었습니다.")
+    sec = st.secrets["security"]
+    if "allowed_ips" not in sec:
+        raise ValueError(".streamlit/secrets.toml 내 [security] 섹션에 'allowed_ips' 키가 누락되었습니다.")
+    raw = sec["allowed_ips"]
+    if isinstance(raw, str):
+        return [ip.strip() for ip in raw.split(",") if ip.strip()]
+    elif isinstance(raw, (list, tuple)):
+        return [str(ip).strip() for ip in raw if str(ip).strip()]
+    raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 문자열이어야 합니다.")
+
+def render_client_side_ip_guard(allowed_ips: list[str]):
+    """서버에 10.x 사설 IP만 잡힐 때, 브라우저에서 직접 api.ipify.org를 호출하여 내 공인 IP 검증"""
+    allowed_json = json.dumps(allowed_ips)
+    guard_html = f"""
+    <script>
+        (async function() {{
+            const allowedList = {allowed_json};
+
+            function ipToLong(ip) {{
+                return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+            }}
+
+            function isIpInCidr(ip, cidr) {{
+                if (!cidr.includes('/')) return ip === cidr;
+                const [range, bits] = cidr.split('/');
+                const mask = ~((1 << (32 - parseInt(bits, 10))) - 1);
+                return (ipToLong(ip) & mask) === (ipToLong(range) & mask);
+            }}
+
+            function checkAllowed(clientIp) {{
+                if (!clientIp) return false;
+                for (let pattern of allowedList) {{
+                    pattern = String(pattern).trim();
+                    if (!pattern) continue;
+                    if (pattern === clientIp) return true;
+                    if (pattern.includes('/')) {{
+                        try {{
+                            if (isIpInCidr(clientIp, pattern)) return true;
+                        }} catch (e) {{}}
+                    }}
+                }}
+                return false;
+            }}
+
+            try {{
+                const res = await fetch('https://api.ipify.org?format=json', {{ timeout: 4000 }});
+                if (!res.ok) throw new Error('IP 조회 실패');
+                const data = await res.json();
+                const myIp = (data && data.ip) ? data.ip.trim() : '';
+
+                if (!myIp || !checkAllowed(myIp)) {{
+                    if (window.parent && window.parent.document) {{
+                        const body = window.parent.document.body;
+                        if (body) {{
+                            body.innerHTML = `
+                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#475569; text-align:center; padding:20px;">
+                                    <div style="font-size:24px; font-weight:800; color:#0f172a; margin-bottom:8px;">403 Forbidden</div>
+                                    <div style="font-size:14px; color:#64748b;">접근 권한이 없습니다.</div>
+                                </div>
+                            `;
+                        }}
+                    }}
+                }}
+            }} catch (err) {{
+                console.error('IP check failed', err);
+            }}
+        }})();
+    </script>
+    """
+    components.html(guard_html, height=0, width=0)
+
+def verify_ip_access() -> str:
+    """접속자 IP 검증 실행"""
+    allowed_ips = get_allowed_ips_from_secrets()
+    public_ip = get_public_ip_from_headers()
+
+    # 1. 서버 헤더에서 공인 IP가 확인된 경우 즉시 검증
+    if public_ip:
+        if not is_ip_allowed(public_ip, allowed_ips):
+            st.error("접근 권한이 없습니다.")
+            st.stop()
+        return public_ip
+
+    # 2. 서버에 공인 IP가 없을 경우(사설망 환경), 브라우저에서 직접 공인 IP를 확인하여 검증
+    render_client_side_ip_guard(allowed_ips)
+    return "VERIFYING_CLIENT_SIDE"
+
 CLIENT_IP = verify_ip_access()
 
 # 1. 페이지 기본 설정 (전체 화면 모드)
@@ -1952,6 +2114,11 @@ html_content = f"""
                 </div>
             </section>
         </main>
+
+        <!-- 최하단 티 안 나는 미세 정보 표시 -->
+        <div style="margin-top: 30px; padding: 10px 4px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
+            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
+        </div>
     </div>
 
     <script>
@@ -2299,6 +2466,17 @@ html_content = f"""
             switchViewTab(currentTab, false);
             setupEventListeners();
             loadBestProducts(currentSiteCd);
+            initUserIpDisplay();
+        }}
+
+        function initUserIpDisplay() {{
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(d => {{
+                    const el = document.getElementById('userPublicIpBadge');
+                    if (el && d && d.ip) el.textContent = d.ip;
+                }})
+                .catch(() => {{}});
         }}
 
         function updatePanelVisibility() {{
