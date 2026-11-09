@@ -98,82 +98,55 @@ def get_allowed_ips_from_secrets() -> list[str]:
         return [str(ip).strip() for ip in raw if str(ip).strip()]
     raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 문자열이어야 합니다.")
 
-def render_client_side_ip_guard(allowed_ips: list[str]):
-    """서버에 10.x 사설 IP만 잡힐 때, 브라우저에서 직접 api.ipify.org를 호출하여 내 공인 IP 검증"""
-    allowed_json = json.dumps(allowed_ips)
-    guard_html = f"""
-    <script>
-        (async function() {{
-            const allowedList = {allowed_json};
-
-            function ipToLong(ip) {{
-                return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
-            }}
-
-            function isIpInCidr(ip, cidr) {{
-                if (!cidr.includes('/')) return ip === cidr;
-                const [range, bits] = cidr.split('/');
-                const mask = ~((1 << (32 - parseInt(bits, 10))) - 1);
-                return (ipToLong(ip) & mask) === (ipToLong(range) & mask);
-            }}
-
-            function checkAllowed(clientIp) {{
-                if (!clientIp) return false;
-                for (let pattern of allowedList) {{
-                    pattern = String(pattern).trim();
-                    if (!pattern) continue;
-                    if (pattern === clientIp) return true;
-                    if (pattern.includes('/')) {{
-                        try {{
-                            if (isIpInCidr(clientIp, pattern)) return true;
-                        }} catch (e) {{}}
-                    }}
-                }}
-                return false;
-            }}
-
-            try {{
-                const res = await fetch('https://api.ipify.org?format=json', {{ timeout: 4000 }});
-                if (!res.ok) throw new Error('IP 조회 실패');
-                const data = await res.json();
-                const myIp = (data && data.ip) ? data.ip.trim() : '';
-
-                if (!myIp || !checkAllowed(myIp)) {{
-                    if (window.parent && window.parent.document) {{
-                        const body = window.parent.document.body;
-                        if (body) {{
-                            body.innerHTML = `
-                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#475569; text-align:center; padding:20px;">
-                                    <div style="font-size:24px; font-weight:800; color:#0f172a; margin-bottom:8px;">403 Forbidden</div>
-                                    <div style="font-size:14px; color:#64748b;">접근 권한이 없습니다.</div>
-                                </div>
-                            `;
-                        }}
-                    }}
-                }}
-            }} catch (err) {{
-                console.error('IP check failed', err);
-            }}
-        }})();
-    </script>
-    """
-    components.html(guard_html, height=0, width=0)
-
 def verify_ip_access() -> str:
-    """접속자 IP 검증 실행"""
+    """접속자 IP 검증 실행 (서버 단 st.stop() 원천 차단)"""
     allowed_ips = get_allowed_ips_from_secrets()
+
+    # 1. 서버 헤더에서 공인 IP 확인
     public_ip = get_public_ip_from_headers()
 
-    # 1. 서버 헤더에서 공인 IP가 확인된 경우 즉시 검증
-    if public_ip:
-        if not is_ip_allowed(public_ip, allowed_ips):
+    # 2. 브라우저에서 공인 IP를 확인하여 전달한 쿼리 파라미터 확인
+    client_ip_param = st.query_params.get("_client_ip", "").strip()
+
+    # 유효 공인 IP 결정 (사설망 10.x.x.x 완전 배제)
+    effective_ip = ""
+    if public_ip and not is_private_ip(public_ip):
+        effective_ip = public_ip
+    elif client_ip_param and not is_private_ip(client_ip_param):
+        effective_ip = client_ip_param
+
+    # 3. 공인 IP가 확인된 경우: 서버 화이트리스트 검증 -> 미허용 시 st.stop() 원천 차단
+    if effective_ip:
+        if not is_ip_allowed(effective_ip, allowed_ips):
             st.error("접근 권한이 없습니다.")
             st.stop()
-        return public_ip
+        return effective_ip
 
-    # 2. 서버에 공인 IP가 없을 경우(사설망 환경), 브라우저에서 직접 공인 IP를 확인하여 검증
-    render_client_side_ip_guard(allowed_ips)
-    return "VERIFYING_CLIENT_SIDE"
+    # 4. 공인 IP가 아직 확인되지 않은 최초 접속 시:
+    # 브라우저가 api.ipify.org에서 내 실제 공인 IP를 확인하여 URL 파라미터로 주입 후 즉시 st.stop()
+    html_resolve_ip = """
+    <script>
+        (async function() {
+            try {
+                const res = await fetch('https://api.ipify.org?format=json', { timeout: 3000 });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.ip) {
+                        const target = (window.parent && window.parent.location) ? window.parent.location : window.location;
+                        const url = new URL(target.href);
+                        url.searchParams.set('_client_ip', data.ip.trim());
+                        target.replace(url.toString());
+                    }
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <div style="font-family:sans-serif; color:#64748b; font-size:13px; text-align:center; padding:60px 20px;">
+        보안 확인 중...
+    </div>
+    """
+    components.html(html_resolve_ip, height=140)
+    st.stop()
 
 CLIENT_IP = verify_ip_access()
 
