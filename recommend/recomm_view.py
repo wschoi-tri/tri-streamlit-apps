@@ -1657,10 +1657,6 @@ html_content = f"""
                         <div id="homeFieldsWrap" style="display:none; align-items:center; gap:5px;">
                             <input type="text" id="basketPrdInput" class="home-extra-input" placeholder="장바구니 prdNo"/>
                             <input type="text" id="wishPrdInput" class="home-extra-input" placeholder="좋아요 prdNo"/>
-                            <label style="display:flex; align-items:center; gap:3px; font-size:0.78rem; font-weight:700; color:#475569; cursor:pointer;">
-                                <input type="checkbox" id="selfYnCheck"/>
-                                <span>휴리스틱</span>
-                            </label>
                         </div>
 
                         <button class="btn-query" onclick="triggerFetch()">조회</button>
