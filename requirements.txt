@@ -44,6 +44,7 @@ pydantic>=2.12.5
 # --- Frontend UI ---
 # Streamlit: 데이터 테스트용 웹 UI
 streamlit>=1.31.0
+streamlit-javascript>=0.1.5
 
 # --- Additional Utilities & Embeddings ---
 # Sentence-Transformers: 텍스트 임베딩 모델 사용 (jhgan/ko-sroberta-multitask 등)
