@@ -4,6 +4,7 @@ import urllib.parse
 import ipaddress
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_javascript import st_javascript
 
 # ==============================================================================
 # 0. 접속자 IP 화이트리스트 검증 (단일 파일 일체형 보안 가드)
@@ -22,7 +23,7 @@ def is_private_ip(ip_str: str) -> bool:
         return False
 
 def get_public_ip_from_headers() -> str:
-    """Streamlit 요청 헤더에서 실제 외부 공인 IP를 정확히 추출"""
+    """Streamlit 요청 헤더에서 외부 공인 IP 추출 시도"""
     if hasattr(st, "context") and hasattr(st.context, "headers"):
         headers = st.context.headers
 
@@ -32,7 +33,7 @@ def get_public_ip_from_headers() -> str:
             if val and val.strip():
                 return val.strip()
 
-        # 2. X-Forwarded-For 헤더 (첫 번째 IP가 실제 클라이언트 공인 IP)
+        # 2. X-Forwarded-For 헤더 (첫 번째 IP가 클라이언트 공인 IP인 경우)
         xff = headers.get("X-Forwarded-For")
         if xff and xff.strip():
             first_ip = xff.split(",")[0].strip()
@@ -95,18 +96,39 @@ def get_allowed_ips_from_secrets() -> list:
         return [str(ip).strip() for ip in raw if str(ip).strip()]
     raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 문자열이어야 합니다.")
 
+def get_client_public_ip() -> str:
+    """헤더 확인 및 Streamlit Cloud 내부 사설망 시 브라우저 JS 기반 공인 IP 획득"""
+    # 1. 서버 헤더에서 공인 IP 확인 시도
+    header_ip = get_public_ip_from_headers()
+    if header_ip and not is_private_ip(header_ip):
+        return header_ip
+
+    # 2. 로컬 개발 환경인 경우
+    if header_ip in ["localhost", "127.0.0.1", "::1"]:
+        return "127.0.0.1"
+
+    # 3. Streamlit Cloud 내부 사설 IP(10.x.x.x 등)이거나 헤더가 없는 경우 브라우저 JS로 공인 IP 획득
+    js_code = "await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip).catch(() => '')"
+    js_ip = st_javascript(js_code, key="keywordtrend_client_ip")
+    if js_ip and js_ip != 0:
+        clean = str(js_ip).strip()
+        if clean:
+            return clean
+
+    return ""
+
 def verify_ip_access() -> str:
     """접속자 IP 검증 실행 (서버 단 st.stop() 원천 차단)"""
     allowed_ips = get_allowed_ips_from_secrets()
-    client_ip = get_public_ip_from_headers()
+    client_ip = get_client_public_ip()
 
-    # 로컬 개발 환경(localhost, 127.0.0.1)인 경우
+    # 브라우저에서 공인 IP 비동기 수신 대기 (최초 1회 컴포넌트 마운트 후 즉시 rerun됨)
     if not client_ip:
-        client_ip = "127.0.0.1"
+        st.stop()
 
     # 화이트리스트 검증 -> 미허용 시 서버 단 st.stop() 즉시 원천 차단
     if not is_ip_allowed(client_ip, allowed_ips):
-        st.error(f"접근 권한이 없습니다. (접속 IP: {client_ip})")
+        st.error("접근 권한이 없습니다.")
         st.stop()
 
     return client_ip
