@@ -1,8 +1,19 @@
 import os
+import sys
 import json
 import urllib.parse
 import streamlit as st
 import streamlit.components.v1 as components
+
+# 프로젝트 루트 경로 추가 및 공통 IP 보안 모듈 로드
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT_DIR not in sys.path:
+    sys.path.insert(0, _ROOT_DIR)
+
+from common.ip_auth import verify_ip_access
+
+# 0. 접속자 IP 화이트리스트 검증 (미허용 시 즉시 중단)
+CLIENT_IP = verify_ip_access()
 
 # 1. 페이지 기본 설정 (전체 화면 모드)
 st.set_page_config(
