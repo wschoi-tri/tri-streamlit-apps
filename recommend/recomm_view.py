@@ -2115,9 +2115,9 @@ html_content = f"""
             </section>
         </main>
 
-        <!-- 최하단 티 안 나는 미세 정보 표시 -->
-        <div style="margin-top: 30px; padding: 10px 4px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
-            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
+        <!-- 최하단 좌측 정보 표시 (Manage app 버튼 간섭 원천 배제) -->
+        <div style="margin-top: 30px; padding: 14px 10px; text-align: left; font-size: 11px; color: #94a3b8; user-select: none;">
+            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #94a3b8; font-family: monospace; font-weight: 600;">-</span>
         </div>
     </div>
 
