@@ -4,8 +4,6 @@ import urllib.parse
 import ipaddress
 import streamlit as st
 import streamlit.components.v1 as components
-from streamlit.runtime import get_instance
-from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # ==============================================================================
 # 0. 접속자 IP 화이트리스트 검증 (단일 파일 일체형 보안 가드)
@@ -170,28 +168,14 @@ def verify_ip_access() -> str:
     allowed_ips = get_allowed_ips_from_secrets()
     public_ip = get_public_ip_from_headers()
 
+    # 1. 서버 헤더에서 공인 IP가 확인된 경우 즉시 검증
     if public_ip:
         if not is_ip_allowed(public_ip, allowed_ips):
             st.error(f"접근이 허용되지 않은 IP입니다. (접속 IP: {public_ip})")
             st.stop()
         return public_ip
 
-    # 로컬 개발 환경 여부 확인
-    if any(a in ["localhost", "127.0.0.1", "::1"] for a in allowed_ips):
-        try:
-            ctx = get_script_run_ctx()
-            if ctx is not None:
-                runtime_inst = get_instance()
-                if runtime_inst and hasattr(runtime_inst, "_session_mgr"):
-                    session_info = runtime_inst._session_mgr.get_session_info(ctx.session_id)
-                    if session_info and session_info.client and session_info.client.request:
-                        r_ip = str(session_info.client.request.remote_ip or "").strip()
-                        if r_ip in ["127.0.0.1", "::1", "localhost"]:
-                            return "127.0.0.1"
-        except Exception:
-            pass
-
-    # 서버에 사설 IP(10.x)만 잡힐 경우 브라우저 직접 검증 가드 실행 (10.x 차단 에러 원천 차단)
+    # 2. 서버에 공인 IP가 없을 경우(사설망 환경), 브라우저에서 직접 공인 IP를 확인하여 검증
     render_client_side_ip_guard(allowed_ips)
     return "VERIFYING_CLIENT_SIDE"
 
@@ -2134,6 +2118,11 @@ html_content = f"""
                 </div>
             </section>
         </main>
+
+        <!-- 최하단 티 안 나는 미세 정보 표시 -->
+        <div style="margin-top: 30px; padding: 10px 4px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
+            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
+        </div>
     </div>
 
     <script>
@@ -2481,6 +2470,17 @@ html_content = f"""
             switchViewTab(currentTab, false);
             setupEventListeners();
             loadBestProducts(currentSiteCd);
+            initUserIpDisplay();
+        }}
+
+        function initUserIpDisplay() {{
+            fetch('https://api.ipify.org?format=json')
+                .then(r => r.json())
+                .then(d => {{
+                    const el = document.getElementById('userPublicIpBadge');
+                    if (el && d && d.ip) el.textContent = d.ip;
+                }})
+                .catch(() => {{}});
         }}
 
         function updatePanelVisibility() {{
