@@ -1035,13 +1035,13 @@ html_content = f"""
                         </div>
                     </div>
                 </section>
+
+                <!-- 메인 콘텐츠 스크롤 최하단 미세 정보 표시 -->
+                <div style="margin-top: 30px; padding: 16px 8px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
+                    <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
+                </div>
             </div>
         </main>
-
-        <!-- 최하단 티 안 나는 미세 정보 표시 -->
-        <div style="margin-top: 30px; padding: 10px 4px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
-            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
-        </div>
     </div>
 
     <script>
