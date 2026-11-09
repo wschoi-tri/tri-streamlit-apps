@@ -1,4 +1,5 @@
 import ipaddress
+import json
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit.runtime import get_instance
@@ -6,88 +7,56 @@ from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 
 def is_private_ip(ip_str: str) -> bool:
-    """IP가 사설망(Private) 또는 로컬 루프백 대역인지 판별합니다."""
+    """IP가 사설망(10.x, 172.16~31.x, 192.168.x 등) 또는 로컬 루프백 대역인지 판별합니다."""
     if not ip_str:
         return True
-    if ip_str in ["localhost", "127.0.0.1", "::1"]:
+    clean_ip = str(ip_str).strip()
+    if clean_ip in ["localhost", "127.0.0.1", "::1"]:
         return True
     try:
-        addr = ipaddress.ip_address(ip_str)
-        return addr.is_private or addr.is_loopback or addr.is_link_local
+        addr = ipaddress.ip_address(clean_ip)
+        return addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved
     except ValueError:
         return False
 
 
-def get_client_ip_from_headers() -> str:
-    """Streamlit 요청 헤더에서 실제 외부 공인 IP를 우선 추출합니다."""
+def get_public_ip_from_headers() -> str:
+    """Streamlit 요청 헤더에서 사설 IP를 철저히 배제하고 순수 외부 공인 IP만 추출합니다."""
     if not (hasattr(st, "context") and hasattr(st.context, "headers")):
         return ""
 
     headers = st.context.headers
 
-    # 1. Cloudflare / CDN 직접 연결 헤더 (공인 IP 보장)
+    # 1. Cloudflare / CDN 직접 연결 헤더 (공인 IP)
     for key in ["CF-Connecting-IP", "True-Client-IP", "X-Client-IP"]:
         val = headers.get(key)
         if val:
             ip = val.strip()
-            if ip and not is_private_ip(ip):
+            if not is_private_ip(ip):
                 return ip
 
-    # 2. X-Forwarded-For 헤더에서 공인 IP 탐색
-    # 프록시 체인: client, proxy1, proxy2 ...
+    # 2. X-Forwarded-For 체인에서 사설망(10.x, 172.x, 192.168.x)이 아닌 공인 IP만 검색
     xff = headers.get("X-Forwarded-For")
     if xff:
         candidates = [p.strip() for p in xff.split(",") if p.strip()]
-        # 사설망(10.x, 172.x, 192.168.x)이 아닌 첫 번째 공인 IP 추출
         for cand in candidates:
             if not is_private_ip(cand):
                 return cand
-        # 공인 IP가 없으면 첫 번째 값
-        if candidates:
-            return candidates[0]
 
-    # 3. X-Real-IP 확인
+    # 3. X-Real-IP (사설망 제외)
     x_real = headers.get("X-Real-IP")
     if x_real:
         ip = x_real.strip()
         if not is_private_ip(ip):
             return ip
 
-    # 4. Streamlit 1.45+ st.context.ip_address
+    # 4. st.context.ip_address (사설망 제외)
     if getattr(st.context, "ip_address", None):
         ip = str(st.context.ip_address).strip()
         if not is_private_ip(ip):
             return ip
 
-    return ""
-
-
-def get_client_ip_fallback() -> str:
-    """헤더에서 공인 IP를 찾지 못했을 때 Tornado 세션 또는 헤더의 기본 IP 조회."""
-    # 헤더의 x-forwarded-for 또는 x-real-ip 마지막 시도
-    if hasattr(st, "context") and hasattr(st.context, "headers"):
-        headers = st.context.headers
-        xff = headers.get("X-Forwarded-For")
-        if xff:
-            return xff.split(",")[0].strip()
-        x_real = headers.get("X-Real-IP")
-        if x_real:
-            return x_real.strip()
-
-    # Tornado 내부 세션
-    try:
-        ctx = get_script_run_ctx()
-        if ctx is not None:
-            runtime_inst = get_instance()
-            if runtime_inst and hasattr(runtime_inst, "_session_mgr"):
-                session_info = runtime_inst._session_mgr.get_session_info(ctx.session_id)
-                if session_info and session_info.client and session_info.client.request:
-                    remote_ip = session_info.client.request.remote_ip
-                    if remote_ip:
-                        return str(remote_ip).strip()
-    except Exception:
-        pass
-
+    # 어떤 헤더에도 공인 IP가 없으면 빈 문자열 반환 (10.x.x.x 절대 반환 안 함)
     return ""
 
 
@@ -96,13 +65,14 @@ def is_ip_allowed(client_ip: str, allowed_list: list[str]) -> bool:
     if not client_ip:
         return False
 
-    if client_ip in ["localhost", "127.0.0.1", "::1"] and any(
+    clean_client = str(client_ip).strip()
+    if clean_client in ["localhost", "127.0.0.1", "::1"] and any(
         a in ["localhost", "127.0.0.1", "::1"] for a in allowed_list
     ):
         return True
 
     try:
-        client_addr = ipaddress.ip_address(client_ip)
+        client_addr = ipaddress.ip_address(clean_client)
     except ValueError:
         return False
 
@@ -121,19 +91,14 @@ def is_ip_allowed(client_ip: str, allowed_list: list[str]) -> bool:
             if client_addr in network:
                 return True
         except ValueError:
-            if client_ip == clean_item:
+            if clean_client == clean_item:
                 return True
 
     return False
 
 
-def verify_ip_access() -> str:
-    """접속자의 공인 IP를 화이트리스트와 비교하여 검증합니다.
-    1. Streamlit 헤더에서 공인 IP(CF-Connecting-IP, X-Forwarded-For) 추출
-    2. URL 쿼리 파라미터 '_client_ip' (브라우저 외부 공인 IP API 조회 결과) 확인
-    3. 둘 다 없거나 사설 IP인 경우, 브라우저에서 직접 외부 IP 조회(api.ipify.org) 실행
-    4. 미허용 IP일 경우 화면 렌더링 즉시 차단(st.stop())
-    """
+def get_allowed_ips_from_secrets() -> list[str]:
+    """secrets.toml에서 allowed_ips 화이트리스트 목록을 로드합니다."""
     if "security" not in st.secrets:
         raise ValueError(".streamlit/secrets.toml 내 [security] 섹션이 누락되었습니다.")
 
@@ -143,72 +108,122 @@ def verify_ip_access() -> str:
 
     raw_allowed = security_conf["allowed_ips"]
     if isinstance(raw_allowed, str):
-        allowed_ips = [ip.strip() for ip in raw_allowed.split(",") if ip.strip()]
+        return [ip.strip() for ip in raw_allowed.split(",") if ip.strip()]
     elif isinstance(raw_allowed, (list, tuple)):
-        allowed_ips = [str(ip).strip() for ip in raw_allowed if str(ip).strip()]
+        return [str(ip).strip() for ip in raw_allowed if str(ip).strip()]
     else:
         raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 쉼표 구분 문자열이어야 합니다.")
 
-    # 1. 브라우저에서 외부 IP 조회하여 URL 쿼리로 전달한 값 확인
-    query_ip = st.query_params.get("_client_ip", "").strip()
 
-    # 2. 서버 헤더에서 공인 IP 추출
-    header_public_ip = get_client_ip_from_headers()
+def verify_ip_access() -> str:
+    """접속자의 공인 IP를 화이트리스트와 비교하여 검증합니다.
+    - 10.x.x.x, 172.x.x.x, 192.168.x.x 사설망 IP는 검증 대상에서 완전히 제외합니다.
+    - 서버 헤더에 공인 IP가 없을 경우 브라우저에서 직접 외부 API(api.ipify.org)로 공인 IP를 확인하여 검증합니다.
+    """
+    allowed_ips = get_allowed_ips_from_secrets()
 
-    # 최종 공인 IP 결정
-    if header_public_ip and not is_private_ip(header_public_ip):
-        client_ip = header_public_ip
-    elif query_ip and not is_private_ip(query_ip):
-        client_ip = query_ip
-    else:
-        # 헤더에서도 공인 IP가 안 잡힌 경우(10.x 사설 IP만 있는 경우),
-        # 브라우저에서 직접 외부 API(api.ipify.org)로 공인 IP를 조회하여 URL에 주입
-        fallback_ip = get_client_ip_fallback()
+    # 1. 서버 헤더에서 순수 공인 IP 추출
+    public_ip = get_public_ip_from_headers()
 
-        # 브라우저에서 직접 공인 IP를 조회하여 리로드하는 스크립트 실행
-        html_code = """
-        <script>
-            (async function() {
-                try {
-                    const res = await fetch('https://api.ipify.org?format=json', { timeout: 3000 });
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data.ip) {
-                            const url = new URL(window.location.href);
-                            if (url.searchParams.get('_client_ip') !== data.ip) {
-                                url.searchParams.set('_client_ip', data.ip);
-                                window.location.replace(url.toString());
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // 외부 IP 조회 실패 시 fallback
-                }
-            })();
-        </script>
-        <div style="font-family:sans-serif; padding:12px; font-size:13px; color:#64748b; text-align:center;">
-            접속자 공인 IP 확인 중...
-        </div>
-        """
-        components.html(html_code, height=45)
+    # 2. 서버 헤더에서 공인 IP를 확인한 경우
+    if public_ip:
+        if not is_ip_allowed(public_ip, allowed_ips):
+            st.error(f"접근이 허용되지 않은 IP입니다. (접속 IP: {public_ip})")
+            st.stop()
+        return public_ip
 
-        # fallback_ip로 임시 설정하되, allowed_ips에 로컬/사설이 포함되어 있다면 통과
-        client_ip = fallback_ip
+    # 3. 로컬 환경 확인 (로컬에서는 헤더가 없거나 loopback임)
+    if is_local_environment(allowed_ips):
+        return "127.0.0.1"
 
-    # 화이트리스트 검증
-    if not is_ip_allowed(client_ip, allowed_ips):
-        # 디버깅 헤더 정보 추출
-        debug_headers = {}
-        if hasattr(st, "context") and hasattr(st.context, "headers"):
-            debug_headers = {
-                k: st.context.headers.get(k)
-                for k in ["CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP", "Host"]
-                if st.context.headers.get(k)
-            }
+    # 4. 서버 헤더에 10.x.x.x 사설 IP만 있는 경우 (Streamlit Cloud 환경):
+    # 브라우저(클라이언트)가 직접 api.ipify.org를 호출하여 내 실제 공인 IP를 확인하고,
+    # 허용 목록에 없으면 화면 전체를 차단하도록 클라이언트 사이드 가드를 렌더링합니다.
+    render_client_side_ip_guard(allowed_ips)
+    return "VERIFYING_CLIENT_SIDE"
 
-        st.error(f"접근이 허용되지 않은 IP입니다. (감지된 IP: {client_ip if client_ip else '확인 불가'})")
-        if debug_headers:
-            st.caption(f"프록시 헤더 정보: {debug_headers}")
-        st.stop()
 
-    return client_ip
+def is_local_environment(allowed_ips: list[str]) -> bool:
+    """로컬 개발 환경(localhost, 127.0.0.1) 여부를 판별합니다."""
+    if any(a in ["localhost", "127.0.0.1", "::1"] for a in allowed_ips):
+        try:
+            ctx = get_script_run_ctx()
+            if ctx is not None:
+                runtime_inst = get_instance()
+                if runtime_inst and hasattr(runtime_inst, "_session_mgr"):
+                    session_info = runtime_inst._session_mgr.get_session_info(ctx.session_id)
+                    if session_info and session_info.client and session_info.client.request:
+                        r_ip = str(session_info.client.request.remote_ip or "").strip()
+                        if r_ip in ["127.0.0.1", "::1", "localhost"]:
+                            return True
+        except Exception:
+            pass
+    return False
+
+
+def render_client_side_ip_guard(allowed_ips: list[str]):
+    """서버에 사설 IP만 잡힐 때, 브라우저에서 직접 공인 IP를 조회하여 검증하는 가드 스크립트."""
+    allowed_json = json.dumps(allowed_ips)
+    guard_html = f"""
+    <script>
+        (async function() {{
+            const allowedList = {allowed_json};
+
+            function ipToLong(ip) {{
+                return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
+            }}
+
+            function isIpInCidr(ip, cidr) {{
+                if (!cidr.includes('/')) return ip === cidr;
+                const [range, bits] = cidr.split('/');
+                const mask = ~((1 << (32 - parseInt(bits, 10))) - 1);
+                return (ipToLong(ip) & mask) === (ipToLong(range) & mask);
+            }}
+
+            function checkAllowed(clientIp) {{
+                if (!clientIp) return false;
+                for (let pattern of allowedList) {{
+                    pattern = String(pattern).trim();
+                    if (!pattern) continue;
+                    if (pattern === clientIp) return true;
+                    if (pattern.includes('/')) {{
+                        try {{
+                            if (isIpInCidr(clientIp, pattern)) return true;
+                        }} catch (e) {{}}
+                    }}
+                }}
+                return false;
+            }}
+
+            try {{
+                const res = await fetch('https://api.ipify.org?format=json', {{ timeout: 4000 }});
+                if (!res.ok) throw new Error('IP 조회 실패');
+                const data = await res.json();
+                const myIp = (data && data.ip) ? data.ip.trim() : '';
+
+                if (!myIp || !checkAllowed(myIp)) {{
+                    // 미허용 IP: 부모 화면 전체를 차단 안내로 덮음
+                    const msg = myIp ? `접근이 허용되지 않은 IP입니다. (내 공인 IP: ${{myIp}})` : '접속자 공인 IP를 확인할 수 없어 접속이 차단되었습니다.';
+                    if (window.parent && window.parent.document) {{
+                        const body = window.parent.document.body;
+                        if (body) {{
+                            body.innerHTML = `
+                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#0f172a; text-align:center; padding:20px;">
+                                    <div style="background:#fee2e2; border:1px solid #ef4444; border-radius:12px; padding:32px 40px; max-width:550px; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                                        <div style="font-size:20px; font-weight:800; color:#b91c1c; margin-bottom:12px;">접근 제한 안내</div>
+                                        <div style="font-size:15px; font-weight:600; color:#7f1d1d; line-height:1.5; margin-bottom:16px;">${{msg}}</div>
+                                        <div style="font-size:12px; color:#991b1b;">관리자에게 IP 등록을 요청하세요. (.streamlit/secrets.toml)</div>
+                                    </div>
+                                </div>
+                            `;
+                        }}
+                    }}
+                }}
+            }} catch (err) {{
+                // 외부 IP API 호출 차단 시 안내
+                console.error('IP check failed', err);
+            }}
+        }})();
+    </script>
+    """
+    components.html(guard_html, height=0, width=0)
