@@ -50,6 +50,51 @@ def get_public_ip_from_headers() -> str:
 
     return ""
 
+def is_ip_allowed(client_ip: str, allowed_list: list) -> bool:
+    """단일 IP 또는 CIDR 서브넷 대역과 클라이언트 IP 일치 여부 판별"""
+    if not client_ip:
+        return False
+    clean_client = str(client_ip).strip()
+    if clean_client in ["localhost", "127.0.0.1", "::1"] and any(
+        a in ["localhost", "127.0.0.1", "::1"] for a in allowed_list
+    ):
+        return True
+    try:
+        client_addr = ipaddress.ip_address(clean_client)
+    except ValueError:
+        return False
+
+    for item in allowed_list:
+        clean_item = str(item).strip()
+        if not clean_item:
+            continue
+        if clean_item == "localhost":
+            if client_addr.is_loopback:
+                return True
+            continue
+        try:
+            network = ipaddress.ip_network(clean_item, strict=False)
+            if client_addr in network:
+                return True
+        except ValueError:
+            if clean_client == clean_item:
+                return True
+    return False
+
+def get_allowed_ips_from_secrets() -> list:
+    """secrets.toml에서 allowed_ips 화이트리스트 목록 로드"""
+    if "security" not in st.secrets:
+        raise ValueError(".streamlit/secrets.toml 내 [security] 섹션이 누락되었습니다.")
+    sec = st.secrets["security"]
+    if "allowed_ips" not in sec:
+        raise ValueError(".streamlit/secrets.toml 내 [security] 섹션에 'allowed_ips' 키가 누락되었습니다.")
+    raw = sec["allowed_ips"]
+    if isinstance(raw, str):
+        return [ip.strip() for ip in raw.split(",") if ip.strip()]
+    elif isinstance(raw, (list, tuple)):
+        return [str(ip).strip() for ip in raw if str(ip).strip()]
+    raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 문자열이어야 합니다.")
+
 def verify_ip_access() -> str:
     """접속자 IP 검증 실행 (서버 단 st.stop() 원천 차단)"""
     allowed_ips = get_allowed_ips_from_secrets()
