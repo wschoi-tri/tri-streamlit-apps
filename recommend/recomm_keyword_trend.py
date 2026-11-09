@@ -106,7 +106,7 @@ def verify_ip_access() -> str:
 
     # 화이트리스트 검증 -> 미허용 시 서버 단 st.stop() 즉시 원천 차단
     if not is_ip_allowed(client_ip, allowed_ips):
-        st.error("접근 권한이 없습니다.")
+        st.error(f"접근 권한이 없습니다. (접속 IP: {client_ip})")
         st.stop()
 
     return client_ip
