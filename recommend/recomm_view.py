@@ -2115,9 +2115,9 @@ html_content = f"""
             </section>
         </main>
 
-        <!-- 최하단 티 안 나는 미세 정보 표시 -->
-        <div style="margin-top: 30px; padding: 10px 4px; text-align: right; font-size: 10px; color: #cbd5e1; user-select: none;">
-            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #cbd5e1; font-family: monospace;">-</span>
+        <!-- 화면 좌측 하단 완전 고정 표시 (Manage app 우하단 버튼과 100% 반대편 분리) -->
+        <div style="position: fixed; bottom: 6px; left: 14px; z-index: 99999; font-size: 11px; color: #94a3b8; user-select: none; pointer-events: none; background: rgba(255, 255, 255, 0.85); padding: 2px 6px; border-radius: 4px; backdrop-filter: blur(2px);">
+            <span>v1.2 · </span><span id="userPublicIpBadge" style="color: #64748b; font-family: monospace; font-weight: 700;">-</span>
         </div>
     </div>
 
