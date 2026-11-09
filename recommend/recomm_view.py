@@ -4,6 +4,7 @@ import urllib.parse
 import ipaddress
 import streamlit as st
 import streamlit.components.v1 as components
+from streamlit_javascript import st_javascript
 
 # ==============================================================================
 # 0. 접속자 IP 화이트리스트 검증 (단일 파일 일체형 보안 가드)
@@ -22,38 +23,35 @@ def is_private_ip(ip_str: str) -> bool:
         return False
 
 def get_public_ip_from_headers() -> str:
-    """Streamlit 요청 헤더에서 사설 IP를 철저히 배제하고 순수 외부 공인 IP만 추출"""
-    if not (hasattr(st, "context") and hasattr(st.context, "headers")):
-        return ""
-    headers = st.context.headers
+    """Streamlit 요청 헤더에서 외부 공인 IP 추출 시도"""
+    if hasattr(st, "context") and hasattr(st.context, "headers"):
+        headers = st.context.headers
 
-    for key in ["CF-Connecting-IP", "True-Client-IP", "X-Client-IP"]:
-        val = headers.get(key)
-        if val:
-            ip = val.strip()
-            if not is_private_ip(ip):
-                return ip
+        # 1. Cloudflare / CDN 직접 연결 헤더
+        for key in ["CF-Connecting-IP", "True-Client-IP", "X-Client-IP"]:
+            val = headers.get(key)
+            if val and val.strip():
+                return val.strip()
 
-    xff = headers.get("X-Forwarded-For")
-    if xff:
-        for cand in [p.strip() for p in xff.split(",") if p.strip()]:
-            if not is_private_ip(cand):
-                return cand
+        # 2. X-Forwarded-For 헤더 (첫 번째 IP가 클라이언트 공인 IP인 경우)
+        xff = headers.get("X-Forwarded-For")
+        if xff and xff.strip():
+            first_ip = xff.split(",")[0].strip()
+            if first_ip:
+                return first_ip
 
-    x_real = headers.get("X-Real-IP")
-    if x_real:
-        ip = x_real.strip()
-        if not is_private_ip(ip):
-            return ip
+        # 3. X-Real-IP
+        x_real = headers.get("X-Real-IP")
+        if x_real and x_real.strip():
+            return x_real.strip()
 
-    if getattr(st.context, "ip_address", None):
-        ip = str(st.context.ip_address).strip()
-        if not is_private_ip(ip):
-            return ip
+        # 4. Streamlit 공식 ip_address 속성
+        if getattr(st.context, "ip_address", None):
+            return str(st.context.ip_address).strip()
 
     return ""
 
-def is_ip_allowed(client_ip: str, allowed_list: list[str]) -> bool:
+def is_ip_allowed(client_ip: str, allowed_list: list) -> bool:
     """단일 IP 또는 CIDR 서브넷 대역과 클라이언트 IP 일치 여부 판별"""
     if not client_ip:
         return False
@@ -84,7 +82,7 @@ def is_ip_allowed(client_ip: str, allowed_list: list[str]) -> bool:
                 return True
     return False
 
-def get_allowed_ips_from_secrets() -> list[str]:
+def get_allowed_ips_from_secrets() -> list:
     """secrets.toml에서 allowed_ips 화이트리스트 목록 로드"""
     if "security" not in st.secrets:
         raise ValueError(".streamlit/secrets.toml 내 [security] 섹션이 누락되었습니다.")
@@ -98,82 +96,42 @@ def get_allowed_ips_from_secrets() -> list[str]:
         return [str(ip).strip() for ip in raw if str(ip).strip()]
     raise ValueError(".streamlit/secrets.toml 내 'allowed_ips' 값은 리스트 또는 문자열이어야 합니다.")
 
-def render_client_side_ip_guard(allowed_ips: list[str]):
-    """서버에 10.x 사설 IP만 잡힐 때, 브라우저에서 직접 api.ipify.org를 호출하여 내 공인 IP 검증"""
-    allowed_json = json.dumps(allowed_ips)
-    guard_html = f"""
-    <script>
-        (async function() {{
-            const allowedList = {allowed_json};
+def get_client_public_ip() -> str:
+    """헤더 확인 및 Streamlit Cloud 내부 사설망 시 브라우저 JS 기반 공인 IP 획득"""
+    # 1. 서버 헤더에서 공인 IP 확인 시도
+    header_ip = get_public_ip_from_headers()
+    if header_ip and not is_private_ip(header_ip):
+        return header_ip
 
-            function ipToLong(ip) {{
-                return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet, 10), 0) >>> 0;
-            }}
+    # 2. 로컬 개발 환경인 경우
+    if header_ip in ["localhost", "127.0.0.1", "::1"]:
+        return "127.0.0.1"
 
-            function isIpInCidr(ip, cidr) {{
-                if (!cidr.includes('/')) return ip === cidr;
-                const [range, bits] = cidr.split('/');
-                const mask = ~((1 << (32 - parseInt(bits, 10))) - 1);
-                return (ipToLong(ip) & mask) === (ipToLong(range) & mask);
-            }}
+    # 3. Streamlit Cloud 내부 사설 IP(10.x.x.x 등)이거나 헤더가 없는 경우 브라우저 JS로 공인 IP 획득
+    js_code = "await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip).catch(() => '')"
+    js_ip = st_javascript(js_code, key="recomm_view_client_ip")
+    if js_ip and js_ip != 0:
+        clean = str(js_ip).strip()
+        if clean:
+            return clean
 
-            function checkAllowed(clientIp) {{
-                if (!clientIp) return false;
-                for (let pattern of allowedList) {{
-                    pattern = String(pattern).trim();
-                    if (!pattern) continue;
-                    if (pattern === clientIp) return true;
-                    if (pattern.includes('/')) {{
-                        try {{
-                            if (isIpInCidr(clientIp, pattern)) return true;
-                        }} catch (e) {{}}
-                    }}
-                }}
-                return false;
-            }}
-
-            try {{
-                const res = await fetch('https://api.ipify.org?format=json', {{ timeout: 4000 }});
-                if (!res.ok) throw new Error('IP 조회 실패');
-                const data = await res.json();
-                const myIp = (data && data.ip) ? data.ip.trim() : '';
-
-                if (!myIp || !checkAllowed(myIp)) {{
-                    if (window.parent && window.parent.document) {{
-                        const body = window.parent.document.body;
-                        if (body) {{
-                            body.innerHTML = `
-                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f8fafc; font-family:sans-serif; color:#475569; text-align:center; padding:20px;">
-                                    <div style="font-size:24px; font-weight:800; color:#0f172a; margin-bottom:8px;">403 Forbidden</div>
-                                    <div style="font-size:14px; color:#64748b;">접근 권한이 없습니다.</div>
-                                </div>
-                            `;
-                        }}
-                    }}
-                }}
-            }} catch (err) {{
-                console.error('IP check failed', err);
-            }}
-        }})();
-    </script>
-    """
-    components.html(guard_html, height=0, width=0)
+    return ""
 
 def verify_ip_access() -> str:
-    """접속자 IP 검증 실행"""
+    """접속자 IP 검증 실행 (서버 단 st.stop() 원천 차단)"""
     allowed_ips = get_allowed_ips_from_secrets()
-    public_ip = get_public_ip_from_headers()
+    client_ip = get_client_public_ip()
 
-    # 1. 서버 헤더에서 공인 IP가 확인된 경우 즉시 검증
-    if public_ip:
-        if not is_ip_allowed(public_ip, allowed_ips):
-            st.error("접근 권한이 없습니다.")
-            st.stop()
-        return public_ip
+    # 브라우저에서 공인 IP 비동기 수신 대기 (최초 1회 컴포넌트 마운트 후 즉시 rerun됨)
+    if not client_ip:
+        st.stop()
 
-    # 2. 서버에 공인 IP가 없을 경우(사설망 환경), 브라우저에서 직접 공인 IP를 확인하여 검증
-    render_client_side_ip_guard(allowed_ips)
-    return "VERIFYING_CLIENT_SIDE"
+    # 화이트리스트 검증 -> 미허용 시 서버 단 st.stop() 즉시 원천 차단
+    if not is_ip_allowed(client_ip, allowed_ips):
+        st.error("접근 권한이 없습니다.")
+        st.stop()
+
+    return client_ip
 
 CLIENT_IP = verify_ip_access()
 
